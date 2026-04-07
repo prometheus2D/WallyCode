@@ -47,6 +47,23 @@ internal sealed class MemoryWorkspace
     public static MemoryWorkspace Open(string sourcePath, string? memoryRoot)
     {
         var rootPath = ResolveRootPath(sourcePath, memoryRoot);
+        return OpenResolved(rootPath);
+    }
+
+    public static MemoryWorkspace Reset(string sourcePath, string? memoryRoot)
+    {
+        var rootPath = ResolveRootPath(sourcePath, memoryRoot);
+
+        if (Directory.Exists(rootPath))
+        {
+            Directory.Delete(rootPath, recursive: true);
+        }
+
+        return OpenResolved(rootPath);
+    }
+
+    private static MemoryWorkspace OpenResolved(string rootPath)
+    {
         var memoryPath = Path.Combine(rootPath, "memory");
         var logsPath = Path.Combine(rootPath, "logs");
         var promptsPath = Path.Combine(rootPath, "prompts");

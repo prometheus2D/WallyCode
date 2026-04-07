@@ -5,11 +5,7 @@
     },
     "WallyCode Shell": {
       "commandName": "Project",
-      "commandLineArgs": "shell"
-    },
-    "WSL": {
-      "commandName": "WSL2",
-      "distributionName": ""
+      "commandLineArgs": "shell --reset-memory"
     }
   },
   "$schema": "https://json.schemastore.org/launchsettings.json"

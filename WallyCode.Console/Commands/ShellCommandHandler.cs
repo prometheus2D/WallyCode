@@ -1,4 +1,6 @@
 using CommandLine;
+using WallyCode.ConsoleApp.Project;
+using WallyCode.ConsoleApp.Runtime;
 
 namespace WallyCode.ConsoleApp.Commands;
 
@@ -6,6 +8,21 @@ internal sealed class ShellCommandHandler
 {
     public async Task<int> ExecuteAsync(string[] originalArgs, CancellationToken cancellationToken)
     {
+        var shellOptions = ParseShellOptions(originalArgs);
+
+        if (shellOptions.ResetMemory)
+        {
+            var projectRoot = ProjectSettings.ResolveProjectRoot(shellOptions.SourcePath);
+            var resolvedMemoryRoot = string.IsNullOrWhiteSpace(shellOptions.MemoryRoot)
+                ? null
+                : Path.GetFullPath(shellOptions.MemoryRoot);
+
+            MemoryWorkspace.Reset(projectRoot, resolvedMemoryRoot);
+            Console.WriteLine($"Reset memory workspace at {resolvedMemoryRoot ?? Path.Combine(projectRoot, ".wallycode")}");
+
+            Console.WriteLine();
+        }
+
         Console.WriteLine("WallyCode shell");
         Console.WriteLine("Type a WallyCode command without the executable name.");
         Console.WriteLine("Type 'exit' to quit.");
@@ -52,6 +69,23 @@ internal sealed class ShellCommandHandler
         }
 
         return 0;
+    }
+
+    private static ShellCommandOptions ParseShellOptions(string[] originalArgs)
+    {
+        var parser = new Parser(settings =>
+        {
+            settings.CaseSensitive = false;
+            settings.CaseInsensitiveEnumValues = true;
+            settings.HelpWriter = TextWriter.Null;
+        });
+
+        var result = parser.ParseArguments<ShellCommandOptions>(originalArgs);
+        ShellCommandOptions? options = null;
+
+        result.WithParsed(parsed => options = parsed);
+
+        return options ?? new ShellCommandOptions();
     }
 
     private static string[] SplitArguments(string commandLine)

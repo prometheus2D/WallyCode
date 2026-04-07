@@ -1,4 +1,6 @@
+using System.ComponentModel;
 using System.Diagnostics;
+using System.Runtime.InteropServices;
 using System.Text;
 using WallyCode.ConsoleApp.Runtime;
 
@@ -7,6 +9,7 @@ namespace WallyCode.ConsoleApp.Copilot;
 internal sealed class GhCopilotCliProvider : ILlmProvider
 {
     private readonly AppLogger _logger;
+    private static readonly Lazy<string> GhExecutablePath = new(ResolveGhExecutablePath);
 
     public GhCopilotCliProvider(string name, string defaultModel, string description, AppLogger logger)
     {
@@ -139,27 +142,7 @@ internal sealed class GhCopilotCliProvider : ILlmProvider
         string? workingDirectory,
         CancellationToken cancellationToken)
     {
-        var startInfo = new ProcessStartInfo
-        {
-            FileName = "gh",
-            UseShellExecute = false,
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            RedirectStandardInput = true,
-            CreateNoWindow = true,
-            StandardOutputEncoding = Encoding.UTF8,
-            StandardErrorEncoding = Encoding.UTF8
-        };
-
-        foreach (var argument in arguments)
-        {
-            startInfo.ArgumentList.Add(argument);
-        }
-
-        if (!string.IsNullOrWhiteSpace(workingDirectory))
-        {
-            startInfo.WorkingDirectory = workingDirectory;
-        }
+        var startInfo = CreateStartInfo(arguments, workingDirectory);
 
         using var process = new Process
         {
@@ -195,6 +178,86 @@ internal sealed class GhCopilotCliProvider : ILlmProvider
             process.ExitCode,
             stdoutTask.Result.Trim(),
             stderrTask.Result.Trim());
+    }
+
+    private static ProcessStartInfo CreateStartInfo(IReadOnlyList<string> arguments, string? workingDirectory)
+    {
+        var startInfo = new ProcessStartInfo
+        {
+            FileName = GhExecutablePath.Value,
+            UseShellExecute = false,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            RedirectStandardInput = true,
+            CreateNoWindow = true,
+            StandardOutputEncoding = Encoding.UTF8,
+            StandardErrorEncoding = Encoding.UTF8
+        };
+
+        foreach (var argument in arguments)
+        {
+            startInfo.ArgumentList.Add(argument);
+        }
+
+        if (!string.IsNullOrWhiteSpace(workingDirectory))
+        {
+            startInfo.WorkingDirectory = workingDirectory;
+        }
+
+        return startInfo;
+    }
+
+    private static string ResolveGhExecutablePath()
+    {
+        var commandName = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? "where" : "which";
+        var executableName = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? "gh.exe" : "gh";
+
+        try
+        {
+            var startInfo = new ProcessStartInfo
+            {
+                FileName = commandName,
+                UseShellExecute = false,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                CreateNoWindow = true,
+                StandardOutputEncoding = Encoding.UTF8,
+                StandardErrorEncoding = Encoding.UTF8
+            };
+            startInfo.ArgumentList.Add(executableName);
+
+            using var process = new Process { StartInfo = startInfo };
+
+            if (!process.Start())
+            {
+                throw new InvalidOperationException("Failed to locate gh.");
+            }
+
+            var standardOutput = process.StandardOutput.ReadToEnd();
+            var standardError = process.StandardError.ReadToEnd();
+            process.WaitForExit();
+
+            if (process.ExitCode != 0)
+            {
+                var detail = string.IsNullOrWhiteSpace(standardError) ? standardOutput : standardError;
+                throw new InvalidOperationException(string.IsNullOrWhiteSpace(detail) ? "Failed to locate gh." : detail.Trim());
+            }
+
+            var path = standardOutput
+                .Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .FirstOrDefault();
+
+            if (string.IsNullOrWhiteSpace(path))
+            {
+                throw new InvalidOperationException("Failed to locate gh.");
+            }
+
+            return path;
+        }
+        catch (Win32Exception)
+        {
+            return executableName;
+        }
     }
 
     private static string GetErrorDetail(string standardError, string standardOutput)
