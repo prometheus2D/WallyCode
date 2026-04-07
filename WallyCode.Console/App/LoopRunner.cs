@@ -17,6 +17,8 @@ internal sealed class LoopRunner
 
     public async Task RunAsync(AppOptions options, MemoryWorkspace workspace, LoopSessionState session, CancellationToken cancellationToken)
     {
+        var template = LoopTemplateRegistry.Load(options.LoopTemplateId);
+
         for (var step = 1; step <= options.MaxIterations; step++)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -27,7 +29,7 @@ internal sealed class LoopRunner
             _logger.Info("Reading current memory state.");
 
             var snapshot = workspace.ReadSnapshot();
-            var prompt = LoopPromptBuilder.Build(options, workspace, snapshot, iteration, step);
+            var prompt = LoopPromptBuilder.Build(options, workspace, snapshot, iteration, step, template);
             workspace.SavePrompt(iteration, prompt);
 
             _logger.Info($"Calling provider {options.ProviderName}.");
@@ -57,6 +59,7 @@ internal sealed class LoopRunner
                     exception);
             }
 
+            ApplyStopKeywordIfMatched(template, snapshot, response);
             workspace.ApplyIteration(iteration, response);
             session.NextIteration = iteration + 1;
             session.IsDone = response.IsDone;
@@ -79,5 +82,23 @@ internal sealed class LoopRunner
         }
 
         _logger.Warning("Requested steps complete. Run loop to continue the session.");
+    }
+
+    private static void ApplyStopKeywordIfMatched(LoopTemplate template, MemorySnapshot snapshot, LoopIterationResponse response)
+    {
+        if (string.IsNullOrWhiteSpace(template.StopKeyword)
+            || response.IsDone
+            || string.IsNullOrWhiteSpace(snapshot.UserResponses))
+        {
+            return;
+        }
+
+        if (!snapshot.UserResponses.Contains(template.StopKeyword, StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        response.Status = "done";
+        response.DoneReason = $"The configured stop keyword '{template.StopKeyword}' was found in user responses.";
     }
 }

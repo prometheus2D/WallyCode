@@ -13,6 +13,7 @@ internal static class Program
 		"loop",
 		"prompt",
 		"providers",
+		"respond",
 		"set-provider",
 		"version"
 	};
@@ -39,12 +40,13 @@ internal static class Program
 			settings.HelpWriter = Console.Out;
 		});
 
-		var result = parser.ParseArguments<LoopCommandOptions, PromptCommandOptions, ProvidersCommandOptions, SetProviderCommandOptions>(normalizedArgs);
+		var result = parser.ParseArguments<LoopCommandOptions, PromptCommandOptions, ProvidersCommandOptions, RespondCommandOptions, SetProviderCommandOptions>(normalizedArgs);
 
 		return await result.MapResult(
 			(LoopCommandOptions options) => loopCommandHandler.ExecuteAsync(options, cancellationTokenSource.Token),
 			(PromptCommandOptions options) => new PromptCommandHandler(providerRegistry, logger).ExecuteAsync(options, cancellationTokenSource.Token),
 			(ProvidersCommandOptions options) => new ProvidersCommandHandler(providerRegistry, logger).ExecuteAsync(options, cancellationTokenSource.Token),
+			(RespondCommandOptions options) => new RespondCommandHandler(logger).ExecuteAsync(options, cancellationTokenSource.Token),
 			(SetProviderCommandOptions options) => new SetProviderCommandHandler(providerRegistry, logger).ExecuteAsync(options, cancellationTokenSource.Token),
 			errors => Task.FromResult(GetNotParsedExitCode(errors)));
 	}

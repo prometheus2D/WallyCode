@@ -11,4 +11,10 @@
     <PackageReference Include="CommandLineParser" Version="2.9.1" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Content Include="Templates\Loops\*.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
 </Project>

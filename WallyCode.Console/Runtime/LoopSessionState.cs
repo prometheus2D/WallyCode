@@ -20,6 +20,8 @@ internal sealed class LoopSessionState
 
     public DateTimeOffset UpdatedAtUtc { get; set; } = DateTimeOffset.UtcNow;
 
+    public string LoopTemplateId { get; set; } = "default";
+
     public void Validate()
     {
         if (string.IsNullOrWhiteSpace(Goal))
@@ -40,6 +42,11 @@ internal sealed class LoopSessionState
         if (NextIteration <= 0)
         {
             throw new InvalidOperationException("The next iteration must be greater than zero.");
+        }
+
+        if (string.IsNullOrWhiteSpace(LoopTemplateId))
+        {
+            throw new InvalidOperationException("The loop session template id is required.");
         }
     }
 }

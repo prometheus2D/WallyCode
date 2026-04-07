@@ -34,6 +34,8 @@ internal sealed class MemoryWorkspace
 
     public required string CurrentStateFilePath { get; init; }
 
+    public required string UserResponsesFilePath { get; init; }
+
     public required string SessionLogFilePath { get; init; }
 
     public required string SessionStateFilePath { get; init; }
@@ -64,6 +66,7 @@ internal sealed class MemoryWorkspace
             PerspectivesFilePath = Path.Combine(memoryPath, "perspectives.md"),
             NextStepsFilePath = Path.Combine(memoryPath, "next-steps.md"),
             CurrentStateFilePath = Path.Combine(memoryPath, "current-state.md"),
+            UserResponsesFilePath = Path.Combine(memoryPath, "user-responses.md"),
             SessionLogFilePath = Path.Combine(logsPath, "session.log"),
             SessionStateFilePath = Path.Combine(rootPath, "session.json")
         };
@@ -71,7 +74,7 @@ internal sealed class MemoryWorkspace
         return workspace;
     }
 
-    public LoopSessionState StartNewSession(AppOptions options)
+    public LoopSessionState StartNewSession(AppOptions options, LoopTemplate template)
     {
         ResetDirectory(MemoryDirectoryPath);
         ResetDirectory(LogsDirectoryPath);
@@ -84,33 +87,20 @@ internal sealed class MemoryWorkspace
 {{options.Goal.Trim()}}
 """);
 
-        WriteDocument(CurrentTasksFilePath, """
-# Current Tasks
+        WriteDocument(CurrentTasksFilePath, string.IsNullOrWhiteSpace(template.InitialCurrentTasks)
+            ? "# Current Tasks\n\n1. Run one bounded iteration."
+            : template.InitialCurrentTasks);
 
-1. Break the goal into the next smallest useful work chunk.
-2. Run one iteration.
-3. Refresh memory before the next iteration.
-""");
+        WriteDocument(PerspectivesFilePath, string.IsNullOrWhiteSpace(template.InitialPerspectives)
+            ? "# Perspectives"
+            : template.InitialPerspectives);
 
-        WriteDocument(PerspectivesFilePath, """
-# Perspectives
-
-- Will Wright: Build a system that can keep improving without losing coherence.
-- Chris Sawyer: Keep the loop deterministic, observable, and tightly scoped.
-- Notch: Bias toward quick, testable progress over elaborate architecture.
-- Ron: Spend effort where it buys leverage, speed, or confidence.
-""");
-
-        WriteDocument(NextStepsFilePath, """
-# Next Steps
-
-1. Run the first focused iteration.
-2. Review the updated memory files.
-3. Continue until the loop reports done.
-""");
+        WriteDocument(NextStepsFilePath, string.IsNullOrWhiteSpace(template.InitialNextSteps)
+            ? "# Next Steps\n\n1. Run the next iteration."
+            : template.InitialNextSteps);
 
         WriteDocument(CurrentStateFilePath, $$"""
-# Current State
+{{(string.IsNullOrWhiteSpace(template.InitialCurrentState) ? "# Current State" : template.InitialCurrentState)}}
 
 - Goal: {{options.Goal.Trim()}}
 - Provider: {{options.ProviderName}}
@@ -118,8 +108,11 @@ internal sealed class MemoryWorkspace
 - Memory root: {{RootPath}}
 - Requested steps in this run: {{options.MaxIterations}}
 - Model: {{options.Model ?? "Default"}}
+- Loop template: {{template.TemplateId}}
 - Session started: {{DateTimeOffset.Now:yyyy-MM-dd HH:mm:ss zzz}}
 """);
+
+        WriteDocument(UserResponsesFilePath, "# User Responses\n");
 
         File.WriteAllText(SessionLogFilePath, string.Empty, Utf8NoBom);
 
@@ -133,7 +126,8 @@ internal sealed class MemoryWorkspace
             IsDone = false,
             DoneReason = string.Empty,
             StartedAtUtc = DateTimeOffset.UtcNow,
-            UpdatedAtUtc = DateTimeOffset.UtcNow
+            UpdatedAtUtc = DateTimeOffset.UtcNow,
+            LoopTemplateId = template.TemplateId
         };
 
         SaveSession(session);
@@ -171,7 +165,8 @@ internal sealed class MemoryWorkspace
             CurrentTasks = ReadDocument(CurrentTasksFilePath),
             Perspectives = ReadDocument(PerspectivesFilePath),
             NextSteps = ReadDocument(NextStepsFilePath),
-            CurrentState = ReadDocument(CurrentStateFilePath)
+            CurrentState = ReadDocument(CurrentStateFilePath),
+            UserResponses = ReadDocument(UserResponsesFilePath)
         };
     }
 
@@ -206,6 +201,28 @@ internal sealed class MemoryWorkspace
 ## Work Log
 
 {{response.WorkLog}}
+""", Utf8NoBom);
+    }
+
+    public void AppendUserResponse(string response)
+    {
+        var content = response.Trim();
+
+        if (string.IsNullOrWhiteSpace(content))
+        {
+            throw new InvalidOperationException("A non-empty user response is required.");
+        }
+
+        if (!File.Exists(UserResponsesFilePath))
+        {
+            WriteDocument(UserResponsesFilePath, "# User Responses\n");
+        }
+
+        File.AppendAllText(UserResponsesFilePath, $$"""
+
+## {{DateTimeOffset.Now:yyyy-MM-dd HH:mm:ss zzz}}
+
+{{content}}
 """, Utf8NoBom);
     }
 

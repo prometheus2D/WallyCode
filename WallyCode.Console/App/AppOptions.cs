@@ -11,4 +11,6 @@ internal sealed class AppOptions
     public string? SourcePath { get; init; }
 
     public int MaxIterations { get; init; } = 1;
+
+    public string LoopTemplateId { get; init; } = "default";
 }

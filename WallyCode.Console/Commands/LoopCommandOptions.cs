@@ -22,4 +22,7 @@ internal sealed class LoopCommandOptions
 
     [Option("steps", Default = 1, HelpText = "Runs n iterations in this invocation.")]
     public int Steps { get; set; }
+
+    [Option("template", HelpText = "Loop template id. Examples: default, requirements.")]
+    public string? Template { get; set; }
 }

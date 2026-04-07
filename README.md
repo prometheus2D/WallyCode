@@ -5,17 +5,13 @@ WallyCode wraps `gh copilot` in two modes:
 - `prompt`: one-shot response
 - `loop`: stateful iterative execution with on-disk memory
 
-## Requirements
-
-- .NET 8 SDK
-- GitHub CLI with `gh copilot`
-- GitHub CLI authentication
-
 ## Core Model
 
 - `prompt` returns one response
 - `loop <goal>` starts a session
 - `loop` continues the active session
+- `loop --template <id>` selects loop behavior from JSON
+- `respond <text>` appends user input for the active loop
 - `--memory-root` creates an isolated workspace
 - `--model` overrides the model for one run
 
@@ -41,10 +37,22 @@ Run one prompt:
 wallycode prompt "Summarize this repository in one short paragraph."
 ```
 
-Start a loop:
+Start the default loop:
 
 ```powershell
 wallycode loop "Analyze this repo, do one bounded chunk of work, refresh memory, and stop when the goal is complete."
+```
+
+Start the requirements loop:
+
+```powershell
+wallycode loop "Collect requirements for the new workspace flow." --template requirements
+```
+
+Append user answers for the active loop:
+
+```powershell
+wallycode respond "Use GitHub auth only. Support multiple isolated workspaces. Stop when I reply approve."
 ```
 
 Continue the active loop:
@@ -71,6 +79,29 @@ Use a separate workspace:
 wallycode loop "Work on issue 123" --memory-root .\.wallycode-issue-123
 ```
 
+## Loop Templates
+
+Loop behavior is data-driven.
+
+Built-in templates:
+
+- `default`
+- `requirements`
+
+Template files are shipped as JSON and copied to the build output:
+
+```plaintext
+Templates/Loops/default.json
+Templates/Loops/requirements.json
+```
+
+A template defines:
+
+- system prompt
+- response contract prompt
+- initial memory documents
+- optional stop keyword
+
 ## Workspace
 
 Repo settings:
@@ -96,6 +127,7 @@ Layout:
     perspectives.md
     next-steps.md
     current-state.md
+    user-responses.md
   logs/
     session.log
     iteration-001.md
@@ -113,16 +145,27 @@ Layout:
 
 ## File Roles
 
-- `session.json`: active session metadata
+- `session.json`: active session metadata, including goal, provider, model, source path, next iteration, done state, and template id
 - `memory/goal.md`: original goal
 - `memory/current-tasks.md`: current working task list
 - `memory/perspectives.md`: persistent guidance
 - `memory/next-steps.md`: next actions
 - `memory/current-state.md`: latest summarized state
+- `memory/user-responses.md`: appended user answers for future iterations
 - `logs/session.log`: session console log
 - `logs/iteration-###.md`: normalized iteration summary and work log
 - `prompts/iteration-###.txt`: exact prompt sent to the provider
 - `raw/iteration-###.txt`: raw provider response
+
+## Goal Persistence
+
+The goal is persisted in two places when a session starts:
+
+- `.wallycode/session.json` as `goal`
+- `.wallycode/memory/goal.md` as the goal document
+
+That is why `loop <goal>` is only needed when creating a new session.
+After that, `loop` reloads the active session from `session.json`, reconstructs `AppOptions` from the saved session state, and reuses the persisted goal automatically.
 
 ## Session Constraints
 
@@ -132,6 +175,7 @@ A loop session is bound to:
 - source path
 - provider
 - model
+- template
 
 If those differ, start a separate session with `--memory-root`.
 
@@ -147,13 +191,24 @@ Starting a new session resets:
 1. Resolve project root and provider
 2. Open or create the workspace
 3. Start a new session if a goal is provided, otherwise continue the active session
-4. Read memory documents
-5. Build one prompt
-6. Send it to `gh copilot`
-7. Save prompt, raw output, and iteration log
-8. Parse JSON if possible
-9. Normalize plain text if needed
-10. Persist updated session state
+4. Load the loop template
+5. Read memory documents
+6. Build one prompt from template + memory state
+7. Send it to `gh copilot`
+8. Save prompt, raw output, and iteration log
+9. Parse JSON if possible
+10. Normalize plain text if needed
+11. Persist updated session state
+
+## Stop Conditions
+
+A loop can stop in three ways:
+
+- the model returns `status = done`
+- the model returns a blocking `doneReason`
+- the active template defines a stop keyword and that keyword appears in `user-responses.md`
+
+Example: the `requirements` template uses `approve` as its stop keyword.
 
 ## Provider Presets
 

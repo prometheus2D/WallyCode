@@ -11,4 +11,6 @@ internal sealed class MemorySnapshot
     public required string NextSteps { get; init; }
 
     public required string CurrentState { get; init; }
+
+    public required string UserResponses { get; init; }
 }

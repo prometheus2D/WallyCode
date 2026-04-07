@@ -1,5 +1,6 @@
 using WallyCode.ConsoleApp.App;
 using WallyCode.ConsoleApp.Copilot;
+using WallyCode.ConsoleApp.Loop;
 using WallyCode.ConsoleApp.Project;
 using WallyCode.ConsoleApp.Runtime;
 
@@ -40,6 +41,7 @@ internal sealed class LoopCommandHandler
                 var providerName = string.IsNullOrWhiteSpace(commandOptions.Provider)
                     ? settings.Provider
                     : commandOptions.Provider.Trim();
+                var template = LoopTemplateRegistry.Load(commandOptions.Template);
 
                 provider = _providerRegistry.Get(providerName);
 
@@ -51,11 +53,12 @@ internal sealed class LoopCommandHandler
                         ? provider.DefaultModel
                         : commandOptions.Model.Trim(),
                     SourcePath = projectRoot,
-                    MaxIterations = requestedSteps
+                    MaxIterations = requestedSteps,
+                    LoopTemplateId = template.TemplateId
                 };
 
-                session = workspace.StartNewSession(options);
-                startupMessage = "Starting a new loop session.";
+                session = workspace.StartNewSession(options, template);
+                startupMessage = $"Starting a new loop session with template '{template.TemplateId}'.";
             }
             else
             {
@@ -104,6 +107,7 @@ internal sealed class LoopCommandHandler
         _logger.Info($"Provider: {provider.Name}");
         _logger.Info($"Model: {options.Model ?? provider.DefaultModel}");
         _logger.Info($"Goal: {options.Goal}");
+        _logger.Info($"Loop template: {options.LoopTemplateId}");
         _logger.Info($"Memory root: {workspace.RootPath}");
         _logger.Info($"Project root: {options.SourcePath}");
 
@@ -146,7 +150,8 @@ internal sealed class LoopCommandHandler
             ProviderName = session.ProviderName,
             Model = session.Model,
             SourcePath = session.SourcePath,
-            MaxIterations = requestedSteps
+            MaxIterations = requestedSteps,
+            LoopTemplateId = session.LoopTemplateId
         };
     }
 
@@ -191,6 +196,13 @@ internal sealed class LoopCommandHandler
         {
             throw new InvalidOperationException(
                 $"The active loop session is using model {session.Model}. Continue it without changing the model, or start a different session with another --memory-root.");
+        }
+
+        if (!string.IsNullOrWhiteSpace(commandOptions.Template)
+            && !string.Equals(commandOptions.Template.Trim(), session.LoopTemplateId, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException(
+                $"The active loop session is using template {session.LoopTemplateId}. Continue it without changing the template, or start a different session with another --memory-root.");
         }
     }
 }
