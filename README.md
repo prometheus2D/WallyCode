@@ -17,6 +17,66 @@ WallyCode wraps `gh copilot` in two modes:
 
 There is no separate `resume` or `continue` command.
 
+## Hello World: Verify the Requirements Loop
+
+Use this sequence to verify the full loop is working.
+
+1. Verify providers:
+
+```powershell
+wallycode providers
+```
+
+2. Start a requirements loop:
+
+```powershell
+wallycode loop "I want to make a tic tac toe game." --template requirements
+```
+
+Expected result:
+
+- `.wallycode/` is created
+- `session.json`, `state.json`, and `responses.json` are created
+- memory files are created under `.wallycode/memory/`
+- the first iteration writes follow-up questions into `memory/next-steps.md`
+
+3. Answer the loop:
+
+```powershell
+wallycode respond "Make it a simple browser game for two human players. Keep it minimal. I approve once the requirements are clear."
+```
+
+Expected result:
+
+- the response is appended to `memory/user-responses.md`
+- a structured response entry is appended to `responses.json`
+
+4. Continue the loop:
+
+```powershell
+wallycode loop
+```
+
+Expected result:
+
+- only the new response is processed
+- `state.json` is updated
+- `memory/current-state.md` is updated
+- `memory/next-steps.md` is updated
+
+5. Finish the requirements loop:
+
+```powershell
+wallycode respond "approve"
+wallycode loop
+```
+
+Expected result:
+
+- the requirements template stop keyword matches
+- the session becomes done
+- `session.json` shows `isDone: true`
+
 ## Commands
 
 List providers:
