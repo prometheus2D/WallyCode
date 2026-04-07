@@ -12,15 +12,7 @@ internal sealed class ShellCommandHandler
 
         if (shellOptions.ResetMemory)
         {
-            var projectRoot = ProjectSettings.ResolveProjectRoot(shellOptions.SourcePath);
-            var resolvedMemoryRoot = string.IsNullOrWhiteSpace(shellOptions.MemoryRoot)
-                ? null
-                : Path.GetFullPath(shellOptions.MemoryRoot);
-
-            MemoryWorkspace.Reset(projectRoot, resolvedMemoryRoot);
-            Console.WriteLine($"Reset memory workspace at {resolvedMemoryRoot ?? Path.Combine(projectRoot, ".wallycode")}");
-
-            Console.WriteLine();
+            ResetMemory(shellOptions);
         }
 
         Console.WriteLine("WallyCode shell");
@@ -64,11 +56,30 @@ internal sealed class ShellCommandHandler
                 continue;
             }
 
+            if (string.Equals(args[0], "reset-memory", StringComparison.OrdinalIgnoreCase))
+            {
+                ResetMemory(ParseResetMemoryOptions(args));
+                Console.WriteLine();
+                continue;
+            }
+
             await Program.RunAsync(args, cancellationToken);
             Console.WriteLine();
         }
 
         return 0;
+    }
+
+    private static void ResetMemory(ShellCommandOptions options)
+    {
+        var projectRoot = ProjectSettings.ResolveProjectRoot(options.SourcePath);
+        var resolvedMemoryRoot = string.IsNullOrWhiteSpace(options.MemoryRoot)
+            ? null
+            : Path.GetFullPath(options.MemoryRoot);
+
+        MemoryWorkspace.Reset(projectRoot, resolvedMemoryRoot);
+        Console.WriteLine($"Reset memory workspace at {resolvedMemoryRoot ?? Path.Combine(projectRoot, ".wallycode")}");
+        Console.WriteLine("A new loop session will be created the next time you run loop <goal>.");
     }
 
     private static ShellCommandOptions ParseShellOptions(string[] originalArgs)
@@ -81,6 +92,24 @@ internal sealed class ShellCommandHandler
         });
 
         var result = parser.ParseArguments<ShellCommandOptions>(originalArgs);
+        ShellCommandOptions? options = null;
+
+        result.WithParsed(parsed => options = parsed);
+
+        return options ?? new ShellCommandOptions();
+    }
+
+    private static ShellCommandOptions ParseResetMemoryOptions(string[] args)
+    {
+        var parser = new Parser(settings =>
+        {
+            settings.CaseSensitive = false;
+            settings.CaseInsensitiveEnumValues = true;
+            settings.HelpWriter = TextWriter.Null;
+        });
+
+        var normalizedArgs = args[1..];
+        var result = parser.ParseArguments<ShellCommandOptions>(normalizedArgs);
         ShellCommandOptions? options = null;
 
         result.WithParsed(parsed => options = parsed);

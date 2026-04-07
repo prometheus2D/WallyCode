@@ -19,6 +19,12 @@ wallycode providers
 wallycode shell --reset-memory
 ```
 
+You can also reset from inside the shell later with:
+
+```powershell
+reset-memory
+```
+
 3. Inside the shell, start a requirements loop:
 
 ```powershell
@@ -42,6 +48,7 @@ loop
 Expected result:
 
 - `.wallycode/` is recreated on shell start when `--reset-memory` is used
+- `reset-memory` inside the shell clears the active workspace on demand
 - loop state is stored under `.wallycode/`
 - `respond` appends structured user input
 - `loop` resumes the active session from disk
@@ -89,6 +96,18 @@ Start the shell with a clean workspace:
 
 ```powershell
 wallycode shell --reset-memory
+```
+
+Reset the workspace from inside the shell:
+
+```powershell
+reset-memory
+```
+
+Reset a specific workspace from inside the shell:
+
+```powershell
+reset-memory --memory-root .wallycode-requirements
 ```
 
 Start the shell with an isolated workspace location:
