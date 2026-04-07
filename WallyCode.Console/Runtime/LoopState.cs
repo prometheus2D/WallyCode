@@ -11,4 +11,6 @@ internal sealed class LoopState
     public bool StopKeywordMatched { get; set; }
 
     public string? LastProcessedUserResponseAt { get; set; }
+
+    public int LastProcessedUserResponseId { get; set; }
 }

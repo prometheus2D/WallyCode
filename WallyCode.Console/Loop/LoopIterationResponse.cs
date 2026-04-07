@@ -8,13 +8,13 @@ internal sealed class LoopIterationResponse
 
     public string WorkLog { get; set; } = string.Empty;
 
-    public string CurrentTasks { get; set; } = string.Empty;
+    public List<string> Questions { get; set; } = [];
 
-    public string Perspectives { get; set; } = string.Empty;
+    public List<string> Decisions { get; set; } = [];
 
-    public string NextSteps { get; set; } = string.Empty;
+    public List<string> Assumptions { get; set; } = [];
 
-    public string CurrentState { get; set; } = string.Empty;
+    public List<string> Blockers { get; set; } = [];
 
     public string DoneReason { get; set; } = string.Empty;
 

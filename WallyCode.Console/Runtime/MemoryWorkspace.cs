@@ -36,6 +36,8 @@ internal sealed class MemoryWorkspace
 
     public required string UserResponsesFilePath { get; init; }
 
+    public required string UserResponsesJsonFilePath { get; init; }
+
     public required string LoopStateFilePath { get; init; }
 
     public required string SessionLogFilePath { get; init; }
@@ -69,6 +71,7 @@ internal sealed class MemoryWorkspace
             NextStepsFilePath = Path.Combine(memoryPath, "next-steps.md"),
             CurrentStateFilePath = Path.Combine(memoryPath, "current-state.md"),
             UserResponsesFilePath = Path.Combine(memoryPath, "user-responses.md"),
+            UserResponsesJsonFilePath = Path.Combine(rootPath, "responses.json"),
             LoopStateFilePath = Path.Combine(rootPath, "state.json"),
             SessionLogFilePath = Path.Combine(logsPath, "session.log"),
             SessionStateFilePath = Path.Combine(rootPath, "session.json")
@@ -114,6 +117,7 @@ internal sealed class MemoryWorkspace
 """);
 
         WriteDocument(UserResponsesFilePath, "# User Responses\n");
+        SaveUserResponseStore(new UserResponseStore());
         SaveLoopState(new LoopState());
         File.WriteAllText(SessionLogFilePath, string.Empty, Utf8NoBom);
 
@@ -175,8 +179,14 @@ internal sealed class MemoryWorkspace
         File.WriteAllText(LoopStateFilePath, json + Environment.NewLine, Utf8NoBom);
     }
 
-    public MemorySnapshot ReadSnapshot()
+    public MemorySnapshot ReadSnapshot(LoopState state)
     {
+        var store = LoadUserResponseStore();
+        var pendingResponses = store.Responses
+            .Where(response => response.Id > state.LastProcessedUserResponseId)
+            .OrderBy(response => response.Id)
+            .ToList();
+
         return new MemorySnapshot
         {
             Goal = ReadDocument(GoalFilePath),
@@ -184,7 +194,8 @@ internal sealed class MemoryWorkspace
             Perspectives = ReadDocument(PerspectivesFilePath),
             NextSteps = ReadDocument(NextStepsFilePath),
             CurrentState = ReadDocument(CurrentStateFilePath),
-            UserResponses = ReadDocument(UserResponsesFilePath)
+            UserResponses = ReadDocument(UserResponsesFilePath),
+            PendingUserResponses = pendingResponses
         };
     }
 
@@ -198,12 +209,11 @@ internal sealed class MemoryWorkspace
         File.WriteAllText(GetRawOutputPath(iteration), Normalize(rawOutput), Utf8NoBom);
     }
 
-    public void ApplyIteration(int iteration, LoopIterationResponse response)
+    public void ApplyIteration(int iteration, LoopIterationResponse response, string currentTasks, string nextSteps, string currentState)
     {
-        WriteIfProvided(CurrentTasksFilePath, response.CurrentTasks);
-        WriteIfProvided(PerspectivesFilePath, response.Perspectives);
-        WriteIfProvided(NextStepsFilePath, response.NextSteps);
-        WriteIfProvided(CurrentStateFilePath, response.CurrentState);
+        WriteDocument(CurrentTasksFilePath, currentTasks);
+        WriteDocument(NextStepsFilePath, nextSteps);
+        WriteDocument(CurrentStateFilePath, currentState);
 
         var iterationLogPath = Path.Combine(LogsDirectoryPath, $"iteration-{iteration:000}.md");
         var doneReason = string.IsNullOrWhiteSpace(response.DoneReason) ? "N/A" : response.DoneReason;
@@ -215,6 +225,22 @@ internal sealed class MemoryWorkspace
 - Status: {{response.Status}}
 - Summary: {{response.Summary}}
 - Done reason: {{doneReason}}
+
+## Questions
+
+{{RenderList(response.Questions)}}
+
+## Decisions
+
+{{RenderList(response.Decisions)}}
+
+## Assumptions
+
+{{RenderList(response.Assumptions)}}
+
+## Blockers
+
+{{RenderList(response.Blockers)}}
 
 ## Work Log
 
@@ -231,6 +257,17 @@ internal sealed class MemoryWorkspace
             throw new InvalidOperationException("A non-empty user response is required.");
         }
 
+        var store = LoadUserResponseStore();
+        var entry = new UserResponseEntry
+        {
+            Id = store.Responses.Count == 0 ? 1 : store.Responses.Max(item => item.Id) + 1,
+            TimestampUtc = DateTimeOffset.UtcNow,
+            Text = content
+        };
+
+        store.Responses.Add(entry);
+        SaveUserResponseStore(store);
+
         if (!File.Exists(UserResponsesFilePath))
         {
             WriteDocument(UserResponsesFilePath, "# User Responses\n");
@@ -238,9 +275,9 @@ internal sealed class MemoryWorkspace
 
         File.AppendAllText(UserResponsesFilePath, $$"""
 
-## {{DateTimeOffset.Now:yyyy-MM-dd HH:mm:ss zzz}}
+## {{entry.TimestampUtc:yyyy-MM-dd HH:mm:ss zzz}} | Response {{entry.Id}}
 
-{{content}}
+{{entry.Text}}
 """, Utf8NoBom);
     }
 
@@ -252,6 +289,23 @@ internal sealed class MemoryWorkspace
     public string GetRawOutputPath(int iteration)
     {
         return Path.Combine(RawDirectoryPath, $"iteration-{iteration:000}.txt");
+    }
+
+    private UserResponseStore LoadUserResponseStore()
+    {
+        if (!File.Exists(UserResponsesJsonFilePath))
+        {
+            return new UserResponseStore();
+        }
+
+        return JsonSerializer.Deserialize<UserResponseStore>(File.ReadAllText(UserResponsesJsonFilePath), SerializerOptions)
+            ?? new UserResponseStore();
+    }
+
+    private void SaveUserResponseStore(UserResponseStore store)
+    {
+        var json = JsonSerializer.Serialize(store, SerializerOptions);
+        File.WriteAllText(UserResponsesJsonFilePath, json + Environment.NewLine, Utf8NoBom);
     }
 
     private static string ResolveRootPath(string sourcePath, string? memoryRoot)
@@ -275,14 +329,6 @@ internal sealed class MemoryWorkspace
         File.WriteAllText(path, Normalize(content), Utf8NoBom);
     }
 
-    private static void WriteIfProvided(string path, string? content)
-    {
-        if (!string.IsNullOrWhiteSpace(content))
-        {
-            File.WriteAllText(path, Normalize(content), Utf8NoBom);
-        }
-    }
-
     private static void ResetDirectory(string path)
     {
         Directory.CreateDirectory(path);
@@ -296,5 +342,13 @@ internal sealed class MemoryWorkspace
     private static string Normalize(string content)
     {
         return content.Trim() + Environment.NewLine;
+    }
+
+    private static string RenderList(IEnumerable<string> items)
+    {
+        var values = items.Where(value => !string.IsNullOrWhiteSpace(value)).ToList();
+        return values.Count == 0
+            ? "- None"
+            : string.Join(Environment.NewLine, values.Select(value => $"- {value.Trim()}"));
     }
 }

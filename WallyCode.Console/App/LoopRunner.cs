@@ -7,8 +7,6 @@ namespace WallyCode.ConsoleApp.App;
 
 internal sealed class LoopRunner
 {
-    private static readonly Regex NumberedStepRegex = new(@"^\s*\d+\.\s+(.*\S)\s*$", RegexOptions.Multiline | RegexOptions.Compiled);
-
     private readonly ILlmProvider _provider;
     private readonly AppLogger _logger;
 
@@ -32,7 +30,7 @@ internal sealed class LoopRunner
             _logger.Section($"Iteration {iteration} ({step}/{options.MaxIterations} in this run)");
             _logger.Info("Reading current memory state.");
 
-            var snapshot = workspace.ReadSnapshot();
+            var snapshot = workspace.ReadSnapshot(state);
             var prompt = LoopPromptBuilder.Build(options, workspace, snapshot, iteration, step, template);
             workspace.SavePrompt(iteration, prompt);
 
@@ -64,9 +62,14 @@ internal sealed class LoopRunner
             }
 
             ApplyStopKeywordIfMatched(template, snapshot, response, state);
-            workspace.ApplyIteration(iteration, response);
-            UpdateLoopState(state, response);
+            UpdateLoopState(state, response, snapshot.PendingUserResponses);
             workspace.SaveLoopState(state);
+            workspace.ApplyIteration(
+                iteration,
+                response,
+                LoopMemoryRenderer.RenderCurrentTasks(state),
+                LoopMemoryRenderer.RenderNextSteps(state),
+                LoopMemoryRenderer.RenderCurrentState(session, state, response));
 
             session.NextIteration = iteration + 1;
             session.IsDone = response.IsDone;
@@ -95,45 +98,42 @@ internal sealed class LoopRunner
     {
         if (string.IsNullOrWhiteSpace(template.StopKeyword)
             || response.IsDone
-            || string.IsNullOrWhiteSpace(snapshot.UserResponses))
+            || snapshot.PendingUserResponses.Count == 0)
         {
             return;
         }
 
-        if (!snapshot.UserResponses.Contains(template.StopKeyword, StringComparison.OrdinalIgnoreCase))
+        if (!snapshot.PendingUserResponses.Any(item => item.Text.Contains(template.StopKeyword, StringComparison.OrdinalIgnoreCase)))
         {
             return;
         }
 
         state.StopKeywordMatched = true;
         response.Status = "done";
-        response.DoneReason = $"The configured stop keyword '{template.StopKeyword}' was found in user responses.";
+        response.DoneReason = $"The configured stop keyword '{template.StopKeyword}' was found in pending user responses.";
     }
 
-    private static void UpdateLoopState(LoopState state, LoopIterationResponse response)
+    private static void UpdateLoopState(LoopState state, LoopIterationResponse response, IReadOnlyList<UserResponseEntry> pendingResponses)
     {
-        state.Phase = response.IsDone ? "done" : "active";
-        state.OpenQuestions = ExtractNumberedItems(response.NextSteps);
-        state.Decisions = ExtractBulletItems(response.CurrentState, "- Decision:");
-        state.LastProcessedUserResponseAt = DateTimeOffset.UtcNow.ToString("O");
-    }
-
-    private static List<string> ExtractNumberedItems(string content)
-    {
-        return NumberedStepRegex.Matches(content)
-            .Select(match => match.Groups[1].Value.Trim())
+        state.Phase = response.IsDone
+            ? "done"
+            : response.Questions.Count > 0
+                ? "waiting-for-user"
+                : "active";
+        state.OpenQuestions = response.Questions
             .Where(value => !string.IsNullOrWhiteSpace(value))
+            .Select(value => value.Trim())
             .ToList();
-    }
-
-    private static List<string> ExtractBulletItems(string content, string prefix)
-    {
-        return content.Replace("\r\n", "\n", StringComparison.Ordinal)
-            .Split('\n')
-            .Select(line => line.Trim())
-            .Where(line => line.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
-            .Select(line => line[prefix.Length..].Trim())
+        state.Decisions = response.Decisions
             .Where(value => !string.IsNullOrWhiteSpace(value))
+            .Select(value => value.Trim())
             .ToList();
+
+        if (pendingResponses.Count > 0)
+        {
+            var lastResponse = pendingResponses[^1];
+            state.LastProcessedUserResponseId = lastResponse.Id;
+            state.LastProcessedUserResponseAt = lastResponse.TimestampUtc.ToString("O");
+        }
     }
 }

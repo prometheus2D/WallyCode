@@ -1,3 +1,4 @@
+using System.Text;
 using WallyCode.ConsoleApp.App;
 using WallyCode.ConsoleApp.Runtime;
 
@@ -22,6 +23,26 @@ Loop metadata:
 
 {{template.ResponseSchemaPrompt}}
 
+Return JSON only. No markdown fence. No preamble. No explanation outside the JSON object.
+Use this exact schema:
+{
+  "status": "continue" | "done",
+  "summary": "one sentence",
+  "workLog": "markdown",
+  "questions": ["question or next action"],
+  "decisions": ["decision"],
+  "assumptions": ["assumption"],
+  "blockers": ["blocker"],
+  "doneReason": "empty string unless status is done"
+}
+
+Rules:
+- Keep questions concrete and immediately actionable.
+- Return only compact structured data.
+- Do not regenerate full memory documents.
+- Your first output character must be {.
+- Your last output character must be }.
+
 Goal document:
 {{snapshot.Goal}}
 
@@ -37,8 +58,28 @@ Next steps document:
 Current state document:
 {{snapshot.CurrentState}}
 
-User responses document:
-{{snapshot.UserResponses}}
+Pending user responses since the last processed response:
+{{RenderPendingResponses(snapshot.PendingUserResponses)}}
 """;
+    }
+
+    private static string RenderPendingResponses(IReadOnlyList<UserResponseEntry> responses)
+    {
+        if (responses.Count == 0)
+        {
+            return "- None";
+        }
+
+        var builder = new StringBuilder();
+
+        foreach (var response in responses)
+        {
+            builder.AppendLine($"## Response {response.Id} | {response.TimestampUtc:yyyy-MM-dd HH:mm:ss zzz}");
+            builder.AppendLine();
+            builder.AppendLine(response.Text);
+            builder.AppendLine();
+        }
+
+        return builder.ToString().TrimEnd();
     }
 }

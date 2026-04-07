@@ -67,18 +67,6 @@ Run multiple iterations in one invocation:
 wallycode loop --steps 3
 ```
 
-Use a different source path:
-
-```powershell
-wallycode loop "Work on issue 123" --source C:\path\to\repo
-```
-
-Use a separate workspace:
-
-```powershell
-wallycode loop "Work on issue 123" --memory-root .\.wallycode-issue-123
-```
-
 ## Loop Templates
 
 Loop behavior is data-driven.
@@ -122,6 +110,7 @@ Layout:
 .wallycode/
   session.json
   state.json
+  responses.json
   memory/
     goal.md
     current-tasks.md
@@ -148,14 +137,15 @@ Layout:
 
 - `session.json`: active session metadata, including goal, provider, model, source path, next iteration, done state, and template id
 - `state.json`: compact structured loop state for efficient resume behavior
+- `responses.json`: structured user responses with ids and timestamps
 - `memory/goal.md`: original goal
-- `memory/current-tasks.md`: current working task list
-- `memory/perspectives.md`: persistent guidance
-- `memory/next-steps.md`: next actions
-- `memory/current-state.md`: latest summarized state
-- `memory/user-responses.md`: appended user answers for future iterations
+- `memory/current-tasks.md`: programmatically rendered current work view
+- `memory/perspectives.md`: static template guidance
+- `memory/next-steps.md`: programmatically rendered next actions
+- `memory/current-state.md`: programmatically rendered state summary
+- `memory/user-responses.md`: human-readable audit log of user answers
 - `logs/session.log`: session console log
-- `logs/iteration-###.md`: normalized iteration summary and work log
+- `logs/iteration-###.md`: normalized iteration summary and structured output log
 - `prompts/iteration-###.txt`: exact prompt sent to the provider
 - `raw/iteration-###.txt`: raw provider response
 
@@ -181,9 +171,37 @@ Current fields:
 - `decisions`
 - `stopKeywordMatched`
 - `lastProcessedUserResponseAt`
+- `lastProcessedUserResponseId`
 
 This file is for compact machine state.
 The markdown files remain the human-readable and model-readable memory layer.
+
+## Structured User Responses
+
+User responses are stored in two forms:
+
+- `responses.json`: canonical machine-readable store
+- `memory/user-responses.md`: human-readable audit log
+
+The loop processes only responses with ids greater than `lastProcessedUserResponseId`.
+This avoids rescanning the full response history every iteration.
+
+## Compact Model Contract
+
+The model no longer rewrites full memory documents every iteration.
+It returns compact structured data:
+
+- `status`
+- `summary`
+- `workLog`
+- `questions`
+- `decisions`
+- `assumptions`
+- `blockers`
+- `doneReason`
+
+WallyCode then renders the memory documents programmatically.
+This reduces token usage, reduces drift, and keeps loop behavior more deterministic.
 
 ## Session Constraints
 
@@ -204,6 +222,7 @@ Starting a new session resets:
 - `prompts/`
 - `raw/`
 - `state.json`
+- `responses.json`
 
 ## Execution Flow
 
@@ -212,13 +231,13 @@ Starting a new session resets:
 3. Start a new session if a goal is provided, otherwise continue the active session
 4. Load the loop template
 5. Load compact loop state
-6. Read memory documents
-7. Build one prompt from template + memory state
+6. Read memory documents and pending structured user responses
+7. Build one prompt from template + memory state + pending responses
 8. Send it to `gh copilot`
-9. Save prompt, raw output, and iteration log
-10. Parse JSON if possible
-11. Normalize plain text if needed
-12. Update `state.json`
+9. Save prompt and raw output
+10. Parse compact structured JSON if possible
+11. Update `state.json`
+12. Render memory documents programmatically
 13. Persist updated session state
 
 ## Stop Conditions
@@ -227,7 +246,7 @@ A loop can stop in three ways:
 
 - the model returns `status = done`
 - the model returns a blocking `doneReason`
-- the active template defines a stop keyword and that keyword appears in `user-responses.md`
+- the active template defines a stop keyword and that keyword appears in pending user responses
 
 Example: the `requirements` template uses `approve` as its stop keyword.
 

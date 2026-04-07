@@ -35,11 +35,11 @@ internal static class LoopResponseParser
             response.Status = response.Status?.Trim() ?? string.Empty;
             response.Summary = response.Summary?.Trim() ?? string.Empty;
             response.WorkLog = response.WorkLog?.Trim() ?? string.Empty;
-            response.CurrentTasks = response.CurrentTasks?.Trim() ?? string.Empty;
-            response.Perspectives = response.Perspectives?.Trim() ?? string.Empty;
-            response.NextSteps = response.NextSteps?.Trim() ?? string.Empty;
-            response.CurrentState = response.CurrentState?.Trim() ?? string.Empty;
             response.DoneReason = response.DoneReason?.Trim() ?? string.Empty;
+            response.Questions = NormalizeList(response.Questions);
+            response.Decisions = NormalizeList(response.Decisions);
+            response.Assumptions = NormalizeList(response.Assumptions);
+            response.Blockers = NormalizeList(response.Blockers);
             response.Validate();
             return true;
         }
@@ -54,21 +54,24 @@ internal static class LoopResponseParser
     {
         var summary = ExtractSummary(rawOutput);
         var status = InferStatus(rawOutput);
-        var nextSteps = BuildStepsDocument(rawOutput, "# Next Steps", "Review the raw provider output and choose the next bounded iteration.");
-        var currentTasks = BuildStepsDocument(rawOutput, "# Current Tasks", "Turn the highest-priority next step into a single bounded work chunk.");
         var response = new LoopIterationResponse
         {
             Status = status,
             Summary = summary,
             WorkLog = rawOutput.Trim(),
-            CurrentTasks = currentTasks,
-            Perspectives = BuildPerspectivesDocument(rawOutput),
-            NextSteps = nextSteps,
-            CurrentState = BuildCurrentState(summary, status),
+            Questions = ExtractListSteps(rawOutput),
+            Decisions = [],
+            Assumptions = [],
+            Blockers = [],
             DoneReason = status == "done"
                 ? "The loop parser inferred completion from an unstructured provider response."
                 : string.Empty
         };
+
+        if (response.Questions.Count == 0)
+        {
+            response.Questions.Add("Review the raw provider output and choose the next bounded iteration.");
+        }
 
         response.Validate();
         return response;
@@ -165,64 +168,6 @@ internal static class LoopResponseParser
         return "continue";
     }
 
-    private static string BuildStepsDocument(string rawOutput, string title, string fallbackStep)
-    {
-        var steps = ExtractTableSteps(rawOutput);
-
-        if (steps.Count == 0)
-        {
-            steps = ExtractListSteps(rawOutput);
-        }
-
-        if (steps.Count == 0)
-        {
-            steps.Add(fallbackStep);
-        }
-
-        var builder = new StringBuilder();
-        builder.AppendLine(title);
-        builder.AppendLine();
-
-        for (var index = 0; index < steps.Count; index++)
-        {
-            builder.AppendLine($"{index + 1}. {steps[index]}");
-        }
-
-        return builder.ToString().TrimEnd();
-    }
-
-    private static List<string> ExtractTableSteps(string rawOutput)
-    {
-        var steps = new List<string>();
-
-        foreach (var rawLine in SplitLines(rawOutput))
-        {
-            var trimmed = rawLine.Trim();
-
-            if (!trimmed.StartsWith('|') || trimmed.Contains("---", StringComparison.Ordinal))
-            {
-                continue;
-            }
-
-            var cells = trimmed
-                .Split('|', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
-
-            if (cells.Length < 2 || !int.TryParse(cells[0], out _))
-            {
-                continue;
-            }
-
-            var step = CleanMarkdown(cells[1]);
-
-            if (!string.IsNullOrWhiteSpace(step))
-            {
-                steps.Add(step);
-            }
-        }
-
-        return steps;
-    }
-
     private static List<string> ExtractListSteps(string rawOutput)
     {
         var steps = new List<string>();
@@ -243,100 +188,6 @@ internal static class LoopResponseParser
         }
 
         return steps;
-    }
-
-    private static string BuildPerspectivesDocument(string rawOutput)
-    {
-        var sections = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
-        var speakers = new[] { "Will Wright", "Chris Sawyer", "Notch", "Ron" };
-        string? currentSpeaker = null;
-
-        foreach (var rawLine in SplitLines(rawOutput))
-        {
-            var trimmed = rawLine.Trim();
-
-            if (string.IsNullOrWhiteSpace(trimmed) || trimmed.StartsWith("---", StringComparison.Ordinal))
-            {
-                continue;
-            }
-
-            var matchedSpeaker = speakers.FirstOrDefault(speaker =>
-                trimmed.StartsWith($"**{speaker}:**", StringComparison.OrdinalIgnoreCase)
-                || trimmed.StartsWith($"**{speaker}:", StringComparison.OrdinalIgnoreCase)
-                || trimmed.StartsWith($"{speaker}:", StringComparison.OrdinalIgnoreCase));
-
-            if (matchedSpeaker is not null)
-            {
-                currentSpeaker = matchedSpeaker;
-
-                if (!sections.ContainsKey(currentSpeaker))
-                {
-                    sections[currentSpeaker] = new List<string>();
-                }
-
-                var lineContent = CleanMarkdown(trimmed);
-                var colonIndex = lineContent.IndexOf(':');
-
-                if (colonIndex >= 0 && colonIndex < lineContent.Length - 1)
-                {
-                    lineContent = lineContent[(colonIndex + 1)..].Trim();
-                }
-
-                if (!string.IsNullOrWhiteSpace(lineContent))
-                {
-                    sections[currentSpeaker].Add(lineContent);
-                }
-
-                continue;
-            }
-
-            if (currentSpeaker is null)
-            {
-                continue;
-            }
-
-            if (trimmed.StartsWith("#", StringComparison.Ordinal) || trimmed.StartsWith('|'))
-            {
-                continue;
-            }
-
-            sections[currentSpeaker].Add(CleanMarkdown(trimmed));
-        }
-
-        if (sections.Count == 0)
-        {
-            return $$"""
-# Perspectives
-
-{{rawOutput.Trim()}}
-""";
-        }
-
-        var builder = new StringBuilder();
-        builder.AppendLine("# Perspectives");
-        builder.AppendLine();
-
-        foreach (var entry in sections)
-        {
-            builder.AppendLine($"## {entry.Key}");
-            builder.AppendLine();
-            builder.AppendLine(string.Join(Environment.NewLine + Environment.NewLine, entry.Value.Where(value => !string.IsNullOrWhiteSpace(value))));
-            builder.AppendLine();
-        }
-
-        return builder.ToString().TrimEnd();
-    }
-
-    private static string BuildCurrentState(string summary, string status)
-    {
-        return $$"""
-# Current State
-
-- Loop status: {{status}}
-- Latest summary: {{summary}}
-- The provider returned unstructured text, so the application normalized it into memory files.
-- The original response is preserved in the raw iteration artifact for inspection.
-""";
     }
 
     private static IEnumerable<string> SplitLines(string content)
@@ -361,5 +212,14 @@ internal static class LoopResponseParser
         }
 
         return cleaned;
+    }
+
+    private static List<string> NormalizeList(IEnumerable<string>? values)
+    {
+        return values?
+            .Where(value => !string.IsNullOrWhiteSpace(value))
+            .Select(value => value.Trim())
+            .ToList()
+            ?? [];
     }
 }
