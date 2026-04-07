@@ -24,30 +24,24 @@ internal sealed class ProvidersCommandHandler
             var projectRoot = ProjectSettings.ResolveProjectRoot(commandOptions.SourcePath);
             var settings = ProjectSettings.Load(projectRoot);
             var currentProvider = _providerRegistry.Get(settings.Provider);
+            var providers = _providerRegistry.All;
+            var readiness = new List<(ILlmProvider Provider, string Status)>();
 
-            _logger.Section("Providers");
-            _logger.Info($"Project root: {projectRoot}");
-            _logger.Info($"Settings file: {ProjectSettings.GetFilePath(projectRoot)}");
-            _logger.Info($"Current project provider: {settings.Provider}");
-            _logger.Info($"Current project model: {currentProvider.DefaultModel}");
-
-            Console.WriteLine();
-
-            foreach (var provider in _providerRegistry.All)
+            foreach (var provider in providers)
             {
                 var readinessError = await provider.GetReadinessErrorAsync(cancellationToken);
+                readiness.Add((provider, string.IsNullOrWhiteSpace(readinessError) ? "ready" : "unavailable"));
+            }
 
-                Console.WriteLine($"- {provider.Name}");
-                Console.WriteLine($"  Default model: {provider.DefaultModel}");
-                Console.WriteLine($"  Status: {(string.IsNullOrWhiteSpace(readinessError) ? "ready" : "unavailable")}");
+            _logger.Section("Providers");
+            Console.WriteLine($"Current : {currentProvider.Name}");
+            Console.WriteLine($"Model   : {currentProvider.DefaultModel}");
+            Console.WriteLine();
 
-                if (!string.IsNullOrWhiteSpace(readinessError))
-                {
-                    Console.WriteLine($"  Reason: {readinessError}");
-                }
-
-                Console.WriteLine($"  {provider.Description}");
-                Console.WriteLine("  Use --model <name> on prompt or loop for a one-off override.");
+            foreach (var item in readiness)
+            {
+                Console.WriteLine($"- {item.Provider.Name} [{item.Status}]");
+                Console.WriteLine($"  Model: {item.Provider.DefaultModel}");
             }
 
             return 0;

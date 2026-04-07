@@ -1,0 +1,16 @@
+{
+  "profiles": {
+    "WallyCode": {
+      "commandName": "Project"
+    },
+    "WallyCode Shell": {
+      "commandName": "Project",
+      "commandLineArgs": "shell"
+    },
+    "WSL": {
+      "commandName": "WSL2",
+      "distributionName": ""
+    }
+  },
+  "$schema": "https://json.schemastore.org/launchsettings.json"
+}
