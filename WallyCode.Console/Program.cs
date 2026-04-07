@@ -61,12 +61,6 @@ internal static class Program
 			return ["--help"];
 		}
 
-		if (string.Equals(args[0], "continue", StringComparison.OrdinalIgnoreCase)
-			|| string.Equals(args[0], "resume", StringComparison.OrdinalIgnoreCase))
-		{
-			return ["loop", .. args[1..]];
-		}
-
 		if (args[0].StartsWith("-", StringComparison.Ordinal) || KnownCommands.Contains(args[0]))
 		{
 			return args;
