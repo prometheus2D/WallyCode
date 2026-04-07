@@ -1,6 +1,6 @@
 # WallyCode
 
-WallyCode is a .NET 8 console app that wraps `gh copilot` for two modes:
+WallyCode wraps `gh copilot` in two modes:
 
 - `prompt`: one-shot response
 - `loop`: stateful iterative execution with on-disk memory
@@ -8,113 +8,78 @@ WallyCode is a .NET 8 console app that wraps `gh copilot` for two modes:
 ## Requirements
 
 - .NET 8 SDK
-- GitHub CLI installed
-- GitHub CLI authenticated
-- `gh copilot` available
+- GitHub CLI with `gh copilot`
+- GitHub CLI authentication
 
-## Fast Start
+## Core Model
 
-From the repo root:
-
-```powershell
-dotnet build WallyCode.sln
-```
-
-```powershell
-dotnet run --project .\WallyCode.Console -- providers
-```
-
-```powershell
-dotnet run --project .\WallyCode.Console -- set-provider gh-copilot-claude
-```
-
-One-shot use:
-
-```powershell
-dotnet run --project .\WallyCode.Console -- prompt "Summarize this repository in one short paragraph."
-```
-
-Start a new loop workspace:
-
-```powershell
-dotnet run --project .\WallyCode.Console -- loop "Analyze this repo, do one bounded chunk of work, refresh memory, and stop when the goal is complete."
-```
-
-Continue the active loop:
-
-```powershell
-dotnet run --project .\WallyCode.Console -- loop
-```
-
-Run multiple iterations in one invocation:
-
-```powershell
-dotnet run --project .\WallyCode.Console -- loop --steps 3
-```
-
-## Mental Model
-
-- `prompt` = one response, no iterative state
-- `loop <goal>` = start a new session
-- `loop` = continue the active session
-- `--memory-root` = use a separate workspace
-- `--model` = one-off model override
+- `prompt` returns one response
+- `loop <goal>` starts a session
+- `loop` continues the active session
+- `--memory-root` creates an isolated workspace
+- `--model` overrides the model for one run
 
 There is no separate `resume` or `continue` command.
 
 ## Commands
 
-Show help:
-
-```powershell
-dotnet run --project .\WallyCode.Console -- --help
-```
-
-Show command help:
-
-```powershell
-dotnet run --project .\WallyCode.Console -- help <command>
-```
-
 List providers:
 
 ```powershell
-dotnet run --project .\WallyCode.Console -- providers
+wallycode providers
 ```
 
-Set the saved default provider for the repo:
+Set the repo default provider:
 
 ```powershell
-dotnet run --project .\WallyCode.Console -- set-provider gh-copilot-claude
+wallycode set-provider gh-copilot-claude
 ```
 
-Override the model for one run:
+Run one prompt:
 
 ```powershell
-dotnet run --project .\WallyCode.Console -- prompt "Summarize this repository." --model gpt-5
+wallycode prompt "Summarize this repository in one short paragraph."
+```
+
+Start a loop:
+
+```powershell
+wallycode loop "Analyze this repo, do one bounded chunk of work, refresh memory, and stop when the goal is complete."
+```
+
+Continue the active loop:
+
+```powershell
+wallycode loop
+```
+
+Run multiple iterations in one invocation:
+
+```powershell
+wallycode loop --steps 3
 ```
 
 Use a different source path:
 
 ```powershell
-dotnet run --project .\WallyCode.Console -- loop "Work on issue 123" --source C:\path\to\repo
+wallycode loop "Work on issue 123" --source C:\path\to\repo
 ```
 
-Use a separate memory workspace:
+Use a separate workspace:
 
 ```powershell
-dotnet run --project .\WallyCode.Console -- loop "Work on issue 123" --memory-root .\.wallycode-issue-123
+wallycode loop "Work on issue 123" --memory-root .\.wallycode-issue-123
 ```
 
-## Workspace Architecture
+## Workspace
 
-Project settings are stored at the repo root:
+Repo settings:
 
 ```plaintext
 wallycode.json
 ```
 
-Loop state is stored under the workspace root. Default:
+Default loop workspace:
 
 ```plaintext
 <repo>/.wallycode/
@@ -159,7 +124,7 @@ Layout:
 - `prompts/iteration-###.txt`: exact prompt sent to the provider
 - `raw/iteration-###.txt`: raw provider response
 
-## Session Rules
+## Session Constraints
 
 A loop session is bound to:
 
@@ -183,25 +148,23 @@ Starting a new session resets:
 2. Open or create the workspace
 3. Start a new session if a goal is provided, otherwise continue the active session
 4. Read memory documents
-5. Build one loop prompt
+5. Build one prompt
 6. Send it to `gh copilot`
 7. Save prompt, raw output, and iteration log
-8. Parse structured JSON if possible
-9. Normalize plain text output if needed
+8. Parse JSON if possible
+9. Normalize plain text if needed
 10. Persist updated session state
 
 ## Provider Presets
 
-Current presets:
-
 - `gh-copilot-claude` -> `claude-sonnet-4`
 - `gh-copilot-gpt5` -> `gpt-5`
 
-If no provider is saved, the default is `gh-copilot-claude`.
+Default provider if unset:
 
-## Under the Hood
+- `gh-copilot-claude`
 
-Provider invocation:
+## Provider Invocation
 
 ```text
 gh copilot --model <resolvedModel> [--add-dir <sourcePath>] --yolo -s -p <prompt>
