@@ -121,6 +121,7 @@ Layout:
 ```plaintext
 .wallycode/
   session.json
+  state.json
   memory/
     goal.md
     current-tasks.md
@@ -146,6 +147,7 @@ Layout:
 ## File Roles
 
 - `session.json`: active session metadata, including goal, provider, model, source path, next iteration, done state, and template id
+- `state.json`: compact structured loop state for efficient resume behavior
 - `memory/goal.md`: original goal
 - `memory/current-tasks.md`: current working task list
 - `memory/perspectives.md`: persistent guidance
@@ -167,6 +169,22 @@ The goal is persisted in two places when a session starts:
 That is why `loop <goal>` is only needed when creating a new session.
 After that, `loop` reloads the active session from `session.json`, reconstructs `AppOptions` from the saved session state, and reuses the persisted goal automatically.
 
+## Structured Loop State
+
+`state.json` is intentionally small.
+It exists to help loops resume efficiently without forcing the system to reconstruct all machine state from markdown.
+
+Current fields:
+
+- `phase`
+- `openQuestions`
+- `decisions`
+- `stopKeywordMatched`
+- `lastProcessedUserResponseAt`
+
+This file is for compact machine state.
+The markdown files remain the human-readable and model-readable memory layer.
+
 ## Session Constraints
 
 A loop session is bound to:
@@ -185,6 +203,7 @@ Starting a new session resets:
 - `logs/`
 - `prompts/`
 - `raw/`
+- `state.json`
 
 ## Execution Flow
 
@@ -192,13 +211,15 @@ Starting a new session resets:
 2. Open or create the workspace
 3. Start a new session if a goal is provided, otherwise continue the active session
 4. Load the loop template
-5. Read memory documents
-6. Build one prompt from template + memory state
-7. Send it to `gh copilot`
-8. Save prompt, raw output, and iteration log
-9. Parse JSON if possible
-10. Normalize plain text if needed
-11. Persist updated session state
+5. Load compact loop state
+6. Read memory documents
+7. Build one prompt from template + memory state
+8. Send it to `gh copilot`
+9. Save prompt, raw output, and iteration log
+10. Parse JSON if possible
+11. Normalize plain text if needed
+12. Update `state.json`
+13. Persist updated session state
 
 ## Stop Conditions
 

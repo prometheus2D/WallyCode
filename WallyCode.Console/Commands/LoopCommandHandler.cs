@@ -44,7 +44,6 @@ internal sealed class LoopCommandHandler
                 var template = LoopTemplateRegistry.Load(commandOptions.Template);
 
                 provider = _providerRegistry.Get(providerName);
-
                 options = new AppOptions
                 {
                     Goal = goal,
@@ -65,9 +64,7 @@ internal sealed class LoopCommandHandler
                 ValidateExistingSession(commandOptions, goal, projectRoot, workspace, session);
                 provider = _providerRegistry.Get(session.ProviderName);
                 options = CreateOptions(session, requestedSteps);
-                startupMessage = string.IsNullOrWhiteSpace(goal)
-                    ? $"Resuming active loop session at iteration {session.NextIteration}."
-                    : $"Resuming existing loop session at iteration {session.NextIteration}.";
+                startupMessage = $"Resuming active loop session at iteration {session.NextIteration}.";
             }
 
             return await ExecuteSessionAsync(options, workspace, session, provider, startupMessage, cancellationToken);

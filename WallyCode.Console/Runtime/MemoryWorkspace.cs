@@ -36,6 +36,8 @@ internal sealed class MemoryWorkspace
 
     public required string UserResponsesFilePath { get; init; }
 
+    public required string LoopStateFilePath { get; init; }
+
     public required string SessionLogFilePath { get; init; }
 
     public required string SessionStateFilePath { get; init; }
@@ -54,7 +56,7 @@ internal sealed class MemoryWorkspace
         Directory.CreateDirectory(promptsPath);
         Directory.CreateDirectory(rawPath);
 
-        var workspace = new MemoryWorkspace
+        return new MemoryWorkspace
         {
             RootPath = rootPath,
             MemoryDirectoryPath = memoryPath,
@@ -67,11 +69,10 @@ internal sealed class MemoryWorkspace
             NextStepsFilePath = Path.Combine(memoryPath, "next-steps.md"),
             CurrentStateFilePath = Path.Combine(memoryPath, "current-state.md"),
             UserResponsesFilePath = Path.Combine(memoryPath, "user-responses.md"),
+            LoopStateFilePath = Path.Combine(rootPath, "state.json"),
             SessionLogFilePath = Path.Combine(logsPath, "session.log"),
             SessionStateFilePath = Path.Combine(rootPath, "session.json")
         };
-
-        return workspace;
     }
 
     public LoopSessionState StartNewSession(AppOptions options, LoopTemplate template)
@@ -113,7 +114,7 @@ internal sealed class MemoryWorkspace
 """);
 
         WriteDocument(UserResponsesFilePath, "# User Responses\n");
-
+        SaveLoopState(new LoopState());
         File.WriteAllText(SessionLogFilePath, string.Empty, Utf8NoBom);
 
         var session = new LoopSessionState
@@ -155,6 +156,23 @@ internal sealed class MemoryWorkspace
 
         var json = JsonSerializer.Serialize(session, SerializerOptions);
         File.WriteAllText(SessionStateFilePath, json + Environment.NewLine, Utf8NoBom);
+    }
+
+    public LoopState LoadLoopState()
+    {
+        if (!File.Exists(LoopStateFilePath))
+        {
+            return new LoopState();
+        }
+
+        return JsonSerializer.Deserialize<LoopState>(File.ReadAllText(LoopStateFilePath), SerializerOptions)
+            ?? new LoopState();
+    }
+
+    public void SaveLoopState(LoopState state)
+    {
+        var json = JsonSerializer.Serialize(state, SerializerOptions);
+        File.WriteAllText(LoopStateFilePath, json + Environment.NewLine, Utf8NoBom);
     }
 
     public MemorySnapshot ReadSnapshot()
