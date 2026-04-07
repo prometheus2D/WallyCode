@@ -91,6 +91,12 @@ Start the shell with a clean workspace:
 wallycode shell --reset-memory
 ```
 
+Start the shell with an isolated workspace location:
+
+```powershell
+wallycode shell --memory-root .wallycode-requirements --reset-memory
+```
+
 Start the default loop:
 
 ```powershell
@@ -135,66 +141,4 @@ Default loop workspace:
 <repo>/.wallycode/
 ```
 
-Layout:
-
-```plaintext
-.wallycode/
-  session.json
-  state.json
-  responses.json
-  memory/
-    goal.md
-    current-tasks.md
-    perspectives.md
-    next-steps.md
-    current-state.md
-    user-responses.md
-  logs/
-    session.log
-    iteration-001.md
-    iteration-002.md
-    ...
-  prompts/
-    iteration-001.txt
-    iteration-002.txt
-    ...
-  raw/
-    iteration-001.txt
-    iteration-002.txt
-    ...
-```
-
-## Loop Templates
-
-Built-in templates:
-
-- `default`
-- `requirements`
-
-Template files:
-
-```plaintext
-Templates/Loops/default.json
-Templates/Loops/requirements.json
-```
-
-A template defines:
-
-- system prompt
-- response contract prompt
-- initial memory documents
-- optional stop keyword
-
-## Provider Presets
-
-- `gh-copilot-claude` -> `claude-sonnet-4`
-- `gh-copilot-gpt5` -> `gpt-5`
-
-Default provider if unset:
-
-- `gh-copilot-claude`
-
-## Provider Invocation
-
-```text
-gh copilot --model <resolvedModel> [--add-dir <sourcePath>] --yolo -s -p <prompt>
+Use `--memory-root` on `shell` or `loop` to store session state in a different folder.
