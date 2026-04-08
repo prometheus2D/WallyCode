@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Text;
 using WallyCode.ConsoleApp.Runtime;
@@ -10,11 +9,12 @@ internal sealed class GhCopilotCliProvider : ILlmProvider
     private readonly AppLogger _logger;
     private static readonly string GhExecutableName = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? "gh.exe" : "gh";
 
-    public GhCopilotCliProvider(string name, string defaultModel, string description, AppLogger logger)
+    public GhCopilotCliProvider(string name, string defaultModel, string description, string installerKey, AppLogger logger)
     {
         Name = name;
         DefaultModel = defaultModel;
         Description = description;
+        InstallerKey = installerKey;
         _logger = logger;
     }
 
@@ -23,6 +23,8 @@ internal sealed class GhCopilotCliProvider : ILlmProvider
     public string Description { get; }
 
     public string DefaultModel { get; }
+
+    public string InstallerKey { get; }
 
     public async Task<string?> GetReadinessErrorAsync(CancellationToken cancellationToken)
     {
@@ -93,11 +95,11 @@ internal sealed class GhCopilotCliProvider : ILlmProvider
         arguments.Add(request.Prompt);
 
         _logger.Info($"Launching {Name} with model {model}.");
-        var result = await RunGhAsync(arguments, workingDirectory, cancellationToken);
+        var result = await GhProcess.RunAsync(arguments, workingDirectory, cancellationToken);
 
         if (result.ExitCode != 0)
         {
-            var errorDetail = GetErrorDetail(result.StandardError, result.StandardOutput);
+            var errorDetail = GhProcess.ErrorDetail(result);
             throw new InvalidOperationException(
                 string.IsNullOrWhiteSpace(errorDetail)
                     ? $"gh copilot exited with code {result.ExitCode}."
@@ -107,21 +109,21 @@ internal sealed class GhCopilotCliProvider : ILlmProvider
         return result.StandardOutput;
     }
 
-    private async Task<string?> CheckCommandAsync(
+    private static async Task<string?> CheckCommandAsync(
         IReadOnlyList<string> arguments,
         string failureMessage,
         CancellationToken cancellationToken)
     {
         try
         {
-            var result = await RunGhAsync(arguments, workingDirectory: null, cancellationToken);
+            var result = await GhProcess.RunAsync(arguments, cancellationToken);
 
-            if (result.ExitCode == 0)
+            if (result.Success)
             {
                 return null;
             }
 
-            var errorDetail = GetErrorDetail(result.StandardError, result.StandardOutput);
+            var errorDetail = GhProcess.ErrorDetail(result);
             return string.IsNullOrWhiteSpace(errorDetail)
                 ? failureMessage
                 : $"{failureMessage} {errorDetail}";
@@ -135,98 +137,4 @@ internal sealed class GhCopilotCliProvider : ILlmProvider
             return $"{failureMessage} {exception.Message}";
         }
     }
-
-    private static async Task<GhCommandResult> RunGhAsync(
-        IReadOnlyList<string> arguments,
-        string? workingDirectory,
-        CancellationToken cancellationToken)
-    {
-        var startInfo = CreateStartInfo(arguments, workingDirectory);
-
-        using var process = new Process
-        {
-            StartInfo = startInfo
-        };
-
-        if (!process.Start())
-        {
-            throw new InvalidOperationException("Failed to start gh.");
-        }
-
-        process.StandardInput.Close();
-
-        var stdoutTask = process.StandardOutput.ReadToEndAsync();
-        var stderrTask = process.StandardError.ReadToEndAsync();
-
-        using var registration = cancellationToken.Register(() => TryKillProcessTree(process));
-
-        try
-        {
-            await process.WaitForExitAsync(cancellationToken);
-        }
-        catch (OperationCanceledException)
-        {
-            TryKillProcessTree(process);
-            await Task.WhenAll(stdoutTask, stderrTask);
-            throw;
-        }
-
-        await Task.WhenAll(stdoutTask, stderrTask);
-
-        return new GhCommandResult(
-            process.ExitCode,
-            stdoutTask.Result.Trim(),
-            stderrTask.Result.Trim());
-    }
-
-    private static ProcessStartInfo CreateStartInfo(IReadOnlyList<string> arguments, string? workingDirectory)
-    {
-        var startInfo = new ProcessStartInfo
-        {
-            FileName = GhExecutableName,
-            UseShellExecute = false,
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            RedirectStandardInput = true,
-            CreateNoWindow = true,
-            StandardOutputEncoding = Encoding.UTF8,
-            StandardErrorEncoding = Encoding.UTF8
-        };
-
-        foreach (var argument in arguments)
-        {
-            startInfo.ArgumentList.Add(argument);
-        }
-
-        if (!string.IsNullOrWhiteSpace(workingDirectory))
-        {
-            startInfo.WorkingDirectory = workingDirectory;
-        }
-
-        return startInfo;
-    }
-
-    private static string GetErrorDetail(string standardError, string standardOutput)
-    {
-        return string.IsNullOrWhiteSpace(standardError) ? standardOutput : standardError;
-    }
-
-    private static void TryKillProcessTree(Process process)
-    {
-        try
-        {
-            if (!process.HasExited)
-            {
-                process.Kill(entireProcessTree: true);
-            }
-        }
-        catch (InvalidOperationException)
-        {
-        }
-        catch (NotSupportedException)
-        {
-        }
-    }
-
-    private sealed record GhCommandResult(int ExitCode, string StandardOutput, string StandardError);
 }

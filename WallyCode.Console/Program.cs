@@ -12,9 +12,8 @@ internal static class Program
 		"help",
 		"loop",
 		"prompt",
-		"providers",
+		"provider",
 		"respond",
-		"set-provider",
 		"shell",
 		"version"
 	};
@@ -50,14 +49,13 @@ internal static class Program
 			settings.HelpWriter = Console.Out;
 		});
 
-		var result = parser.ParseArguments<LoopCommandOptions, PromptCommandOptions, ProvidersCommandOptions, RespondCommandOptions, SetProviderCommandOptions, ShellCommandOptions>(normalizedArgs);
+		var result = parser.ParseArguments<LoopCommandOptions, PromptCommandOptions, ProviderCommandOptions, RespondCommandOptions, ShellCommandOptions>(normalizedArgs);
 
 		return await result.MapResult(
 			(LoopCommandOptions options) => loopCommandHandler.ExecuteAsync(options, cancellationToken),
 			(PromptCommandOptions options) => new PromptCommandHandler(providerRegistry, logger).ExecuteAsync(options, cancellationToken),
-			(ProvidersCommandOptions options) => new ProvidersCommandHandler(providerRegistry, logger).ExecuteAsync(options, cancellationToken),
+			(ProviderCommandOptions options) => new ProviderCommandHandler(providerRegistry, logger).ExecuteAsync(options, cancellationToken),
 			(RespondCommandOptions options) => new RespondCommandHandler(logger).ExecuteAsync(options, cancellationToken),
-			(SetProviderCommandOptions options) => new SetProviderCommandHandler(providerRegistry, logger).ExecuteAsync(options, cancellationToken),
 			(ShellCommandOptions options) => new ShellCommandHandler().ExecuteAsync(normalizedArgs, cancellationToken),
 			errors => Task.FromResult(GetNotParsedExitCode(errors)));
 	}
