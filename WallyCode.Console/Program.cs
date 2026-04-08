@@ -7,7 +7,7 @@ namespace WallyCode.ConsoleApp;
 
 internal static class Program
 {
-	private static Task<int> Main(string[] args)
+	private static async Task<int> Main(string[] args)
 	{
 		using var cancellationTokenSource = new CancellationTokenSource();
 		Console.CancelKeyPress += (_, eventArgs) =>
@@ -16,59 +16,30 @@ internal static class Program
 			cancellationTokenSource.Cancel();
 		};
 
-		return RunAsync(args, cancellationTokenSource.Token);
+		return await RunAsync(args, cancellationTokenSource.Token);
 	}
 
 	internal static async Task<int> RunAsync(string[] args, CancellationToken cancellationToken)
 	{
-		var normalizedArgs = NormalizeArgs(args);
 		var logger = new AppLogger();
 		var providerRegistry = ProviderRegistry.Create(logger);
-		var loopCommandHandler = new LoopCommandHandler(providerRegistry, logger);
 
-		if (cancellationToken.CanBeCanceled)
-		{
-			logger.Warning("Press Ctrl+C for graceful cancellation.");
-		}
-
-		var parser = new Parser(settings =>
+		using var parser = new Parser(settings =>
 		{
 			settings.CaseSensitive = false;
 			settings.CaseInsensitiveEnumValues = true;
 			settings.HelpWriter = Console.Out;
 		});
 
-		var result = parser.ParseArguments<LoopCommandOptions, PromptCommandOptions, ProviderCommandOptions, RespondCommandOptions, ShellCommandOptions>(normalizedArgs);
+		var result = parser.ParseArguments<LoopCommandOptions, PromptCommandOptions, ProviderCommandOptions, RespondCommandOptions, ShellCommandOptions>(args);
 
 		return await result.MapResult(
-			(LoopCommandOptions options) => loopCommandHandler.ExecuteAsync(options, cancellationToken),
+			(LoopCommandOptions options) => new LoopCommandHandler(providerRegistry, logger).ExecuteAsync(options, cancellationToken),
 			(PromptCommandOptions options) => new PromptCommandHandler(providerRegistry, logger).ExecuteAsync(options, cancellationToken),
 			(ProviderCommandOptions options) => new ProviderCommandHandler(providerRegistry, logger).ExecuteAsync(options, cancellationToken),
 			(RespondCommandOptions options) => new RespondCommandHandler(logger).ExecuteAsync(options, cancellationToken),
-			(ShellCommandOptions options) => new ShellCommandHandler().ExecuteAsync(normalizedArgs, cancellationToken),
+			(ShellCommandOptions options) => new ShellCommandHandler(options).ExecuteAsync(cancellationToken),
 			errors => Task.FromResult(GetNotParsedExitCode(errors)));
-	}
-
-	private static string[] NormalizeArgs(string[] args)
-	{
-		if (args.Length == 0)
-		{
-			return ["--help"];
-		}
-
-		if (IsHelpToken(args[0]))
-		{
-			return ["--help"];
-		}
-
-		return args;
-	}
-
-	private static bool IsHelpToken(string value)
-	{
-		return string.Equals(value, "--help", StringComparison.OrdinalIgnoreCase)
-			|| string.Equals(value, "-h", StringComparison.OrdinalIgnoreCase)
-			|| string.Equals(value, "/?", StringComparison.OrdinalIgnoreCase);
 	}
 
 	private static int GetNotParsedExitCode(IEnumerable<Error> errors)
