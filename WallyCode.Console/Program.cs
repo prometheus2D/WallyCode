@@ -7,17 +7,6 @@ namespace WallyCode.ConsoleApp;
 
 internal static class Program
 {
-	private static readonly HashSet<string> KnownCommands = new(StringComparer.OrdinalIgnoreCase)
-	{
-		"help",
-		"loop",
-		"prompt",
-		"provider",
-		"respond",
-		"shell",
-		"version"
-	};
-
 	private static Task<int> Main(string[] args)
 	{
 		using var cancellationTokenSource = new CancellationTokenSource();
@@ -72,12 +61,7 @@ internal static class Program
 			return ["--help"];
 		}
 
-		if (args[0].StartsWith("-", StringComparison.Ordinal) || KnownCommands.Contains(args[0]))
-		{
-			return args;
-		}
-
-		return ["loop", .. args];
+		return args;
 	}
 
 	private static bool IsHelpToken(string value)
