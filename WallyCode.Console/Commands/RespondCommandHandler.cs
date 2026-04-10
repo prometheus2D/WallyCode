@@ -16,25 +16,17 @@ internal sealed class RespondCommandHandler
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        try
-        {
-            var projectRoot = ProjectSettings.ResolveProjectRoot(commandOptions.SourcePath);
-            var workspace = MemoryWorkspace.Open(projectRoot, commandOptions.MemoryRoot);
-            var session = workspace.TryLoadSession()
-                ?? throw new InvalidOperationException("No active loop session was found for the selected workspace.");
+        var projectRoot = ProjectSettings.ResolveProjectRoot(commandOptions.SourcePath);
+        var workspace = MemoryWorkspace.Open(projectRoot, commandOptions.MemoryRoot);
+        var session = workspace.TryLoadSession()
+            ?? throw new InvalidOperationException("No active loop session was found for the selected workspace.");
 
-            workspace.AppendUserResponse(commandOptions.Response);
+        workspace.AppendUserResponse(commandOptions.Response);
 
-            _logger.Section("WallyCode Respond");
-            _logger.Info($"Session file: {workspace.SessionStateFilePath}");
-            _logger.Info($"Memory root: {workspace.RootPath}");
-            _logger.Success("User response saved for the next loop iteration.");
-            return Task.FromResult(0);
-        }
-        catch (Exception exception)
-        {
-            _logger.Error(exception.ToString());
-            return Task.FromResult(1);
-        }
+        _logger.Section("WallyCode Respond");
+        _logger.Info($"Session file: {workspace.SessionStateFilePath}");
+        _logger.Info($"Memory root: {workspace.RootPath}");
+        _logger.Success("User response saved for the next loop iteration.");
+        return Task.FromResult(0);
     }
 }

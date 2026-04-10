@@ -1,5 +1,3 @@
-using System.Runtime.InteropServices;
-using System.Text;
 using WallyCode.ConsoleApp.Runtime;
 
 namespace WallyCode.ConsoleApp.Copilot;
@@ -7,14 +5,12 @@ namespace WallyCode.ConsoleApp.Copilot;
 internal sealed class GhCopilotCliProvider : ILlmProvider
 {
     private readonly AppLogger _logger;
-    private static readonly string GhExecutableName = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? "gh.exe" : "gh";
 
-    public GhCopilotCliProvider(string name, string defaultModel, string description, string installerKey, AppLogger logger)
+    public GhCopilotCliProvider(string name, string defaultModel, string description, AppLogger logger)
     {
         Name = name;
         DefaultModel = defaultModel;
         Description = description;
-        InstallerKey = installerKey;
         _logger = logger;
     }
 
@@ -23,8 +19,6 @@ internal sealed class GhCopilotCliProvider : ILlmProvider
     public string Description { get; }
 
     public string DefaultModel { get; }
-
-    public string InstallerKey { get; }
 
     public async Task<string?> GetReadinessErrorAsync(CancellationToken cancellationToken)
     {

@@ -24,31 +24,42 @@ internal static class Program
 		var logger = new AppLogger();
 		var providerRegistry = ProviderRegistry.Create(logger);
 
-		using var parser = new Parser(settings =>
+		var parser = new Parser(settings =>
 		{
 			settings.CaseSensitive = false;
 			settings.CaseInsensitiveEnumValues = true;
 			settings.HelpWriter = Console.Out;
+			settings.AutoHelp = true;
+			settings.AutoVersion = true;
 		});
 
-		var result = parser.ParseArguments<LoopCommandOptions, PromptCommandOptions, ProviderCommandOptions, RespondCommandOptions, ShellCommandOptions>(args);
+		var result = parser.ParseArguments<LoopCommandOptions, PromptCommandOptions, ProvidersCommandOptions, SetProviderCommandOptions, RespondCommandOptions, ShellCommandOptions>(args);
 
-		return await result.MapResult(
-			(LoopCommandOptions options) => new LoopCommandHandler(providerRegistry, logger).ExecuteAsync(options, cancellationToken),
-			(PromptCommandOptions options) => new PromptCommandHandler(providerRegistry, logger).ExecuteAsync(options, cancellationToken),
-			(ProviderCommandOptions options) => new ProviderCommandHandler(providerRegistry, logger).ExecuteAsync(options, cancellationToken),
-			(RespondCommandOptions options) => new RespondCommandHandler(logger).ExecuteAsync(options, cancellationToken),
-			(ShellCommandOptions options) => new ShellCommandHandler(options).ExecuteAsync(cancellationToken),
-			errors => Task.FromResult(GetNotParsedExitCode(errors)));
-	}
-
-	private static int GetNotParsedExitCode(IEnumerable<Error> errors)
-	{
-		return errors.All(error =>
-			error.Tag == ErrorType.HelpRequestedError
-			|| error.Tag == ErrorType.HelpVerbRequestedError
-			|| error.Tag == ErrorType.VersionRequestedError)
-			? 0
-			: 1;
+		try
+		{
+			return await result.MapResult(
+				(LoopCommandOptions options) => new LoopCommandHandler(providerRegistry, logger).ExecuteAsync(options, cancellationToken),
+				(PromptCommandOptions options) => new PromptCommandHandler(providerRegistry, logger).ExecuteAsync(options, cancellationToken),
+				(ProvidersCommandOptions options) => new ProvidersCommandHandler(providerRegistry).ExecuteAsync(options, cancellationToken),
+				(SetProviderCommandOptions options) => new SetProviderCommandHandler(providerRegistry, logger).ExecuteAsync(options, cancellationToken),
+				(RespondCommandOptions options) => new RespondCommandHandler(logger).ExecuteAsync(options, cancellationToken),
+				(ShellCommandOptions options) => new ShellCommandHandler(options).ExecuteAsync(cancellationToken),
+				errors => Task.FromResult(errors.All(e =>
+					e.Tag == ErrorType.HelpRequestedError
+					|| e.Tag == ErrorType.HelpVerbRequestedError
+					|| e.Tag == ErrorType.VersionRequestedError)
+					? 0
+					: 1));
+		}
+		catch (OperationCanceledException)
+		{
+			logger.Warning("Cancelled.");
+			return 2;
+		}
+		catch (Exception exception)
+		{
+			logger.Error(exception.Message);
+			return 1;
+		}
 	}
 }

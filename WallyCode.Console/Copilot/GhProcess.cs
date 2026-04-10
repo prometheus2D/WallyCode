@@ -78,9 +78,19 @@ internal static class GhProcess
 
     private static void TryKill(Process process)
     {
-        try { if (!process.HasExited) process.Kill(entireProcessTree: true); }
-        catch (InvalidOperationException) { }
-        catch (NotSupportedException) { }
+        try
+        {
+            if (!process.HasExited)
+            {
+                process.Kill(entireProcessTree: true);
+            }
+        }
+        catch (InvalidOperationException)
+        {
+        }
+        catch (NotSupportedException)
+        {
+        }
     }
 
     internal sealed record GhResult(int ExitCode, string StandardOutput, string StandardError)

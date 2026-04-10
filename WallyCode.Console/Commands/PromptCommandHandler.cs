@@ -20,59 +20,46 @@ internal sealed class PromptCommandHandler
 
     public async Task<int> ExecuteAsync(PromptCommandOptions commandOptions, CancellationToken cancellationToken)
     {
-        try
-        {
-            var projectRoot = ProjectSettings.ResolveProjectRoot(commandOptions.SourcePath);
-            var settings = ProjectSettings.Load(projectRoot);
-            var providerName = string.IsNullOrWhiteSpace(commandOptions.Provider)
-                ? settings.Provider
-                : commandOptions.Provider.Trim();
-            var provider = _providerRegistry.Get(providerName);
-            var resolvedModel = string.IsNullOrWhiteSpace(commandOptions.Model)
-                ? provider.DefaultModel
-                : commandOptions.Model.Trim();
-            var timestamp = DateTimeOffset.Now;
-            var logDirectoryPath = ProjectSettings.EnsureRuntimeDirectory(projectRoot, "logs");
-            var promptDirectoryPath = ProjectSettings.EnsureRuntimeDirectory(projectRoot, "prompts");
-            var rawDirectoryPath = ProjectSettings.EnsureRuntimeDirectory(projectRoot, "raw");
+        var projectRoot = ProjectSettings.ResolveProjectRoot(commandOptions.SourcePath);
+        var settings = ProjectSettings.Load(projectRoot);
+        var providerName = string.IsNullOrWhiteSpace(commandOptions.Provider)
+            ? settings.Provider
+            : commandOptions.Provider.Trim();
+        var provider = _providerRegistry.Get(providerName);
+        var resolvedModel = string.IsNullOrWhiteSpace(commandOptions.Model)
+            ? provider.DefaultModel
+            : commandOptions.Model.Trim();
+        var timestamp = DateTimeOffset.Now;
+        var logDirectoryPath = ProjectSettings.EnsureRuntimeDirectory(projectRoot, "logs");
+        var promptDirectoryPath = ProjectSettings.EnsureRuntimeDirectory(projectRoot, "prompts");
+        var rawDirectoryPath = ProjectSettings.EnsureRuntimeDirectory(projectRoot, "raw");
 
-            _logger.LogFilePath = Path.Combine(logDirectoryPath, $"prompt-{timestamp:yyyyMMdd-HHmmss}.log");
-            _logger.Section("WallyCode Prompt");
-            _logger.Info($"Provider: {provider.Name}");
-            _logger.Info($"Model: {resolvedModel}");
-            _logger.Info($"Project root: {projectRoot}");
-            await provider.EnsureReadyAsync(cancellationToken);
+        _logger.LogFilePath = Path.Combine(logDirectoryPath, $"prompt-{timestamp:yyyyMMdd-HHmmss}.log");
+        _logger.Section("WallyCode Prompt");
+        _logger.Info($"Provider: {provider.Name}");
+        _logger.Info($"Model: {resolvedModel}");
+        _logger.Info($"Project root: {projectRoot}");
+        await provider.EnsureReadyAsync(cancellationToken);
 
-            var prompt = commandOptions.Prompt.Trim();
-            var promptPath = Path.Combine(promptDirectoryPath, $"prompt-{timestamp:yyyyMMdd-HHmmss}.txt");
-            File.WriteAllText(promptPath, prompt + Environment.NewLine, Utf8NoBom);
+        var prompt = commandOptions.Prompt.Trim();
+        var promptPath = Path.Combine(promptDirectoryPath, $"prompt-{timestamp:yyyyMMdd-HHmms}.txt");
+        File.WriteAllText(promptPath, prompt + Environment.NewLine, Utf8NoBom);
 
-            var response = await provider.ExecuteAsync(
-                new CopilotRequest
-                {
-                    Prompt = prompt,
-                    Model = resolvedModel,
-                    SourcePath = projectRoot
-                },
-                cancellationToken);
+        var response = await provider.ExecuteAsync(
+            new CopilotRequest
+            {
+                Prompt = prompt,
+                Model = resolvedModel,
+                SourcePath = projectRoot
+            },
+            cancellationToken);
 
-            var rawOutputPath = Path.Combine(rawDirectoryPath, $"prompt-{timestamp:yyyyMMdd-HHmmss}.txt");
-            File.WriteAllText(rawOutputPath, response.Trim() + Environment.NewLine, Utf8NoBom);
+        var rawOutputPath = Path.Combine(rawDirectoryPath, $"prompt-{timestamp:yyyyMMdd-HHmms}.txt");
+        File.WriteAllText(rawOutputPath, response.Trim() + Environment.NewLine, Utf8NoBom);
 
-            _logger.Success("Prompt complete.");
-            Console.WriteLine();
-            Console.WriteLine(response.Trim());
-            return 0;
-        }
-        catch (OperationCanceledException)
-        {
-            _logger.Warning("Prompt cancelled.");
-            return 2;
-        }
-        catch (Exception exception)
-        {
-            _logger.Error(exception.ToString());
-            return 1;
-        }
+        _logger.Success("Prompt complete.");
+        Console.WriteLine();
+        Console.WriteLine(response.Trim());
+        return 0;
     }
 }

@@ -17,86 +17,69 @@ internal sealed class LoopCommandHandler
         _logger = logger;
     }
 
-    public Task<int> ExecuteAsync(LoopCommandOptions commandOptions, CancellationToken cancellationToken)
+    public async Task<int> ExecuteAsync(LoopCommandOptions commandOptions, CancellationToken cancellationToken)
     {
-        return ExecuteHandledAsync(async () =>
+        if (commandOptions.Steps <= 0)
         {
-            var requestedSteps = ValidateRequestedSteps(commandOptions.Steps);
-            var projectRoot = ProjectSettings.ResolveProjectRoot(commandOptions.SourcePath);
-            var goal = commandOptions.Goal?.Trim();
-            var workspace = OpenWorkspace(projectRoot, commandOptions.MemoryRoot);
-            var session = workspace.TryLoadSession();
-            ILlmProvider provider;
-            AppOptions options;
-            string startupMessage;
+            throw new InvalidOperationException("The step count must be greater than zero.");
+        }
 
-            if (session is null)
+        var projectRoot = ProjectSettings.ResolveProjectRoot(commandOptions.SourcePath);
+        var goal = commandOptions.Goal?.Trim();
+        var resolvedMemoryRoot = string.IsNullOrWhiteSpace(commandOptions.MemoryRoot)
+            ? null
+            : Path.GetFullPath(commandOptions.MemoryRoot);
+        var workspace = MemoryWorkspace.Open(projectRoot, resolvedMemoryRoot);
+        var session = workspace.TryLoadSession();
+        ILlmProvider provider;
+        AppOptions options;
+        string startupMessage;
+
+        if (session is null)
+        {
+            if (string.IsNullOrWhiteSpace(goal))
             {
-                if (string.IsNullOrWhiteSpace(goal))
-                {
-                    throw new InvalidOperationException("No active loop session was found. Start one with: loop <goal>");
-                }
-
-                var settings = ProjectSettings.Load(projectRoot);
-                var providerName = string.IsNullOrWhiteSpace(commandOptions.Provider)
-                    ? settings.Provider
-                    : commandOptions.Provider.Trim();
-                var template = LoopTemplateRegistry.Load(commandOptions.Template);
-
-                provider = _providerRegistry.Get(providerName);
-                options = new AppOptions
-                {
-                    Goal = goal,
-                    ProviderName = provider.Name,
-                    Model = string.IsNullOrWhiteSpace(commandOptions.Model)
-                        ? provider.DefaultModel
-                        : commandOptions.Model.Trim(),
-                    SourcePath = projectRoot,
-                    MaxIterations = requestedSteps,
-                    LoopTemplateId = template.TemplateId
-                };
-
-                session = workspace.StartNewSession(options, template);
-                startupMessage = $"Starting a new loop session with template '{template.TemplateId}'.";
-            }
-            else
-            {
-                ValidateExistingSession(commandOptions, goal, projectRoot, workspace, session);
-                provider = _providerRegistry.Get(session.ProviderName);
-                options = CreateOptions(session, requestedSteps);
-                startupMessage = $"Resuming active loop session at iteration {session.NextIteration}.";
+                throw new InvalidOperationException("No active loop session was found. Start one with: loop <goal>");
             }
 
-            return await ExecuteSessionAsync(options, workspace, session, provider, startupMessage, cancellationToken);
-        });
-    }
+            var settings = ProjectSettings.Load(projectRoot);
+            var providerName = string.IsNullOrWhiteSpace(commandOptions.Provider)
+                ? settings.Provider
+                : commandOptions.Provider.Trim();
+            var template = LoopTemplateRegistry.Load(commandOptions.Template);
 
-    private async Task<int> ExecuteHandledAsync(Func<Task<int>> action)
-    {
-        try
-        {
-            return await action();
-        }
-        catch (OperationCanceledException)
-        {
-            _logger.Warning("Run cancelled.");
-            return 2;
-        }
-        catch (Exception exception)
-        {
-            _logger.Error(exception.ToString());
-            return 1;
-        }
-    }
+            provider = _providerRegistry.Get(providerName);
+            options = new AppOptions
+            {
+                Goal = goal,
+                ProviderName = provider.Name,
+                Model = string.IsNullOrWhiteSpace(commandOptions.Model)
+                    ? provider.DefaultModel
+                    : commandOptions.Model.Trim(),
+                SourcePath = projectRoot,
+                MaxIterations = commandOptions.Steps,
+                LoopTemplateId = template.TemplateId
+            };
 
-    private async Task<int> ExecuteSessionAsync(
-        AppOptions options,
-        MemoryWorkspace workspace,
-        LoopSessionState session,
-        ILlmProvider provider,
-        string startupMessage,
-        CancellationToken cancellationToken)
-    {
+            session = workspace.StartNewSession(options, template);
+            startupMessage = $"Starting a new loop session with template '{template.TemplateId}'.";
+        }
+        else
+        {
+            ValidateExistingSession(commandOptions, goal, projectRoot, workspace, session);
+            provider = _providerRegistry.Get(session.ProviderName);
+            options = new AppOptions
+            {
+                Goal = session.Goal,
+                ProviderName = session.ProviderName,
+                Model = session.Model,
+                SourcePath = session.SourcePath,
+                MaxIterations = commandOptions.Steps,
+                LoopTemplateId = session.LoopTemplateId
+            };
+            startupMessage = $"Resuming active loop session at iteration {session.NextIteration}.";
+        }
+
         _logger.LogFilePath = workspace.SessionLogFilePath;
         _logger.Section("WallyCode Loop");
         _logger.Info($"Session file: {workspace.SessionStateFilePath}");
@@ -127,38 +110,6 @@ internal sealed class LoopCommandHandler
 
         _logger.Success("Run complete.");
         return 0;
-    }
-
-    private static int ValidateRequestedSteps(int requestedSteps)
-    {
-        if (requestedSteps <= 0)
-        {
-            throw new InvalidOperationException("The step count must be greater than zero.");
-        }
-
-        return requestedSteps;
-    }
-
-    private static AppOptions CreateOptions(LoopSessionState session, int requestedSteps)
-    {
-        return new AppOptions
-        {
-            Goal = session.Goal,
-            ProviderName = session.ProviderName,
-            Model = session.Model,
-            SourcePath = session.SourcePath,
-            MaxIterations = requestedSteps,
-            LoopTemplateId = session.LoopTemplateId
-        };
-    }
-
-    private static MemoryWorkspace OpenWorkspace(string projectRoot, string? memoryRoot)
-    {
-        var resolvedMemoryRoot = string.IsNullOrWhiteSpace(memoryRoot)
-            ? null
-            : Path.GetFullPath(memoryRoot);
-
-        return MemoryWorkspace.Open(projectRoot, resolvedMemoryRoot);
     }
 
     private static void ValidateExistingSession(
