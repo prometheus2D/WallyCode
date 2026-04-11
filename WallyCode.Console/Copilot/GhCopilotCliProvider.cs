@@ -11,6 +11,7 @@ internal sealed class GhCopilotCliProvider : ILlmProvider
         Name = name;
         DefaultModel = defaultModel;
         Description = description;
+        SupportedModels = [defaultModel];
         _logger = logger;
     }
 
@@ -19,6 +20,8 @@ internal sealed class GhCopilotCliProvider : ILlmProvider
     public string Description { get; }
 
     public string DefaultModel { get; }
+
+    public IReadOnlyList<string> SupportedModels { get; }
 
     public async Task<string?> GetReadinessErrorAsync(CancellationToken cancellationToken)
     {

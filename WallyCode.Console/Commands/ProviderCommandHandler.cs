@@ -24,6 +24,11 @@ internal sealed class ProviderCommandHandler
             return Task.FromResult(SetProvider(options));
         }
 
+        if (options.Models)
+        {
+            return Task.FromResult(ListModels(options));
+        }
+
         return ListAsync(options, cancellationToken);
     }
 
@@ -42,7 +47,27 @@ internal sealed class ProviderCommandHandler
         settings.Provider = provider.Name;
         settings.Save(projectRoot);
 
-        _logger.Success($"{provider.Name} (model: {provider.DefaultModel})");
+        _logger.Success($"Default provider set to {provider.Name} (model: {provider.DefaultModel})");
+        return 0;
+    }
+
+    private int ListModels(ProviderCommandOptions options)
+    {
+        var projectRoot = ProjectSettings.ResolveProjectRoot(options.SourcePath);
+        var settings = ProjectSettings.Load(projectRoot);
+        var providerName = string.IsNullOrWhiteSpace(options.Name)
+            ? settings.Provider
+            : options.Name.Trim();
+        var provider = _registry.Get(providerName);
+
+        Console.WriteLine(provider.Name);
+
+        foreach (var model in provider.SupportedModels)
+        {
+            var isDefault = string.Equals(model, provider.DefaultModel, StringComparison.OrdinalIgnoreCase) ? " (default)" : "";
+            Console.WriteLine($"  {model}{isDefault}");
+        }
+
         return 0;
     }
 
@@ -56,9 +81,9 @@ internal sealed class ProviderCommandHandler
         {
             var readinessError = await provider.GetReadinessErrorAsync(cancellationToken);
             var status = string.IsNullOrWhiteSpace(readinessError) ? "ready" : "unavailable";
-            var active = string.Equals(provider.Name, current.Name, StringComparison.OrdinalIgnoreCase) ? " *" : "";
+            var isDefault = string.Equals(provider.Name, current.Name, StringComparison.OrdinalIgnoreCase) ? " (default)" : "";
 
-            Console.WriteLine($"  {provider.Name} [{status}] model:{provider.DefaultModel}{active}");
+            Console.WriteLine($"  {provider.Name} [{status}] model:{provider.DefaultModel}{isDefault}");
         }
 
         return 0;

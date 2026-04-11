@@ -4,7 +4,7 @@ WallyCode is a small .NET 8 console app that wraps the GitHub Copilot CLI.
 
 The command surface is intentionally small:
 
-- `provider` reviews providers and sets the default provider for the repo
+- `provider` reviews providers, lists provider models, and sets the default provider for the repo
 - `prompt` runs a one-off prompt
 - `loop` starts or continues a stateful loop session
 - `respond` adds a user response for the next loop iteration
@@ -37,6 +37,18 @@ List providers and see which one is active:
 
 ```text
 provider
+```
+
+List the models for the current default provider:
+
+```text
+provider --models
+```
+
+List the models for one provider:
+
+```text
+provider gh-copilot-claude --models
 ```
 
 Set the default provider for this repo:
@@ -79,6 +91,8 @@ Inside the shell, run the same commands directly:
 
 ```text
 provider
+provider --models
+provider gh-copilot-claude --models
 provider gh-copilot-claude --set
 prompt "Summarize this repository"
 loop "Work on issue 123"
@@ -94,6 +108,18 @@ List providers:
 
 ```text
 provider
+```
+
+List models for the current default provider:
+
+```text
+provider --models
+```
+
+List models for one provider:
+
+```text
+provider gh-copilot-claude --models
 ```
 
 Set the default provider:

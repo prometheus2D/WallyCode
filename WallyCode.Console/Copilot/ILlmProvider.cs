@@ -8,6 +8,8 @@ internal interface ILlmProvider
 
     string DefaultModel { get; }
 
+    IReadOnlyList<string> SupportedModels { get; }
+
     Task<string?> GetReadinessErrorAsync(CancellationToken cancellationToken);
 
     async Task EnsureReadyAsync(CancellationToken cancellationToken)
