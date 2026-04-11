@@ -1,4 +1,3 @@
-using System.Text;
 using System.Text.Json;
 
 namespace WallyCode.ConsoleApp.Loop;
@@ -9,7 +8,7 @@ internal static class LoopResponseParser
     {
         if (string.IsNullOrWhiteSpace(rawOutput))
         {
-            rawOutput = "Provider returned no output.";
+            rawOutput = "Copilot returned no output.";
         }
 
         if (TryParseJson(rawOutput, out var response))
@@ -30,7 +29,7 @@ internal static class LoopResponseParser
                 new JsonSerializerOptions
                 {
                     PropertyNameCaseInsensitive = true
-                }) ?? throw new InvalidOperationException("The provider returned invalid JSON.");
+                }) ?? throw new InvalidOperationException("Copilot returned invalid JSON.");
 
             response.Status = response.Status?.Trim() ?? string.Empty;
             response.Summary = response.Summary?.Trim() ?? string.Empty;
@@ -64,13 +63,13 @@ internal static class LoopResponseParser
             Assumptions = [],
             Blockers = [],
             DoneReason = status == "done"
-                ? "The loop parser inferred completion from an unstructured provider response."
+                ? "The loop parser inferred completion from an unstructured Copilot response."
                 : string.Empty
         };
 
         if (response.Questions.Count == 0)
         {
-            response.Questions.Add("Review the raw provider output and choose the next bounded iteration.");
+            response.Questions.Add("Review the raw Copilot response and choose the next bounded iteration.");
         }
 
         response.Validate();
@@ -105,7 +104,7 @@ internal static class LoopResponseParser
 
         if (firstBrace < 0 || lastBrace <= firstBrace)
         {
-            throw new InvalidOperationException("No JSON object was found in the provider output.");
+            throw new InvalidOperationException("No JSON object was found in the Copilot response.");
         }
 
         return trimmed[firstBrace..(lastBrace + 1)];
@@ -149,7 +148,7 @@ internal static class LoopResponseParser
             return sentenceEnd >= 0 ? cleaned[..(sentenceEnd + 1)] : cleaned;
         }
 
-        return "Normalized a non-JSON provider response into loop memory.";
+        return "Normalized a non-JSON Copilot response into loop memory.";
     }
 
     private static string InferStatus(string rawOutput)

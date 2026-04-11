@@ -5,11 +5,7 @@ namespace WallyCode.ConsoleApp.Project;
 
 internal sealed class ProjectSettings
 {
-    private const string LegacySingleProviderName = "gh-copilot";
-    private const string LegacyClaudeProviderName = "gh-claude";
-    private const string LegacyChatGptProviderName = "gh-chatgpt";
-    private const string ClaudeProviderName = "gh-copilot-claude";
-    private const string Gpt5ProviderName = "gh-copilot-gpt5";
+    private const string DefaultProviderName = "gh-copilot-claude";
 
     private static readonly JsonSerializerOptions SerializerOptions = new()
     {
@@ -18,7 +14,7 @@ internal sealed class ProjectSettings
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
     };
 
-    public string Provider { get; set; } = ClaudeProviderName;
+    public string Provider { get; set; } = DefaultProviderName;
 
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? Model { get; set; }
@@ -37,7 +33,7 @@ internal sealed class ProjectSettings
         var settings = JsonSerializer.Deserialize<ProjectSettings>(File.ReadAllText(settingsPath), SerializerOptions)
             ?? new ProjectSettings();
 
-        settings.Provider = NormalizeProvider(settings.Provider, settings.Model);
+        settings.Provider = ResolveProviderName(settings.Provider);
         settings.Model = null;
 
         if (settings.UpdatedAtUtc == default)
@@ -51,7 +47,7 @@ internal sealed class ProjectSettings
     public void Save(string projectRoot)
     {
         Directory.CreateDirectory(projectRoot);
-        Provider = NormalizeProvider(Provider, Model);
+        Provider = ResolveProviderName(Provider);
         Model = null;
         UpdatedAtUtc = DateTimeOffset.UtcNow;
 
@@ -85,32 +81,13 @@ internal sealed class ProjectSettings
         return path;
     }
 
-    private static string NormalizeProvider(string? providerName, string? legacyModel)
+    private static string ResolveProviderName(string? providerName)
     {
         if (string.IsNullOrWhiteSpace(providerName))
         {
-            return ClaudeProviderName;
+            return DefaultProviderName;
         }
 
-        var value = providerName.Trim();
-
-        if (string.Equals(value, LegacySingleProviderName, StringComparison.OrdinalIgnoreCase))
-        {
-            return string.Equals(legacyModel, "gpt-5", StringComparison.OrdinalIgnoreCase)
-                ? Gpt5ProviderName
-                : ClaudeProviderName;
-        }
-
-        if (string.Equals(value, LegacyClaudeProviderName, StringComparison.OrdinalIgnoreCase))
-        {
-            return ClaudeProviderName;
-        }
-
-        if (string.Equals(value, LegacyChatGptProviderName, StringComparison.OrdinalIgnoreCase))
-        {
-            return Gpt5ProviderName;
-        }
-
-        return value;
+        return providerName.Trim();
     }
 }

@@ -15,33 +15,19 @@ internal sealed class MemoryWorkspace
     };
 
     public required string RootPath { get; init; }
-
     public required string MemoryDirectoryPath { get; init; }
-
     public required string LogsDirectoryPath { get; init; }
-
     public required string PromptsDirectoryPath { get; init; }
-
     public required string RawDirectoryPath { get; init; }
-
     public required string GoalFilePath { get; init; }
-
     public required string CurrentTasksFilePath { get; init; }
-
     public required string PerspectivesFilePath { get; init; }
-
     public required string NextStepsFilePath { get; init; }
-
     public required string CurrentStateFilePath { get; init; }
-
     public required string UserResponsesFilePath { get; init; }
-
     public required string UserResponsesJsonFilePath { get; init; }
-
     public required string LoopStateFilePath { get; init; }
-
     public required string SessionLogFilePath { get; init; }
-
     public required string SessionStateFilePath { get; init; }
 
     public static MemoryWorkspace Open(string sourcePath, string? memoryRoot)

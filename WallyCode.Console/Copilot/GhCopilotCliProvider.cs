@@ -32,9 +32,14 @@ internal sealed class GhCopilotCliProvider : ILlmProvider
             return ghError;
         }
 
-        var copilotError = await CheckCommandAsync(
-            ["copilot", "--help"],
-            $"{Name} requires the `gh copilot` command to be available.",
+        if (string.IsNullOrWhiteSpace(GhProcess.TryResolveCopilotExecutablePath()))
+        {
+            return $"{Name} requires the `copilot` CLI to be installed on PATH or in the GitHub CLI managed install location.";
+        }
+
+        var copilotError = await CheckCopilotCommandAsync(
+            ["--help"],
+            $"{Name} requires the `copilot` CLI to be runnable.",
             cancellationToken);
 
         if (copilotError is not null)
@@ -62,7 +67,6 @@ internal sealed class GhCopilotCliProvider : ILlmProvider
             : request.Model.Trim();
         var arguments = new List<string>
         {
-            "copilot",
             "--model",
             model
         };
@@ -89,18 +93,47 @@ internal sealed class GhCopilotCliProvider : ILlmProvider
         arguments.Add(request.Prompt);
 
         _logger.Info($"Launching {Name} with model {model}.");
-        var result = await GhProcess.RunAsync(arguments, workingDirectory, cancellationToken);
+        var result = await GhProcess.RunCopilotAsync(arguments, workingDirectory, cancellationToken);
 
         if (result.ExitCode != 0)
         {
             var errorDetail = GhProcess.ErrorDetail(result);
             throw new InvalidOperationException(
                 string.IsNullOrWhiteSpace(errorDetail)
-                    ? $"gh copilot exited with code {result.ExitCode}."
+                    ? $"copilot exited with code {result.ExitCode}."
                     : errorDetail);
         }
 
         return result.StandardOutput;
+    }
+
+    private static async Task<string?> CheckCopilotCommandAsync(
+        IReadOnlyList<string> arguments,
+        string failureMessage,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var result = await GhProcess.RunCopilotAsync(arguments, cancellationToken);
+
+            if (result.Success)
+            {
+                return null;
+            }
+
+            var errorDetail = GhProcess.ErrorDetail(result);
+            return string.IsNullOrWhiteSpace(errorDetail)
+                ? failureMessage
+                : $"{failureMessage} {errorDetail}";
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception exception)
+        {
+            return $"{failureMessage} {exception.Message}";
+        }
     }
 
     private static async Task<string?> CheckCommandAsync(

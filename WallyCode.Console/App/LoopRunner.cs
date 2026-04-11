@@ -1,4 +1,3 @@
-using System.Text.RegularExpressions;
 using WallyCode.ConsoleApp.Copilot;
 using WallyCode.ConsoleApp.Loop;
 using WallyCode.ConsoleApp.Runtime;
@@ -46,7 +45,7 @@ internal sealed class LoopRunner
                 cancellationToken);
 
             workspace.SaveRawOutput(iteration, rawOutput);
-            _logger.Info("Provider output saved. Parsing structured response.");
+            _logger.Info("Copilot response saved. Parsing structured response.");
 
             LoopIterationResponse response;
 

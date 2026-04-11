@@ -42,7 +42,7 @@ internal sealed class PromptCommandHandler
         await provider.EnsureReadyAsync(cancellationToken);
 
         var prompt = commandOptions.Prompt.Trim();
-        var promptPath = Path.Combine(promptDirectoryPath, $"prompt-{timestamp:yyyyMMdd-HHmms}.txt");
+        var promptPath = Path.Combine(promptDirectoryPath, $"prompt-{timestamp:yyyyMMdd-HHmmss}.txt");
         File.WriteAllText(promptPath, prompt + Environment.NewLine, Utf8NoBom);
 
         var response = await provider.ExecuteAsync(
@@ -54,7 +54,7 @@ internal sealed class PromptCommandHandler
             },
             cancellationToken);
 
-        var rawOutputPath = Path.Combine(rawDirectoryPath, $"prompt-{timestamp:yyyyMMdd-HHmms}.txt");
+        var rawOutputPath = Path.Combine(rawDirectoryPath, $"prompt-{timestamp:yyyyMMdd-HHmmss}.txt");
         File.WriteAllText(rawOutputPath, response.Trim() + Environment.NewLine, Utf8NoBom);
 
         _logger.Success("Prompt complete.");

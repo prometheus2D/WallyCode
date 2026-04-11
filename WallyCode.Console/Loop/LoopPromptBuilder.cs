@@ -6,9 +6,9 @@ namespace WallyCode.ConsoleApp.Loop;
 
 internal static class LoopPromptBuilder
 {
-    public static string Build(AppOptions options, MemoryWorkspace workspace, MemorySnapshot snapshot, int iteration, int step, LoopTemplate template)
-    {
-        return $$"""
+  public static string Build(AppOptions options, MemoryWorkspace workspace, MemorySnapshot snapshot, int iteration, int step, LoopTemplate template)
+  {
+    return $$"""
 {{template.SystemPrompt}}
 
 Loop metadata:
@@ -61,25 +61,25 @@ Current state document:
 Pending user responses since the last processed response:
 {{RenderPendingResponses(snapshot.PendingUserResponses)}}
 """;
-    }
+  }
 
-    private static string RenderPendingResponses(IReadOnlyList<UserResponseEntry> responses)
+  private static string RenderPendingResponses(IReadOnlyList<UserResponseEntry> responses)
+  {
+    if (responses.Count == 0)
     {
-        if (responses.Count == 0)
-        {
-            return "- None";
-        }
-
-        var builder = new StringBuilder();
-
-        foreach (var response in responses)
-        {
-            builder.AppendLine($"## Response {response.Id} | {response.TimestampUtc:yyyy-MM-dd HH:mm:ss zzz}");
-            builder.AppendLine();
-            builder.AppendLine(response.Text);
-            builder.AppendLine();
-        }
-
-        return builder.ToString().TrimEnd();
+      return "- None";
     }
+
+    var builder = new StringBuilder();
+
+    foreach (var response in responses)
+    {
+      builder.AppendLine($"## Response {response.Id} | {response.TimestampUtc:yyyy-MM-dd HH:mm:ss zzz}");
+      builder.AppendLine();
+      builder.AppendLine(response.Text);
+      builder.AppendLine();
+    }
+
+    return builder.ToString().TrimEnd();
+  }
 }

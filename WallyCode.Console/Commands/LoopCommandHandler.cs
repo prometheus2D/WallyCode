@@ -77,7 +77,9 @@ internal sealed class LoopCommandHandler
                 MaxIterations = commandOptions.Steps,
                 LoopTemplateId = session.LoopTemplateId
             };
-            startupMessage = $"Resuming active loop session at iteration {session.NextIteration}.";
+            startupMessage = string.IsNullOrWhiteSpace(goal)
+                ? $"Resuming active loop session at iteration {session.NextIteration}."
+                : $"Resuming existing loop session at iteration {session.NextIteration}.";
         }
 
         _logger.LogFilePath = workspace.SessionLogFilePath;
