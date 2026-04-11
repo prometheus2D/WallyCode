@@ -4,7 +4,7 @@ WallyCode is a small .NET 8 console app that wraps the GitHub Copilot CLI.
 
 The command surface is intentionally small:
 
-- `provider` reviews providers, lists provider models, and sets the default provider and model for the repo
+- `provider` lists providers, lists provider models, and sets the default provider and model for the current project
 - `prompt` runs a one-off prompt
 - `loop` starts or continues a stateful loop session
 - `respond` adds a user response for the next loop iteration
@@ -51,7 +51,7 @@ List the models for one provider:
 provider gh-copilot-claude --models
 ```
 
-Set the default provider for this repo:
+Set the default provider for this project:
 
 ```text
 provider gh-copilot-gpt5 --set
@@ -60,13 +60,13 @@ provider gh-copilot-gpt5 --set
 Set the default model for the current default provider:
 
 ```text
-provider --model gpt-5.2
+provider --model gpt-5
 ```
 
 Set the default model for a specific provider:
 
 ```text
-provider gh-copilot-claude --model claude-sonnet-4.6
+provider gh-copilot-claude --model claude-sonnet-4
 ```
 
 Run one prompt using the saved default provider and model:
@@ -84,7 +84,7 @@ prompt "Summarize this repository in one short paragraph." --provider gh-copilot
 Override the model for one prompt without changing the saved default:
 
 ```text
-prompt "Summarize this repository in one short paragraph." --model gpt-5.2
+prompt "Summarize this repository in one short paragraph." --model gpt-5
 ```
 
 Start a loop:
@@ -97,6 +97,12 @@ Continue the active loop:
 
 ```text
 loop
+```
+
+Run multiple loop iterations in one invocation:
+
+```text
+loop --steps 3
 ```
 
 Start interactive mode:
@@ -112,12 +118,14 @@ provider
 provider --models
 provider gh-copilot-claude --models
 provider gh-copilot-claude --set
-provider --model gpt-5.2
-provider gh-copilot-claude --model claude-sonnet-4.6
+provider --model gpt-5
+provider gh-copilot-claude --model claude-sonnet-4
 prompt "Summarize this repository"
 loop "Work on issue 123"
+loop --steps 2
 loop
 respond "Use the simpler approach"
+reset-memory
 ```
 
 ## Provider Command
@@ -151,13 +159,13 @@ provider gh-copilot-claude --set
 Set the default model for the current default provider:
 
 ```text
-provider --model gpt-5.2
+provider --model gpt-5
 ```
 
 Set the default model for a specific provider:
 
 ```text
-provider gh-copilot-claude --model claude-sonnet-4.6
+provider gh-copilot-claude --model claude-sonnet-4
 ```
 
 Typical flow:
@@ -165,24 +173,26 @@ Typical flow:
 ```text
 provider
 provider --models
-provider --model gpt-5.2
+provider --model gpt-5
 ```
 
 Or for a specific provider:
 
 ```text
 provider gh-copilot-claude --models
-provider gh-copilot-claude --model claude-sonnet-4.6
+provider gh-copilot-claude --model claude-sonnet-4
 ```
 
-For the GitHub Copilot provider, `provider --models` queries the GitHub Copilot model catalog using your authenticated GitHub CLI session and marks the saved default model.
+For the GitHub Copilot providers, `provider --models` queries the GitHub Copilot model catalog using your authenticated GitHub CLI session and marks the saved default model.
 
 Current providers:
 
-- `gh-copilot-claude`
-- `gh-copilot-gpt5`
+- `gh-copilot-claude` default model `claude-sonnet-4`
+- `gh-copilot-gpt5` default model `gpt-5`
 
 If you never set one, WallyCode defaults to `gh-copilot-claude`.
+
+Project settings are stored in `wallycode.json` at the project root.
 
 ## Prompt vs Loop
 
@@ -197,6 +207,7 @@ Use `loop` when you want WallyCode to carry state forward between iterations and
 - `loop <goal>` starts a session
 - `loop` continues the active session
 - `loop --steps <n>` runs more than one iteration in one invocation
+- `loop --template <id>` starts a new session with a specific loop template
 - `respond "..."` stores user input for the next loop iteration
 
 Use a separate memory folder when you want an isolated session:
@@ -205,33 +216,67 @@ Use a separate memory folder when you want an isolated session:
 loop "Work on issue 123" --memory-root .\.wallycode-issue-123
 ```
 
+Use a specific source folder when the project root is not the current directory:
+
+```text
+loop "Work on issue 123" --source C:\src\my-repo
+```
+
+A loop session locks in its provider, model, template, source path, and memory root. To change those for a different run, start a separate session with a different `--memory-root`.
+
+## Loop Templates
+
+Built-in loop templates are loaded from `Templates/Loops/<template>.json`.
+
+Current built-in template:
+
+- `default`
+
+If you omit `--template`, WallyCode uses `default`.
+
+## Shell
+
+Start the interactive shell:
+
+```text
+shell
+```
+
+Optional shell flags:
+
+- `shell --source <path>`
+- `shell --memory-root <path>`
+- `shell --reset-memory`
+
+Inside the shell:
+
+- run any normal WallyCode command without the executable name
+- type `reset-memory` to clear the current memory workspace
+- type `exit` to quit
+
 ## What WallyCode Writes
 
-WallyCode stores project settings in `wallycode.json` at the repo root.
+WallyCode stores project settings in `wallycode.json` at the project root.
 
-Loop runs write state under `.wallycode/`:
+Loop runs write state under `.wallycode/` by default, or under the folder passed to `--memory-root`:
 
-- `.wallycode/session.json`
-- `.wallycode/memory/goal.md`
-- `.wallycode/memory/current-tasks.md`
-- `.wallycode/memory/perspectives.md`
-- `.wallycode/memory/next-steps.md`
-- `.wallycode/memory/current-state.md`
-- `.wallycode/prompts/iteration-###.txt`
-- `.wallycode/raw/iteration-###.txt`
-- `.wallycode/logs/iteration-###.md`
-- `.wallycode/logs/session.log`
+- `session.json`
+- `memory/goal.md`
+- `memory/current-tasks.md`
+- `memory/perspectives.md`
+- `memory/next-steps.md`
+- `memory/current-state.md`
+- `prompts/iteration-###.txt`
+- `raw/iteration-###.txt`
+- `logs/iteration-###.md`
+- `logs/session.log`
 
-Prompt runs also write files under `.wallycode/`:
+Prompt runs also write files under the runtime workspace:
 
-- `.wallycode/prompts/prompt-*.txt`
-- `.wallycode/raw/prompt-*.txt`
-- `.wallycode/logs/prompt-*.log`
+- `prompts/prompt-*.txt`
+- `raw/prompt-*.txt`
+- `logs/prompt-*.log`
 
 ## Runtime Command
 
-Under the hood, WallyCode runs:
-
-```text
-copilot --model <resolvedModel> [--add-dir <sourcePath>] --yolo -s -p <prompt>
-```
+Under the hood, WallyCode runs the selected provider through the GitHub Copilot CLI and passes the resolved model, source path, and prompt text.
