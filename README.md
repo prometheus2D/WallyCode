@@ -128,6 +128,8 @@ Set the default provider:
 provider gh-copilot-claude --set
 ```
 
+For the GitHub Copilot provider, `provider --models` queries the GitHub Copilot model catalog using your authenticated GitHub CLI session and marks the provider's default model.
+
 Current providers:
 
 - `gh-copilot-claude`
@@ -182,5 +184,4 @@ Prompt runs also write files under `.wallycode/`:
 Under the hood, WallyCode runs:
 
 ```text
-copilot --model <resolvedModel> [--add-dir <sourcePath>] --yolo -s -p <prompt>
-```
+copilot --model <resolvedModel> [--add-dir <sourcePath>] --yolo -s -p <prompt>```

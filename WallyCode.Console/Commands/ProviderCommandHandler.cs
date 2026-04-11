@@ -26,7 +26,7 @@ internal sealed class ProviderCommandHandler
 
         if (options.Models)
         {
-            return Task.FromResult(ListModels(options));
+            return ListModelsAsync(options, cancellationToken);
         }
 
         return ListAsync(options, cancellationToken);
@@ -51,7 +51,7 @@ internal sealed class ProviderCommandHandler
         return 0;
     }
 
-    private int ListModels(ProviderCommandOptions options)
+    private async Task<int> ListModelsAsync(ProviderCommandOptions options, CancellationToken cancellationToken)
     {
         var projectRoot = ProjectSettings.ResolveProjectRoot(options.SourcePath);
         var settings = ProjectSettings.Load(projectRoot);
@@ -59,10 +59,11 @@ internal sealed class ProviderCommandHandler
             ? settings.Provider
             : options.Name.Trim();
         var provider = _registry.Get(providerName);
+        var models = await provider.GetAvailableModelsAsync(cancellationToken);
 
         Console.WriteLine(provider.Name);
 
-        foreach (var model in provider.SupportedModels)
+        foreach (var model in models)
         {
             var isDefault = string.Equals(model, provider.DefaultModel, StringComparison.OrdinalIgnoreCase) ? " (default)" : "";
             Console.WriteLine($"  {model}{isDefault}");
