@@ -183,15 +183,22 @@ The new routing system should satisfy the following goals.
 
 ### Secondary goals
 
-6. **Backward migration path**
-   - current templates should be migratable into the new model
-
-7. **Safe built-in actions**
+6. **Safe built-in actions**
    - actions should be constrained and explicit
    - avoid arbitrary scripting in v1
 
-8. **Good observability**
+7. **Good observability**
    - logs should show step, keyword, transition, and action results
+
+8. **Forward-only design**
+   - the new routed loop schema is the source of truth
+   - legacy schema support is not a goal
+   - the implementation should optimize for the new model, not preserve the old one
+
+9. **Remove obsolete code during implementation**
+   - legacy loop code should be deleted, not preserved
+   - transitional compatibility layers should be avoided
+   - unused models, parsers, and template paths should be removed once replaced
 
 ---
 
@@ -205,6 +212,9 @@ To keep the first version simple and robust, the following should not be part of
 4. Dynamic prompt templating language beyond simple placeholders
 5. Multi-keyword branching with complex boolean expressions
 6. Nested loop invocation as a required v1 feature
+7. Legacy schema compatibility
+8. Migration tooling for older loop definitions
+9. Transitional code paths kept only for safety
 
 Nested loops may be added later, but should not be required to make the first routed-loop engine useful.
 
@@ -435,7 +445,7 @@ If the LLM returns an invalid keyword:
 
 - mark the iteration as invalid
 - log the failure clearly
-- optionally fail the run immediately in v1
+- fail the run immediately in v1
 
 Do not silently guess.
 
@@ -621,46 +631,39 @@ Without this, routed loops will be hard to trust.
 
 ---
 
-## Backward Compatibility Strategy
+## Forward-Only Implementation Strategy
 
-There are two reasonable paths.
+WallyCode should treat the routed loop model as the new source of truth.
 
-### Option A: Migrate current templates into routed templates
+That means:
 
-Pros:
+- no effort should be spent preserving the old loop schema
+- no migration tooling is required
+- no dual-engine support is required
+- implementation decisions should optimize for the new routed model
 
-- one engine
-- one mental model
+This keeps the architecture cleaner and avoids carrying transitional complexity into the codebase.
 
-Cons:
+The practical implication is simple:
 
-- larger migration upfront
+1. define the new routed schema
+2. implement the routed engine
+3. replace the old loop template model
+4. move forward
 
-### Option B: Support both legacy and routed templates temporarily
+### Code cleanup requirement
 
-Pros:
+This is not only a schema decision. It is also a codebase hygiene decision.
 
-- safer rollout
-- easier incremental implementation
+When the routed loop engine is implemented:
 
-Cons:
+- legacy loop models should be removed
+- old template parsing paths should be removed
+- obsolete prompt-building logic should be removed
+- dead state fields that only existed for the old model should be removed
+- transitional adapters should not be kept around
 
-- two loop modes in code for a while
-
-### Recommendation
-
-Use **Option B** first.
-
-Implement routed templates as a new template shape while preserving current templates.
-
-Then:
-
-1. add routed engine support
-2. create one or two routed templates
-3. validate behavior
-4. migrate legacy templates later
-
-This reduces risk.
+The implementation should leave the codebase simpler than it was before the change.
 
 ---
 
@@ -675,7 +678,7 @@ This reduces risk.
 
 ## Phase 2: Engine scaffolding
 
-5. add routed loop definition models
+5. replace the current loop template model with routed loop definition models
 6. add loader/validator for routed templates
 7. extend session and loop state with step/routing fields
 8. add step-aware prompt builder
@@ -690,18 +693,25 @@ This reduces risk.
    - persist next step
 10. update logs and memory rendering
 
-## Phase 4: Templates and migration
+## Phase 4: Templates
 
 11. create one routed template for requirements gathering
 12. create one routed template for implementation flow
-13. compare token usage and reliability against current loops
+13. compare token usage and reliability across routed templates
 
-## Phase 5: Optional future work
+## Phase 5: Cleanup
 
-14. nested loop invocation
-15. richer action types
-16. retry/recovery policies
-17. compact memory modes
+14. remove obsolete loop models and parsers
+15. remove obsolete template files and loading paths
+16. remove dead fields and transitional code
+17. verify the final loop system only reflects the routed model
+
+## Phase 6: Optional future work
+
+18. nested loop invocation
+19. richer action types
+20. retry/recovery policies
+21. compact memory modes
 
 ---
 
@@ -715,6 +725,8 @@ To keep the system simple and robust, v1 should enforce:
 - only built-in safe actions
 - no nested loops required
 - fail fast on invalid routing output
+- no legacy schema support
+- no leftover transitional code after replacement
 
 These constraints are not limitations of vision. They are what make the first version reliable.
 
@@ -725,7 +737,7 @@ These constraints are not limitations of vision. They are what make the first ve
 These should be resolved before implementation.
 
 1. Should routed loops reuse `LoopTemplate`, or should there be a new `RoutedLoopTemplate` type?
-   - recommendation: new type or a versioned schema
+   - recommendation: new type or a versioned schema dedicated to routed loops
 
 2. Should `selectedKeyword` be required even when `status = done`?
    - recommendation: yes, unless `done` itself is a valid keyword
@@ -750,11 +762,12 @@ The strongest next move is:
 
 1. keep `prompt` unchanged
 2. preserve the current memory system
-3. evolve `loop` into a routed state-machine engine
+3. replace the current loop template model with a routed state-machine engine
 4. define loops in JSON
 5. route by explicit LLM keywords
 6. keep actions safe and internal
-7. ship a minimal deterministic v1 before adding nested loops or arbitrary actions
+7. remove obsolete loop code as part of the implementation
+8. ship a minimal deterministic v1 before adding nested loops or arbitrary actions
 
 This gives WallyCode a much stronger architecture:
 
@@ -764,6 +777,7 @@ This gives WallyCode a much stronger architecture:
 - routing becomes explicit
 - token usage can improve
 - workflows become easier to author and reason about
+- the codebase stays cleaner instead of accumulating compatibility debt
 
 ---
 
@@ -784,6 +798,6 @@ After this document, the next concrete deliverables should be:
    - model changes
    - parser changes
    - runner changes
-   - migration steps
+   - cleanup removals
 
 That is the right sequence before code changes begin.
