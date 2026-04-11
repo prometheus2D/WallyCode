@@ -27,7 +27,7 @@ internal sealed class PromptCommandHandler
             : commandOptions.Provider.Trim();
         var provider = _providerRegistry.Get(providerName);
         var resolvedModel = string.IsNullOrWhiteSpace(commandOptions.Model)
-            ? provider.DefaultModel
+            ? (string.IsNullOrWhiteSpace(settings.Model) ? provider.DefaultModel : settings.Model)
             : commandOptions.Model.Trim();
         var timestamp = DateTimeOffset.Now;
         var logDirectoryPath = ProjectSettings.EnsureRuntimeDirectory(projectRoot, "logs");

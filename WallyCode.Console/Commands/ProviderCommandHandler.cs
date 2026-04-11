@@ -24,6 +24,11 @@ internal sealed class ProviderCommandHandler
             return Task.FromResult(SetProvider(options));
         }
 
+        if (!string.IsNullOrWhiteSpace(options.Model))
+        {
+            return SetModelAsync(options, cancellationToken);
+        }
+
         if (options.Models)
         {
             return ListModelsAsync(options, cancellationToken);
@@ -45,9 +50,35 @@ internal sealed class ProviderCommandHandler
         var provider = _registry.Get(options.Name);
 
         settings.Provider = provider.Name;
+        settings.Model = provider.DefaultModel;
         settings.Save(projectRoot);
 
         _logger.Success($"Default provider set to {provider.Name} (model: {provider.DefaultModel})");
+        return 0;
+    }
+
+    private async Task<int> SetModelAsync(ProviderCommandOptions options, CancellationToken cancellationToken)
+    {
+        var projectRoot = ProjectSettings.ResolveProjectRoot(options.SourcePath);
+        var settings = ProjectSettings.Load(projectRoot);
+        var providerName = string.IsNullOrWhiteSpace(options.Name)
+            ? settings.Provider
+            : options.Name.Trim();
+        var provider = _registry.Get(providerName);
+        var requestedModel = options.Model!.Trim();
+        var availableModels = await provider.GetAvailableModelsAsync(cancellationToken);
+
+        if (!availableModels.Contains(requestedModel, StringComparer.OrdinalIgnoreCase))
+        {
+            _logger.Error($"Unknown model '{requestedModel}' for provider '{provider.Name}'. Use 'provider {provider.Name} --models' to list available models.");
+            return 1;
+        }
+
+        settings.Provider = provider.Name;
+        settings.Model = availableModels.First(model => string.Equals(model, requestedModel, StringComparison.OrdinalIgnoreCase));
+        settings.Save(projectRoot);
+
+        _logger.Success($"Default model for {provider.Name} set to {settings.Model}");
         return 0;
     }
 
@@ -60,12 +91,16 @@ internal sealed class ProviderCommandHandler
             : options.Name.Trim();
         var provider = _registry.Get(providerName);
         var models = await provider.GetAvailableModelsAsync(cancellationToken);
+        var defaultModel = string.Equals(provider.Name, settings.Provider, StringComparison.OrdinalIgnoreCase)
+            && !string.IsNullOrWhiteSpace(settings.Model)
+            ? settings.Model
+            : provider.DefaultModel;
 
         Console.WriteLine(provider.Name);
 
         foreach (var model in models)
         {
-            var isDefault = string.Equals(model, provider.DefaultModel, StringComparison.OrdinalIgnoreCase) ? " (default)" : "";
+            var isDefault = string.Equals(model, defaultModel, StringComparison.OrdinalIgnoreCase) ? " (default)" : "";
             Console.WriteLine($"  {model}{isDefault}");
         }
 
@@ -83,8 +118,12 @@ internal sealed class ProviderCommandHandler
             var readinessError = await provider.GetReadinessErrorAsync(cancellationToken);
             var status = string.IsNullOrWhiteSpace(readinessError) ? "ready" : "unavailable";
             var isDefault = string.Equals(provider.Name, current.Name, StringComparison.OrdinalIgnoreCase) ? " (default)" : "";
+            var defaultModel = string.Equals(provider.Name, current.Name, StringComparison.OrdinalIgnoreCase)
+                && !string.IsNullOrWhiteSpace(settings.Model)
+                ? settings.Model
+                : provider.DefaultModel;
 
-            Console.WriteLine($"  {provider.Name} [{status}] model:{provider.DefaultModel}{isDefault}");
+            Console.WriteLine($"  {provider.Name} [{status}] model:{defaultModel}{isDefault}");
         }
 
         return 0;

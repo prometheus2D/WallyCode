@@ -34,7 +34,7 @@ internal sealed class ProjectSettings
             ?? new ProjectSettings();
 
         settings.Provider = ResolveProviderName(settings.Provider);
-        settings.Model = null;
+        settings.Model = ResolveModelName(settings.Model);
 
         if (settings.UpdatedAtUtc == default)
         {
@@ -48,7 +48,7 @@ internal sealed class ProjectSettings
     {
         Directory.CreateDirectory(projectRoot);
         Provider = ResolveProviderName(Provider);
-        Model = null;
+        Model = ResolveModelName(Model);
         UpdatedAtUtc = DateTimeOffset.UtcNow;
 
         var json = JsonSerializer.Serialize(this, SerializerOptions);
@@ -89,5 +89,12 @@ internal sealed class ProjectSettings
         }
 
         return providerName.Trim();
+    }
+
+    private static string? ResolveModelName(string? modelName)
+    {
+        return string.IsNullOrWhiteSpace(modelName)
+            ? null
+            : modelName.Trim();
     }
 }

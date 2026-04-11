@@ -54,7 +54,7 @@ internal sealed class LoopCommandHandler
                 Goal = goal,
                 ProviderName = provider.Name,
                 Model = string.IsNullOrWhiteSpace(commandOptions.Model)
-                    ? provider.DefaultModel
+                    ? (string.IsNullOrWhiteSpace(settings.Model) ? provider.DefaultModel : settings.Model)
                     : commandOptions.Model.Trim(),
                 SourcePath = projectRoot,
                 MaxIterations = commandOptions.Steps,

@@ -4,7 +4,7 @@ WallyCode is a small .NET 8 console app that wraps the GitHub Copilot CLI.
 
 The command surface is intentionally small:
 
-- `provider` reviews providers, lists provider models, and sets the default provider for the repo
+- `provider` reviews providers, lists provider models, and sets the default provider and model for the repo
 - `prompt` runs a one-off prompt
 - `loop` starts or continues a stateful loop session
 - `respond` adds a user response for the next loop iteration
@@ -33,7 +33,7 @@ Show top-level help:
 --help
 ```
 
-List providers and see which one is active:
+List providers and see which one is default:
 
 ```text
 provider
@@ -57,7 +57,19 @@ Set the default provider for this repo:
 provider gh-copilot-gpt5 --set
 ```
 
-Run one prompt using the saved default provider:
+Set the default model for the current default provider:
+
+```text
+provider --model gpt-5.2
+```
+
+Set the default model for a specific provider:
+
+```text
+provider gh-copilot-claude --model claude-sonnet-4.6
+```
+
+Run one prompt using the saved default provider and model:
 
 ```text
 prompt "Summarize this repository in one short paragraph."
@@ -67,6 +79,12 @@ Override the provider for one prompt without changing the saved default:
 
 ```text
 prompt "Summarize this repository in one short paragraph." --provider gh-copilot-claude
+```
+
+Override the model for one prompt without changing the saved default:
+
+```text
+prompt "Summarize this repository in one short paragraph." --model gpt-5.2
 ```
 
 Start a loop:
@@ -94,6 +112,8 @@ provider
 provider --models
 provider gh-copilot-claude --models
 provider gh-copilot-claude --set
+provider --model gpt-5.2
+provider gh-copilot-claude --model claude-sonnet-4.6
 prompt "Summarize this repository"
 loop "Work on issue 123"
 loop
@@ -128,7 +148,34 @@ Set the default provider:
 provider gh-copilot-claude --set
 ```
 
-For the GitHub Copilot provider, `provider --models` queries the GitHub Copilot model catalog using your authenticated GitHub CLI session and marks the provider's default model.
+Set the default model for the current default provider:
+
+```text
+provider --model gpt-5.2
+```
+
+Set the default model for a specific provider:
+
+```text
+provider gh-copilot-claude --model claude-sonnet-4.6
+```
+
+Typical flow:
+
+```text
+provider
+provider --models
+provider --model gpt-5.2
+```
+
+Or for a specific provider:
+
+```text
+provider gh-copilot-claude --models
+provider gh-copilot-claude --model claude-sonnet-4.6
+```
+
+For the GitHub Copilot provider, `provider --models` queries the GitHub Copilot model catalog using your authenticated GitHub CLI session and marks the saved default model.
 
 Current providers:
 
@@ -142,6 +189,8 @@ If you never set one, WallyCode defaults to `gh-copilot-claude`.
 Use `prompt` when you want one response and no iteration state.
 
 Use `loop` when you want WallyCode to carry state forward between iterations and keep an audit trail on disk.
+
+`prompt` and new `loop` sessions use the saved default provider and model unless you override them on the command line.
 
 ## Loop Basics
 
@@ -184,4 +233,5 @@ Prompt runs also write files under `.wallycode/`:
 Under the hood, WallyCode runs:
 
 ```text
-copilot --model <resolvedModel> [--add-dir <sourcePath>] --yolo -s -p <prompt>```
+copilot --model <resolvedModel> [--add-dir <sourcePath>] --yolo -s -p <prompt>
+```
