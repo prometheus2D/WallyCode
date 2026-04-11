@@ -24,6 +24,8 @@ internal sealed class RespondCommandHandler
         workspace.AppendUserResponse(commandOptions.Response);
 
         _logger.Section("WallyCode Respond");
+        _logger.Info($"Initialized source: {projectRoot}");
+        _logger.Info($"Initialized memory root: {workspace.RootPath}");
         _logger.Info($"Session file: {workspace.SessionStateFilePath}");
         _logger.Info($"Memory root: {workspace.RootPath}");
         _logger.Success("User response saved for the next loop iteration.");

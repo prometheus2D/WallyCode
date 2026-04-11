@@ -100,6 +100,14 @@ Start interactive mode:
 shell
 ```
 
+Start a shell with a specific source and memory root:
+
+```text
+shell --source C:\src\my-repo --memory-root C:\temp\wallycode-session
+```
+
+When you start the shell this way, commands entered inside it inherit those defaults unless you override them explicitly.
+
 Inside the shell, run the same commands directly:
 
 ```text
@@ -141,4 +149,8 @@ prompt "Summarize this repository" --model gpt-5
 
 WallyCode stores project settings in `wallycode.json`.
 
-Runtime files are written under `.wallycode/` by default, including prompts, raw output, logs, and loop session state.
+`source` is the folder WallyCode and the provider operate against.
+
+`memory-root` is the folder where WallyCode stores loop memory, prompts, raw output, logs, and session state.
+
+Runtime files are written under `.wallycode/` by default, or under the folder passed to `--memory-root`.

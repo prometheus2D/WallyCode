@@ -33,9 +33,12 @@ internal sealed class PromptCommandHandler
         var logDirectoryPath = ProjectSettings.EnsureRuntimeDirectory(projectRoot, "logs");
         var promptDirectoryPath = ProjectSettings.EnsureRuntimeDirectory(projectRoot, "prompts");
         var rawDirectoryPath = ProjectSettings.EnsureRuntimeDirectory(projectRoot, "raw");
+        var runtimeRootPath = Path.Combine(projectRoot, ".wallycode");
 
         _logger.LogFilePath = Path.Combine(logDirectoryPath, $"prompt-{timestamp:yyyyMMdd-HHmmss}.log");
         _logger.Section("WallyCode Prompt");
+        _logger.Info($"Initialized source: {projectRoot}");
+        _logger.Info($"Initialized runtime workspace: {runtimeRootPath}");
         _logger.Info($"Provider: {provider.Name}");
         _logger.Info($"Model: {resolvedModel}");
         _logger.Info($"Project root: {projectRoot}");

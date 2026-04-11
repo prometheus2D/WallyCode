@@ -22,6 +22,19 @@ internal sealed class ShellCommandHandler
         Console.WriteLine("WallyCode shell");
         Console.WriteLine("Type a WallyCode command without the executable name.");
         Console.WriteLine("Type 'exit' to quit.");
+
+        var resolvedSourcePath = ProjectSettings.ResolveProjectRoot(_options.SourcePath);
+        Console.WriteLine($"Shell initialized with source: {resolvedSourcePath}");
+
+        if (!string.IsNullOrWhiteSpace(_options.MemoryRoot))
+        {
+            Console.WriteLine($"Shell initialized with memory root: {Path.GetFullPath(_options.MemoryRoot)}");
+        }
+        else
+        {
+            Console.WriteLine($"Shell using default memory root: {Path.Combine(resolvedSourcePath, ".wallycode")}");
+        }
+
         Console.WriteLine();
 
         while (!cancellationToken.IsCancellationRequested)
@@ -67,11 +80,46 @@ internal sealed class ShellCommandHandler
                 continue;
             }
 
-            await Program.RunAsync(args, cancellationToken);
+            var effectiveArgs = ApplyShellDefaults(args);
+            await Program.RunAsync(effectiveArgs, cancellationToken);
             Console.WriteLine();
         }
 
         return 0;
+    }
+
+    private string[] ApplyShellDefaults(string[] args)
+    {
+        var effectiveArgs = args.ToList();
+
+        if (!HasOption(args, "source") && !string.IsNullOrWhiteSpace(_options.SourcePath))
+        {
+            effectiveArgs.Add("--source");
+            effectiveArgs.Add(_options.SourcePath);
+        }
+
+        if (SupportsMemoryRoot(args[0])
+            && !HasOption(args, "memory-root")
+            && !string.IsNullOrWhiteSpace(_options.MemoryRoot))
+        {
+            effectiveArgs.Add("--memory-root");
+            effectiveArgs.Add(_options.MemoryRoot);
+        }
+
+        return effectiveArgs.ToArray();
+    }
+
+    private static bool SupportsMemoryRoot(string commandName)
+    {
+        return string.Equals(commandName, "loop", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(commandName, "respond", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(commandName, "shell", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool HasOption(IEnumerable<string> args, string optionName)
+    {
+        var longOption = $"--{optionName}";
+        return args.Any(arg => string.Equals(arg, longOption, StringComparison.OrdinalIgnoreCase));
     }
 
     private static void ResetMemory(ShellCommandOptions options)

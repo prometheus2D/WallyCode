@@ -39,13 +39,16 @@ internal sealed class ProviderCommandHandler
 
     private int SetProvider(ProviderCommandOptions options)
     {
+        var projectRoot = ProjectSettings.ResolveProjectRoot(options.SourcePath);
+        _logger.Section("WallyCode Provider");
+        _logger.Info($"Initialized source: {projectRoot}");
+
         if (string.IsNullOrWhiteSpace(options.Name))
         {
             _logger.Error("Provider name required. Usage: provider <name> --set");
             return 1;
         }
 
-        var projectRoot = ProjectSettings.ResolveProjectRoot(options.SourcePath);
         var settings = ProjectSettings.Load(projectRoot);
         var provider = _registry.Get(options.Name);
 
@@ -60,6 +63,9 @@ internal sealed class ProviderCommandHandler
     private async Task<int> SetModelAsync(ProviderCommandOptions options, CancellationToken cancellationToken)
     {
         var projectRoot = ProjectSettings.ResolveProjectRoot(options.SourcePath);
+        _logger.Section("WallyCode Provider");
+        _logger.Info($"Initialized source: {projectRoot}");
+
         var settings = ProjectSettings.Load(projectRoot);
         var providerName = string.IsNullOrWhiteSpace(options.Name)
             ? settings.Provider
@@ -85,6 +91,9 @@ internal sealed class ProviderCommandHandler
     private async Task<int> ListModelsAsync(ProviderCommandOptions options, CancellationToken cancellationToken)
     {
         var projectRoot = ProjectSettings.ResolveProjectRoot(options.SourcePath);
+        _logger.Section("WallyCode Provider");
+        _logger.Info($"Initialized source: {projectRoot}");
+
         var settings = ProjectSettings.Load(projectRoot);
         var providerName = string.IsNullOrWhiteSpace(options.Name)
             ? settings.Provider
@@ -110,6 +119,9 @@ internal sealed class ProviderCommandHandler
     private async Task<int> ListAsync(ProviderCommandOptions options, CancellationToken cancellationToken)
     {
         var projectRoot = ProjectSettings.ResolveProjectRoot(options.SourcePath);
+        _logger.Section("WallyCode Provider");
+        _logger.Info($"Initialized source: {projectRoot}");
+
         var settings = ProjectSettings.Load(projectRoot);
         var current = _registry.Get(settings.Provider);
 
