@@ -33,7 +33,7 @@ internal static class Program
 			settings.AutoVersion = true;
 		});
 
-		var result = parser.ParseArguments<LoopCommandOptions, PromptCommandOptions, ProviderCommandOptions, RespondCommandOptions, ShellCommandOptions>(args);
+		var result = parser.ParseArguments<LoopCommandOptions, PromptCommandOptions, ProviderCommandOptions, RespondCommandOptions, ShellCommandOptions, TutorialCommandOptions>(args);
 
 		try
 		{
@@ -43,6 +43,7 @@ internal static class Program
 				(ProviderCommandOptions options) => new ProviderCommandHandler(providerRegistry, logger).ExecuteAsync(options, cancellationToken),
 				(RespondCommandOptions options) => new RespondCommandHandler(logger).ExecuteAsync(options, cancellationToken),
 				(ShellCommandOptions options) => new ShellCommandHandler(options).ExecuteAsync(cancellationToken),
+				(TutorialCommandOptions options) => new TutorialCommandHandler(logger).ExecuteAsync(cancellationToken),
 				errors => Task.FromResult(errors.All(e =>
 					e.Tag == ErrorType.HelpRequestedError
 					|| e.Tag == ErrorType.HelpVerbRequestedError

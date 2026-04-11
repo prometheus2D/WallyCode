@@ -16,6 +16,12 @@ Build:
 dotnet build WallyCode.sln
 ```
 
+Show the built-in walkthrough:
+
+```text
+tutorial
+```
+
 Run a prompt in the current repo:
 
 ```text
