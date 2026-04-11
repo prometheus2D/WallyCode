@@ -1,163 +1,211 @@
 # WallyCode
 
-WallyCode wraps `gh copilot` in two modes:
+WallyCode is a small .NET 8 console app that wraps `gh copilot`.
 
-- `prompt`: one-shot response
-- `loop`: stateful iterative execution with on-disk memory
+Think about it in three parts:
+
+- Setup: choose a provider and, if needed, override the model.
+- One-off use: `prompt` is the current command for a single ask-style response.
+- Looping use: `loop` starts a stateful session or continues the active one.
+
+## Requirements
+
+- .NET 8 SDK
+- GitHub CLI installed
+- GitHub CLI authenticated and able to run `gh copilot`
+
+Before a prompt or loop run starts, WallyCode asks the selected provider to check whether it is ready. For the GitHub CLI provider, that means checking `gh`, `gh copilot`, and GitHub CLI authentication.
+
+All commands below assume your current directory is the repo root. If you run them from somewhere else, adjust the `--project` path and, for repo-aware commands, add `--source <path-to-repo>`.
 
 ## Quick Start
 
-1. Verify providers:
+Build the solution:
 
 ```powershell
-wallycode providers
+dotnet build WallyCode.sln
 ```
 
-2. Start a clean shell session:
+Show top-level help:
 
 ```powershell
-wallycode shell --reset-memory
+dotnet run --project .\WallyCode.Console -- help
 ```
 
-You can also reset from inside the shell later with:
+List the available providers and see whether each one is ready:
 
 ```powershell
-reset-memory
+dotnet run --project .\WallyCode.Console -- providers
 ```
 
-3. Inside the shell, start a requirements loop:
+Run one real provider smoke test before you start using prompts or loops:
 
 ```powershell
-loop "I want to make a tic tac toe game." --template requirements
+dotnet run --project .\WallyCode.Console -- test-provider
 ```
 
-4. Answer the loop:
+Run one minimal prompt smoke test:
 
 ```powershell
-respond "Make it a simple browser game for two human players. Keep it minimal. I approve once the requirements are clear."
+dotnet run --project .\WallyCode.Console -- prompt "Reply with exactly: WallyCode prompt test OK."
 ```
 
-5. Continue until done:
+Run one simple prompt:
 
 ```powershell
-loop
-respond "approve"
-loop
+dotnet run --project .\WallyCode.Console -- prompt "Summarize this repository in one short paragraph."
 ```
 
-Expected result:
+If you are thinking in terms of an "ask" command, `prompt` is that one-off command today.
 
-- `.wallycode/` is recreated on shell start when `--reset-memory` is used
-- `reset-memory` inside the shell clears the active workspace on demand
-- loop state is stored under `.wallycode/`
-- `respond` appends structured user input
-- `loop` resumes the active session from disk
+## Most Common Commands
 
-## Core Model
+These commands map to the three main things users do: setup, one-off usage, and looping.
 
-- `prompt` returns one response
-- `loop <goal>` starts a session
-- `loop` continues the active session
-- `loop --template <id>` selects loop behavior from JSON
-- `respond <text>` appends user input for the active loop
-- `shell --reset-memory` clears `.wallycode` before interactive use
-- `--memory-root` creates an isolated workspace
-- `--model` overrides the model for one run
-
-There is no separate `resume` or `continue` command.
-
-## Commands
-
-List providers:
+Show help for one command:
 
 ```powershell
-wallycode providers
+dotnet run --project .\WallyCode.Console -- help <command>
 ```
 
-Set the repo default provider:
+List the available providers:
 
 ```powershell
-wallycode set-provider gh-copilot-claude
+dotnet run --project .\WallyCode.Console -- providers
 ```
 
-Run one prompt:
+The `providers` command also shows whether each provider is ready to run on your machine.
+
+Run a real provider smoke test using the saved default provider:
 
 ```powershell
-wallycode prompt "Summarize this repository in one short paragraph."
+dotnet run --project .\WallyCode.Console -- test-provider
 ```
 
-Start the shell:
+The `test-provider` command runs a real one-off provider call and fails if the provider cannot return a response.
+
+Run one minimal prompt smoke test:
 
 ```powershell
-wallycode shell
+dotnet run --project .\WallyCode.Console -- prompt "Reply with exactly: WallyCode prompt test OK."
 ```
 
-Start the shell with a clean workspace:
+Set the saved default provider for this repo:
 
 ```powershell
-wallycode shell --reset-memory
+dotnet run --project .\WallyCode.Console -- set-provider gh-copilot-gpt5
 ```
 
-Reset the workspace from inside the shell:
+Override the model for one prompt without changing the saved provider:
 
 ```powershell
-reset-memory
+dotnet run --project .\WallyCode.Console -- prompt "Summarize this repository in one short paragraph." --model gpt-5
 ```
 
-Reset a specific workspace from inside the shell:
+Start a loop and do exactly one step:
 
 ```powershell
-reset-memory --memory-root .wallycode-requirements
+dotnet run --project .\WallyCode.Console -- loop "Analyze this repo, do one bounded chunk of work, update memory, and stop when the goal is complete."
 ```
 
-Start the shell with an isolated workspace location:
+Continue that same loop and do one more step:
 
 ```powershell
-wallycode shell --memory-root .wallycode-requirements --reset-memory
+dotnet run --project .\WallyCode.Console -- loop
 ```
 
-Start the default loop:
+Run more than one loop step in a single invocation:
 
 ```powershell
-wallycode loop "Analyze this repo, do one bounded chunk of work, refresh memory, and stop when the goal is complete."
+dotnet run --project .\WallyCode.Console -- loop --steps 3
 ```
 
-Start the requirements loop:
+Start a separate loop session in a different memory folder:
 
 ```powershell
-wallycode loop "Collect requirements for the new workspace flow." --template requirements
+dotnet run --project .\WallyCode.Console -- loop "Work on issue 123" --memory-root .\.wallycode-issue-123
 ```
 
-Append user answers for the active loop:
+## Step-By-Step Loop
 
-```powershell
-wallycode respond "Use GitHub auth only. Support multiple isolated workspaces. Stop when I reply approve."
+Use the loop when you want progress to be saved to disk between steps.
+
+1. Start a session with `loop <goal>`.
+2. Inspect `.wallycode/` if you want to review what happened.
+3. Continue with `loop`.
+4. Keep running `loop` until it reports `done`.
+
+The simplest mental model is:
+
+- `prompt` is the simple one-off path.
+- `loop <goal>` starts a session.
+- `loop` continues that session.
+- `loop` runs one iteration by default.
+- Use `--steps <n>` only when you want more than one iteration in the current invocation.
+
+## What WallyCode Writes
+
+WallyCode stores project settings in `wallycode.json` at the repo root.
+
+Loop runs write state under `.wallycode/`:
+
+- `.wallycode/session.json` tracks the active loop session and the next iteration number.
+- `.wallycode/memory/goal.md` stores the original goal.
+- `.wallycode/memory/current-tasks.md` stores the current task list.
+- `.wallycode/memory/perspectives.md` stores the perspective document.
+- `.wallycode/memory/next-steps.md` stores the next-step list.
+- `.wallycode/memory/current-state.md` stores the latest state summary.
+- `.wallycode/prompts/iteration-###.txt` stores each prompt sent to the provider.
+- `.wallycode/raw/iteration-###.txt` stores each raw provider response.
+- `.wallycode/logs/iteration-###.md` stores the iteration summary and work log.
+- `.wallycode/logs/session.log` stores the console log for the session.
+
+Prompt runs also write files under `.wallycode/`:
+
+- `.wallycode/prompts/prompt-*.txt` stores the one-off prompt text.
+- `.wallycode/raw/prompt-*.txt` stores the raw one-off provider response.
+- `.wallycode/logs/prompt-*.log` stores the console log for the one-off run.
+
+## Providers and Models
+
+Current provider presets:
+
+- `gh-copilot-claude` uses `claude-sonnet-4`
+- `gh-copilot-gpt5` uses `gpt-5`
+
+If you never set a provider, WallyCode defaults to `gh-copilot-claude`.
+
+Use `providers` to list them.
+
+Use `test-provider` to verify that the selected provider can complete a real request, not just a readiness check.
+
+Use `set-provider <name>` to change the saved default provider for the repo.
+
+Use `--model <name>` on `prompt` or `loop` when you want a one-off model override without changing the saved provider.
+
+## Prompt vs Loop
+
+Use `prompt` when you want one response and no iteration state.
+
+Use `loop` when you want WallyCode to carry state forward between iterations and keep an observable audit trail on disk.
+
+## How the Loop Works
+
+1. WallyCode resolves the project root, loads the saved provider from `wallycode.json`, and picks the model.
+2. It creates or reopens the `.wallycode/` workspace for the current loop session.
+3. If you provide a goal, WallyCode starts a new session when needed. If you omit the goal, it resumes the active session.
+4. It reads the current memory documents.
+5. It builds one prompt that includes the goal, loop metadata, and the current memory state.
+6. It sends that prompt to `gh copilot`.
+7. It saves the exact prompt, the raw provider output, and the iteration log.
+8. It tries to parse the response as structured JSON.
+9. If the response is plain text instead of JSON, it normalizes that text into the memory documents instead of crashing.
+10. It updates `.wallycode/session.json` so the next run resumes at the next iteration number.
+
+Use `--steps <n>` when you want more than one iteration in a single invocation.
+
+Under the hood, the provider command is:
+
+```text
+gh copilot --model <resolvedModel> [--add-dir <sourcePath>] --yolo -s -p <prompt>
 ```
-
-Continue the active loop:
-
-```powershell
-wallycode loop
-```
-
-Run multiple iterations in one invocation:
-
-```powershell
-wallycode loop --steps 3
-```
-
-## Workspace
-
-Repo settings:
-
-```plaintext
-wallycode.json
-```
-
-Default loop workspace:
-
-```plaintext
-<repo>/.wallycode/
-```
-
-Use `--memory-root` on `shell` or `loop` to store session state in a different folder.
