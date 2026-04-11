@@ -29,50 +29,50 @@ dotnet build WallyCode.sln
 
 Show top-level help:
 
-```powershell
-dotnet run --project .\WallyCode.Console -- --help
+```text
+--help
 ```
 
 List providers and see which one is active:
 
-```powershell
-dotnet run --project .\WallyCode.Console -- provider
+```text
+provider
 ```
 
 Set the default provider for this repo:
 
-```powershell
-dotnet run --project .\WallyCode.Console -- provider gh-copilot-gpt5 --set
+```text
+provider gh-copilot-gpt5 --set
 ```
 
 Run one prompt using the saved default provider:
 
-```powershell
-dotnet run --project .\WallyCode.Console -- prompt "Summarize this repository in one short paragraph."
+```text
+prompt "Summarize this repository in one short paragraph."
 ```
 
 Override the provider for one prompt without changing the saved default:
 
-```powershell
-dotnet run --project .\WallyCode.Console -- prompt "Summarize this repository in one short paragraph." --provider gh-copilot-claude
+```text
+prompt "Summarize this repository in one short paragraph." --provider gh-copilot-claude
 ```
 
 Start a loop:
 
-```powershell
-dotnet run --project .\WallyCode.Console -- loop "Analyze this repo, do one bounded chunk of work, update memory, and stop when the goal is complete."
+```text
+loop "Analyze this repo, do one bounded chunk of work, update memory, and stop when the goal is complete."
 ```
 
 Continue the active loop:
 
-```powershell
-dotnet run --project .\WallyCode.Console -- loop
+```text
+loop
 ```
 
 Start interactive mode:
 
-```powershell
-dotnet run --project .\WallyCode.Console -- shell
+```text
+shell
 ```
 
 Inside the shell, run the same commands directly:
@@ -92,14 +92,14 @@ Use `provider` for all provider management.
 
 List providers:
 
-```powershell
-dotnet run --project .\WallyCode.Console -- provider
+```text
+provider
 ```
 
 Set the default provider:
 
-```powershell
-dotnet run --project .\WallyCode.Console -- provider gh-copilot-claude --set
+```text
+provider gh-copilot-claude --set
 ```
 
 Current providers:
@@ -124,8 +124,8 @@ Use `loop` when you want WallyCode to carry state forward between iterations and
 
 Use a separate memory folder when you want an isolated session:
 
-```powershell
-dotnet run --project .\WallyCode.Console -- loop "Work on issue 123" --memory-root .\.wallycode-issue-123
+```text
+loop "Work on issue 123" --memory-root .\.wallycode-issue-123
 ```
 
 ## What WallyCode Writes
@@ -157,3 +157,4 @@ Under the hood, WallyCode runs:
 
 ```text
 copilot --model <resolvedModel> [--add-dir <sourcePath>] --yolo -s -p <prompt>
+```
