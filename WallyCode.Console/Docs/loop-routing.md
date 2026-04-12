@@ -85,12 +85,13 @@ That means self-looping is the default behavior.
 
 ### 5. Action
 
-An action is a small built-in engine behavior such as:
+For v1, actions should stay minimal.
+
+The only built-in action needed in v1 is:
 
 - wait for user input
-- record summary
-- record decisions
-- record questions
+
+The engine should not use actions as a mini command language for normal persistence or routing state updates.
 
 ---
 
@@ -130,7 +131,7 @@ This means the loop encountered a real execution problem.
 
 Required handling:
 
-- record summary and blockers
+- persist summary and blockers
 - persist all related debugging information
 - alert the user clearly
 - stop the current process
@@ -151,7 +152,7 @@ This is a routing failure or reasoning failure.
 
 Recommended handling:
 
-- record summary
+- persist summary
 - log the failure clearly
 - stop the current invocation
 - do not guess a transition
@@ -656,20 +657,17 @@ The future JSON structure should be explicit enough to author real workflows wit
       "transitions": [
         {
           "keyword": "[ASK_USER]",
-          "actions": ["wait-for-user", "record-question"]
+          "actions": ["wait-for-user"]
         },
         {
           "keyword": "[REQUIREMENTS_READY]",
-          "nextUnit": "produce_tasks",
-          "actions": ["record-summary"]
+          "nextUnit": "produce_tasks"
         },
         {
-          "keyword": "[ERROR]",
-          "actions": ["record-summary"]
+          "keyword": "[ERROR]"
         },
         {
-          "keyword": "[FAIL]",
-          "actions": ["record-summary"]
+          "keyword": "[FAIL]"
         },
         {
           "keyword": "[DONE]"
@@ -741,20 +739,17 @@ Each loop unit should support the following fields.
   "transitions": [
     {
       "keyword": "[ASK_USER]",
-      "actions": ["wait-for-user", "record-question"]
+      "actions": ["wait-for-user"]
     },
     {
       "keyword": "[TASKS_READY]",
-      "nextUnit": "execute_tasks",
-      "actions": ["record-summary"]
+      "nextUnit": "execute_tasks"
     },
     {
-      "keyword": "[ERROR]",
-      "actions": ["record-summary"]
+      "keyword": "[ERROR]"
     },
     {
-      "keyword": "[FAIL]",
-      "actions": ["record-summary"]
+      "keyword": "[FAIL]"
     },
     {
       "keyword": "[DONE]"
@@ -793,13 +788,12 @@ In normal cases, `[CONTINUE]` should be the keyword used for that behavior.
 
 ## Transition Structure
 
-A transition only needs to exist when a keyword changes execution behavior or should trigger actions.
+A transition only needs to exist when a keyword changes execution behavior or should trigger the wait-for-user behavior.
 
 ```json
 {
   "keyword": "[TASKS_READY]",
-  "nextUnit": "execute_tasks",
-  "actions": ["record-summary"]
+  "nextUnit": "execute_tasks"
 }
 ```
 
@@ -819,6 +813,8 @@ Allowed values:
 
 #### `actions`
 Optional built-in actions to execute after the keyword is accepted.
+
+For v1, the only built-in action that should exist is `wait-for-user`.
 
 ---
 
@@ -885,6 +881,8 @@ Required handling:
 #### `[ERROR]`
 - successful structured output indicating a concrete execution failure
 - persist summary and blockers
+- set phase to `error`
+- set session status to `blocked`
 - persist all related debugging information
 - alert the user clearly
 - stop the current process
@@ -892,6 +890,8 @@ Required handling:
 #### `[FAIL]`
 - successful structured output indicating the model cannot determine a valid next action
 - persist summary
+- set phase to `failed`
+- set session status to `failed`
 - stop current invocation
 
 #### `[DONE]`
@@ -929,16 +929,17 @@ The requirements collection loop must support explicit user interaction through 
 ### Required behavior
 
 1. the active loop unit selects `[ASK_USER]`
-2. the engine records the returned questions
+2. the engine records the returned questions through normal successful iteration persistence
 3. the engine persists the current loop state
-4. the engine sets phase to `waiting-for-user`
-5. the current invocation stops
-6. the user later runs `respond`
-7. `respond` stores the user's response in the response store
-8. `respond` does not run the provider and does not change the active loop unit
-9. the next `loop` run resumes the same active loop unit unless a transition had already changed it
-10. that next `loop` run injects unread user responses into the prompt
-11. after that later loop iteration succeeds, the consumed response cursor advances
+4. the engine executes `wait-for-user`
+5. the engine sets phase to `waiting-for-user`
+6. the current invocation stops
+7. the user later runs `respond`
+8. `respond` stores the user's response in the response store
+9. `respond` does not run the provider and does not change the active loop unit
+10. the next `loop` run resumes the same active loop unit unless a transition had already changed it
+11. that next `loop` run injects unread user responses into the prompt
+12. after that later loop iteration succeeds, the consumed response cursor advances
 
 This is how a loop unit requests user input, stops cleanly, accepts a later user response, and then resumes the same logical unit with the new information.
 
@@ -949,7 +950,7 @@ The `respond` command should:
 - only append a new user response entry
 - preserve existing loop state
 - preserve the current active loop unit
-- preserve the current phase unless product rules explicitly allow `respond` to move `waiting-for-user` back to `active`
+- preserve the current phase as `waiting-for-user`
 - never consume the response by itself
 - never invoke the provider by itself
 
@@ -1097,23 +1098,30 @@ That is enough to resume deterministically.
 
 ## Built-In Actions for V1
 
-Recommended built-in actions:
+Built-in actions for v1 should stay minimal.
 
 ### `wait-for-user`
-- set phase to `waiting-for-user`
-- end current invocation after persistence
+- used only when the loop needs user input before it can continue
+- sets phase to `waiting-for-user`
+- ends the current invocation after persistence
 
-### `set-phase:<value>`
-- set explicit phase value
+### Why v1 actions should stay minimal
 
-### `record-summary`
-- persist compact summary
+The engine should not use actions as a mini command language.
 
-### `record-decision`
-- persist decisions
+For v1:
 
-### `record-question`
-- persist questions
+- phase changes should come from keyword handling
+- summary, decisions, questions, and blockers should persist through normal successful iteration normalization
+- routing should come from keywords and transitions
+
+That means v1 does not need actions such as:
+
+- `set-phase:<value>`
+- `record-summary`
+- `record-decision`
+- `record-question`
+- `mark-done`
 
 ### Built-in action contract
 
@@ -1133,6 +1141,7 @@ Not included in v1:
 - arbitrary shell commands
 - arbitrary file edits from JSON
 - arbitrary provider chaining from JSON
+- arbitrary persistence commands encoded as actions
 
 ---
 
