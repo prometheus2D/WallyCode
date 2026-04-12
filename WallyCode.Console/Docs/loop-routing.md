@@ -58,15 +58,22 @@ Only one loop unit is active at a time.
 
 A keyword is the single machine-readable routing decision returned by the model.
 
+Keywords should use a visually explicit format:
+
+- uppercase
+- surrounded by square brackets
+
 Examples:
 
-- `continue`
-- `ask_user`
-- `requirements_ready`
-- `tasks_ready`
-- `done`
-- `error`
-- `fail`
+- `[CONTINUE]`
+- `[ASK_USER]`
+- `[REQUIREMENTS_READY]`
+- `[TASKS_READY]`
+- `[DONE]`
+- `[ERROR]`
+- `[FAIL]`
+
+This makes routing decisions easier to see in prompts, logs, and raw outputs.
 
 ### 4. Transition
 
@@ -84,7 +91,6 @@ An action is a small built-in engine behavior such as:
 - record summary
 - record decisions
 - record questions
-- mark done
 
 ---
 
@@ -94,7 +100,7 @@ The future system should treat a small set of keywords as standard routing conve
 
 These can be hardcoded by the engine if that keeps authoring simpler and behavior more consistent.
 
-### `continue`
+### `[CONTINUE]`
 
 This should be the standard default self-loop keyword.
 
@@ -105,30 +111,31 @@ Meaning:
 - the iteration succeeded
 - state should still be updated normally
 
-If `continue` has no explicit transition entry, the engine remains on the same loop unit.
+If `[CONTINUE]` has no explicit transition entry, the engine remains on the same loop unit.
 
-### `error`
+### `[ERROR]`
 
-This should mean the model believes a technical or execution problem is preventing useful progress.
+This should mean a concrete action failed and the user must be alerted.
 
 Examples:
 
-- required file or artifact is missing
-- expected input is malformed
-- the current task cannot proceed because of a concrete technical issue
+- a command failed
+- a PowerShell script failed
+- a file operation failed
+- a literal programming action failed
 
 This is not the same as uncertainty.
 
-This means the model believes there is a real blocking problem.
+This means the loop encountered a real execution problem.
 
-Recommended handling:
+Required handling:
 
 - record summary and blockers
-- set phase to an error or blocked state
-- stop the current invocation
-- require operator inspection or a future recovery policy
+- persist all related debugging information
+- alert the user clearly
+- stop the current process
 
-### `fail`
+### `[FAIL]`
 
 This should mean the model cannot determine a valid next action inside the current loop unit.
 
@@ -149,15 +156,67 @@ Recommended handling:
 - stop the current invocation
 - do not guess a transition
 
+### `[DONE]`
+
+This should mean the loop is fully finished.
+
+`[DONE]` is the completion signal.
+
+The engine should not require an extra completion action beyond accepting `[DONE]`.
+
 ### Why these standard keywords are useful
 
 They give every loop a small common control vocabulary:
 
-- `continue` for normal self-looping
-- `error` for concrete technical blockage
-- `fail` for inability to determine the next valid action
+- `[CONTINUE]` for normal self-looping
+- `[ERROR]` for concrete execution blockage
+- `[FAIL]` for inability to determine the next valid action
+- `[DONE]` for explicit completion
 
 That makes prompts, logs, and loop authoring more consistent.
+
+---
+
+## Canonical Runtime Values
+
+The runtime should use a small fixed vocabulary for persisted state so resume behavior stays deterministic.
+
+### Session status
+
+Recommended values:
+
+- `active`
+- `completed`
+- `failed`
+- `blocked`
+
+This is the overall session status.
+
+### Loop phase
+
+Recommended values:
+
+- `active`
+- `waiting-for-user`
+- `done`
+- `error`
+- `failed`
+
+This is the current loop execution phase.
+
+### Routing outcome
+
+Recommended values:
+
+- `self-loop`
+- `transition`
+- `waiting-for-user`
+- `done`
+- `error`
+- `fail`
+- `invalid-output`
+
+This is the normalized result of the last completed invocation.
 
 ---
 
@@ -278,6 +337,55 @@ Human-readable files can still exist, but they should be generated artifacts, no
 
 ---
 
+## Canonical Persisted State Shape
+
+The persisted state should have an explicit schema rather than only a conceptual field list.
+
+### Session state shape
+
+```json
+{
+  "schemaVersion": 1,
+  "sessionId": "session-001",
+  "loopId": "requirements-collection",
+  "status": "active",
+  "isComplete": false,
+  "createdAtUtc": "2025-01-01T00:00:00Z",
+  "updatedAtUtc": "2025-01-01T00:00:00Z"
+}
+```
+
+### Loop execution state shape
+
+```json
+{
+  "schemaVersion": 1,
+  "activeUnitId": "collect_requirements",
+  "phase": "active",
+  "lastSelectedKeyword": "[CONTINUE]",
+  "lastRoutingOutcome": "self-loop",
+  "workingSummary": "One requirement is still unclear.",
+  "decisions": [
+    "Desktop first"
+  ],
+  "openQuestions": [
+    "Should exports support csv only, or csv plus pdf?"
+  ],
+  "blockers": [],
+  "lastConsumedUserResponseId": 4,
+  "lastConsumedUserResponseTimestampUtc": "2025-01-01T00:00:00Z"
+}
+```
+
+### Schema rules
+
+- persisted state must include `schemaVersion`
+- persisted state must be forward-migratable
+- missing required fields in persisted state should cause deterministic load failure
+- the engine should not silently invent missing routing fields during resume
+
+---
+
 ## Routing Rule
 
 The routing rule should stay extremely simple:
@@ -286,7 +394,53 @@ The routing rule should stay extremely simple:
 
 This is the default behavior of the engine.
 
-In normal operation, `continue` should be the standard keyword used for this self-loop case.
+In normal operation, `[CONTINUE]` should be the standard keyword used for this self-loop case.
+
+---
+
+## Atomic Iteration Semantics
+
+The engine should treat one loop invocation as a single logical transaction.
+
+### Required rule
+
+Routing resolution, action execution, state normalization, cursor advancement, and persistence should succeed or fail as one atomic update.
+
+### Practical meaning
+
+If any step after provider output parsing fails, the engine should not partially commit:
+
+- next active unit changes
+- phase changes
+- summary changes
+- decisions changes
+- questions changes
+- blockers changes
+- consumed response cursor changes
+
+### Raw artifacts on failure
+
+Even when the iteration fails, the engine should still persist diagnostic artifacts such as:
+
+- raw provider output
+- prompt text
+- parse error details
+- exception details
+- invocation log entry
+
+Those diagnostic writes should be clearly separated from canonical loop execution state.
+
+### Action failure rule
+
+If a built-in action fails:
+
+- the invocation fails
+- canonical loop execution state remains unchanged
+- consumed response cursor does not advance
+- failure details are logged and persisted
+- the user should be alerted clearly
+
+This avoids partially applied routing while preserving debugging information.
 
 ---
 
@@ -325,7 +479,6 @@ These values should normally persist because the next iteration still needs them
 - append-only user response history
 - last consumed user response id
 - last consumed user response timestamp
-- durable decisions that are still valid
 - compact working summary, updated to the newest useful version
 - logs, prompts, and raw outputs
 
@@ -338,6 +491,9 @@ These values describe the latest routing result and should be replaced each time
 - last routing outcome
 - phase
 - working summary when a newer summary is returned
+- decisions
+- open questions
+- blockers
 
 ### Data that should be cleared or filtered after a successful iteration
 
@@ -353,6 +509,24 @@ The rule is simple:
 - remove resolved temporary state
 - do not carry stale local clutter into the next iteration
 
+### Merge and replacement rules
+
+The engine should use explicit normalization rules rather than ad hoc merging.
+
+Default policy:
+
+- `workingSummary`: replace with the latest non-empty returned summary
+- `decisions`: replace with the latest normalized decision list returned by the model
+- `openQuestions`: replace with the latest unresolved question set returned by the model
+- `blockers`: replace with the latest unresolved blocker set returned by the model
+
+Normalization should also:
+
+- trim whitespace
+- remove empty strings
+- deduplicate exact duplicates
+- preserve stable ordering as returned by the model
+
 ### Response cursor behavior after a successful iteration
 
 The consumed user response cursor should not reset.
@@ -361,11 +535,23 @@ If response 7 was the last consumed response before or during the iteration, the
 
 Otherwise the engine would re-read old user input as if it were new.
 
+### Response cursor advancement rule
+
+The consumed response cursor should advance only when all of the following are true:
+
+- unread responses were included in the prompt for the current invocation
+- provider output was valid
+- selected keyword was valid for the active unit
+- all actions succeeded
+- canonical loop execution state was persisted successfully
+
+If any of those conditions fail, the cursor must not advance.
+
 ### Self-loop example
 
 Suppose the active loop unit is `collect_requirements` and the model returns:
 
-- selected keyword: `continue`
+- selected keyword: `[CONTINUE]`
 - summary: one requirement is still unclear
 - decisions:
   - desktop first
@@ -389,7 +575,7 @@ That means the same loop unit continues, but stale state is still cleaned up and
 
 Suppose the active loop unit is `collect_requirements` and the model returns:
 
-- selected keyword: `requirements_ready`
+- selected keyword: `[REQUIREMENTS_READY]`
 - summary: requirements are now clear enough to produce tasks
 - decisions:
   - desktop first
@@ -408,6 +594,25 @@ After persistence, the state should look conceptually like this:
 - last consumed user response id = unchanged except for any newly consumed responses in the completed iteration
 
 That means the next loop unit starts with the clarified facts, not with stale unresolved-question state from the previous loop unit.
+
+### Completion example
+
+Suppose the active loop unit returns:
+
+- selected keyword: `[DONE]`
+- summary: task execution is complete
+
+Then the loop is finished.
+
+After persistence, the state should look conceptually like this:
+
+- phase = `done`
+- last selected keyword = `[DONE]`
+- last routing outcome = `done`
+- session status = `completed`
+- isComplete = `true`
+
+The engine should not require an extra completion action beyond `[DONE]`.
 
 ### Default normalization policy
 
@@ -441,35 +646,33 @@ The future JSON structure should be explicit enough to author real workflows wit
       "purpose": "Identify the highest-value missing requirement or decision and either ask the user or conclude that requirements are ready.",
       "instructions": "Review the goal, stored summary, decisions, open questions, and unread user responses. Choose exactly one keyword.",
       "allowedKeywords": [
-        "continue",
-        "ask_user",
-        "requirements_ready",
-        "error",
-        "fail",
-        "done"
+        "[CONTINUE]",
+        "[ASK_USER]",
+        "[REQUIREMENTS_READY]",
+        "[ERROR]",
+        "[FAIL]",
+        "[DONE]"
       ],
       "transitions": [
         {
-          "keyword": "ask_user",
+          "keyword": "[ASK_USER]",
           "actions": ["wait-for-user", "record-question"]
         },
         {
-          "keyword": "requirements_ready",
-          "nextUnit": "done",
-          "actions": ["record-summary", "mark-done"]
+          "keyword": "[REQUIREMENTS_READY]",
+          "nextUnit": "produce_tasks",
+          "actions": ["record-summary"]
         },
         {
-          "keyword": "error",
-          "actions": ["record-summary", "set-phase:error"]
+          "keyword": "[ERROR]",
+          "actions": ["record-summary"]
         },
         {
-          "keyword": "fail",
-          "actions": ["record-summary", "set-phase:failed"]
+          "keyword": "[FAIL]",
+          "actions": ["record-summary"]
         },
         {
-          "keyword": "done",
-          "nextUnit": "done",
-          "actions": ["mark-done"]
+          "keyword": "[DONE]"
         }
       ]
     }
@@ -497,6 +700,24 @@ Instructions included in every prompt for this loop.
 #### `units`
 The list of loop units available to the loop.
 
+### Loop definition validation rules
+
+The engine should reject invalid loop definitions before runtime.
+
+Required validation:
+
+- loop id must be non-empty
+- `startUnit` must exist in `units`
+- unit ids must be unique within a loop
+- each unit must have at least one allowed keyword
+- allowed keywords within a unit must be unique
+- transition keywords within a unit must be unique
+- every transition keyword must appear in that unit's `allowedKeywords`
+- every `nextUnit` must be either an existing unit id or `done`
+- action names must be recognized built-in actions for the current version
+
+Invalid loop definitions should fail load deterministically.
+
 ---
 
 ## Loop Unit Structure
@@ -510,35 +731,33 @@ Each loop unit should support the following fields.
   "purpose": "Turn clarified requirements into an ordered task list.",
   "instructions": "Produce or refine the task list. Choose exactly one keyword.",
   "allowedKeywords": [
-    "continue",
-    "ask_user",
-    "tasks_ready",
-    "error",
-    "fail",
-    "done"
+    "[CONTINUE]",
+    "[ASK_USER]",
+    "[TASKS_READY]",
+    "[ERROR]",
+    "[FAIL]",
+    "[DONE]"
   ],
   "transitions": [
     {
-      "keyword": "ask_user",
+      "keyword": "[ASK_USER]",
       "actions": ["wait-for-user", "record-question"]
     },
     {
-      "keyword": "tasks_ready",
-      "nextUnit": "done",
-      "actions": ["record-summary", "mark-done"]
+      "keyword": "[TASKS_READY]",
+      "nextUnit": "execute_tasks",
+      "actions": ["record-summary"]
     },
     {
-      "keyword": "error",
-      "actions": ["record-summary", "set-phase:error"]
+      "keyword": "[ERROR]",
+      "actions": ["record-summary"]
     },
     {
-      "keyword": "fail",
-      "actions": ["record-summary", "set-phase:failed"]
+      "keyword": "[FAIL]",
+      "actions": ["record-summary"]
     },
     {
-      "keyword": "done",
-      "nextUnit": "done",
-      "actions": ["mark-done"]
+      "keyword": "[DONE]"
     }
   ]
 }
@@ -568,7 +787,7 @@ If a selected keyword has no explicit transition entry, the engine stays on the 
 
 That implicit self-loop behavior is part of the design.
 
-In normal cases, `continue` should be the keyword used for that behavior.
+In normal cases, `[CONTINUE]` should be the keyword used for that behavior.
 
 ---
 
@@ -578,7 +797,7 @@ A transition only needs to exist when a keyword changes execution behavior or sh
 
 ```json
 {
-  "keyword": "tasks_ready",
+  "keyword": "[TASKS_READY]",
   "nextUnit": "execute_tasks",
   "actions": ["record-summary"]
 }
@@ -609,8 +828,7 @@ Each iteration must return strict JSON.
 
 ```json
 {
-  "status": "continue",
-  "selectedKeyword": "ask_user",
+  "selectedKeyword": "[ASK_USER]",
   "summary": "One export-format question remains before requirements are complete.",
   "workLog": "Reviewed unread user responses and narrowed the remaining ambiguity to export format.",
   "questions": [
@@ -626,6 +844,16 @@ Each iteration must return strict JSON.
 }
 ```
 
+### Output schema rules
+
+- `selectedKeyword` is required and authoritative
+- `status` should not be included in v1 because it duplicates routing meaning and creates ambiguity
+- `summary` is required and may be an empty string only if the loop explicitly allows that
+- `workLog`, `questions`, `decisions`, `assumptions`, `blockers`, and `doneReason` are optional but should normalize to canonical empty values when omitted
+- omitted arrays normalize to `[]`
+- omitted strings normalize to `""`
+- `null` should be treated as invalid for v1 output fields
+
 ### Required behavior
 
 - exactly one `selectedKeyword`
@@ -635,24 +863,41 @@ Each iteration must return strict JSON.
 - no guessing
 - no repair prompt in v1
 
+### Invalid output handling
+
+Malformed JSON, missing required fields, invalid field types, or an invalid keyword should produce `invalid-output` behavior.
+
+Required handling:
+
+- canonical loop execution state remains unchanged
+- consumed response cursor does not advance
+- raw output and parse or validation failure details should still be logged and persisted
+- current invocation ends in failure
+
 ### Standard keyword behavior
 
-#### `continue`
+#### `[CONTINUE]`
 - successful iteration
 - remain on current loop unit unless an explicit transition says otherwise
 - still run normal state normalization after the iteration
 - persist updated summary, decisions, questions, blockers, and response cursor normally
 
-#### `error`
-- successful structured output indicating a technical blockage
+#### `[ERROR]`
+- successful structured output indicating a concrete execution failure
 - persist summary and blockers
-- move phase into an error or blocked state
-- stop current invocation
+- persist all related debugging information
+- alert the user clearly
+- stop the current process
 
-#### `fail`
+#### `[FAIL]`
 - successful structured output indicating the model cannot determine a valid next action
 - persist summary
-- move phase into a failed state
+- stop current invocation
+
+#### `[DONE]`
+- successful structured output indicating the loop is complete
+- set phase to `done`
+- mark the session complete
 - stop current invocation
 
 ---
@@ -683,7 +928,7 @@ The requirements collection loop must support explicit user interaction through 
 
 ### Required behavior
 
-1. active loop unit selects `ask_user`
+1. active loop unit selects `[ASK_USER]`
 2. engine records returned questions
 3. engine executes `wait-for-user`
 4. phase becomes `waiting-for-user`
@@ -695,6 +940,22 @@ The requirements collection loop must support explicit user interaction through 
 10. after a successful iteration, the consumed response cursor advances
 
 This is how a loop unit requests user input and then picks back up exactly where it left off.
+
+---
+
+## Concurrency and Session Locking
+
+This area still needs one concrete product decision.
+
+Open question:
+
+- can the same session be modified by more than one process, terminal window, or future UI at the same time
+
+If the answer is yes, the runtime needs a lock or another single-writer rule.
+
+If the answer is no because the product guarantees one active writer, then the runtime can stay simpler.
+
+This should be decided explicitly before implementation is finalized.
 
 ---
 
@@ -721,12 +982,12 @@ Suggested starting unit:
 
 Suggested keywords:
 
-- `continue`
-- `ask_user`
-- `requirements_ready`
-- `error`
-- `fail`
-- `done`
+- `[CONTINUE]`
+- `[ASK_USER]`
+- `[REQUIREMENTS_READY]`
+- `[ERROR]`
+- `[FAIL]`
+- `[DONE]`
 
 ### 2. Requirements To Tasks
 
@@ -741,12 +1002,12 @@ Suggested units:
 
 Suggested keywords:
 
-- `continue`
-- `ask_user`
-- `tasks_ready`
-- `error`
-- `fail`
-- `done`
+- `[CONTINUE]`
+- `[ASK_USER]`
+- `[TASKS_READY]`
+- `[ERROR]`
+- `[FAIL]`
+- `[DONE]`
 
 ### 3. Execute Tasks
 
@@ -762,12 +1023,12 @@ Suggested units:
 
 Suggested keywords:
 
-- `continue`
-- `need_clarification`
-- `more_execution_needed`
-- `error`
-- `fail`
-- `done`
+- `[CONTINUE]`
+- `[NEED_CLARIFICATION]`
+- `[MORE_EXECUTION_NEEDED]`
+- `[ERROR]`
+- `[FAIL]`
+- `[DONE]`
 
 These loops are not different runtime systems.
 
@@ -783,9 +1044,10 @@ Session state should hold:
 
 - session identity
 - selected loop id
-- lifecycle status
+- status
 - completion status
 - timestamps
+- schema version
 
 ### Loop execution state
 
@@ -798,8 +1060,10 @@ Loop execution state should hold:
 - compact working summary
 - decisions
 - open questions
+- blockers
 - last consumed user response id
 - last consumed user response timestamp
+- schema version
 
 That is enough to resume deterministically.
 
@@ -813,10 +1077,6 @@ Recommended built-in actions:
 - set phase to `waiting-for-user`
 - end current invocation after persistence
 
-### `mark-done`
-- set phase to `done`
-- mark session complete
-
 ### `set-phase:<value>`
 - set explicit phase value
 
@@ -828,6 +1088,19 @@ Recommended built-in actions:
 
 ### `record-question`
 - persist questions
+
+### Built-in action contract
+
+For v1, built-in actions should be deterministic and idempotent within a single invocation plan.
+
+They should mutate only canonical loop state defined by this document.
+
+They should not:
+
+- execute arbitrary shell commands
+- edit arbitrary files
+- invoke nested providers
+- depend on hidden ambient state
 
 Not included in v1:
 
@@ -864,9 +1137,9 @@ Workflow tests should use mock provider output to simulate each step.
 The provider in tests should be able to:
 
 - return fixed JSON payloads in sequence across successive calls
-- simulate self-loop results such as `continue`
-- simulate explicit transitions such as `requirements_ready` or `tasks_ready`
-- simulate `ask_user`, `error`, `fail`, and `done`
+- simulate self-loop results such as `[CONTINUE]`
+- simulate explicit transitions such as `[REQUIREMENTS_READY]` or `[TASKS_READY]`
+- simulate `[ASK_USER]`, `[ERROR]`, `[FAIL]`, and `[DONE]`
 - simulate invalid keyword output
 - simulate malformed JSON output
 - optionally inspect the prompt passed into each step so tests can verify that the workflow resumed with the correct state
@@ -889,21 +1162,24 @@ That means the most valuable tests are workflow tests that verify WallyCode itse
 - normalizes persisted state after each successful iteration
 - advances the response cursor only when appropriate
 - resumes correctly after `respond`
-- stops correctly for `wait-for-user`, `error`, `fail`, and `done`
+- stops correctly for `wait-for-user`, `[ERROR]`, `[FAIL]`, and `[DONE]`
 - fails fast on invalid provider output
 
 ### Required workflow scenarios
 
 The documentation should treat the following as required workflow test scenarios:
 
-- self-loop workflow where the active unit returns `continue` and remains active
+- self-loop workflow where the active unit returns `[CONTINUE]` and remains active
 - transition workflow where a keyword moves execution to another unit
 - ask-user workflow where the engine records questions, enters `waiting-for-user`, and stops
 - respond-and-resume workflow where unread responses are injected on the next run and the cursor advances after success
 - done workflow where the session is marked complete
-- error workflow where blockers and summary persist and phase changes appropriately
-- fail workflow where summary persists and phase changes appropriately
+- error workflow where blockers and summary persist and the user is alerted
+- fail workflow where summary persists and execution stops
 - invalid-output workflow where malformed JSON or an invalid keyword causes immediate failure
+- persistence-failure workflow where canonical state remains unchanged
+- action-failure workflow where canonical state remains unchanged
+- resume-failure workflow where persisted state references a missing unit or invalid schema
 
 ### Test design guidance
 
@@ -926,6 +1202,7 @@ This testing model should be treated as part of the architecture, not as an opti
 
 Each iteration log should include:
 
+- invocation id
 - loop id
 - active loop unit id
 - selected keyword
@@ -935,18 +1212,19 @@ Each iteration log should include:
 - phase after routing
 - summary
 - done reason if any
+- parse or validation outcome
 
 ---
 
 ## Safety Limits
 
-Even with `continue` as the standard self-loop keyword, the runtime should still enforce practical safety limits.
+Even with `[CONTINUE]` as the standard self-loop keyword, the runtime should still enforce practical safety limits.
 
 Examples:
 
 - max iterations per invocation
 - max repeated self-loops without meaningful state change
-- operator-visible warnings when the same unit keeps returning low-value `continue` results
+- operator-visible warnings when the same unit keeps returning low-value `[CONTINUE]` results
 
 These limits are runtime safeguards.
 
