@@ -837,6 +837,82 @@ Not included in v1:
 
 ---
 
+## Testing Model
+
+The future architecture should include a dedicated unit test project for routed loops.
+
+The purpose is to test loop behavior deterministically without depending on a real external provider.
+
+### Test provider concept
+
+The test project should include a `TestProvider` implementation that stands in for the real provider.
+
+That provider should be able to return controlled outputs for test scenarios such as:
+
+- `continue` on the same loop unit
+- transition to another loop unit
+- `ask_user` and wait-for-user behavior
+- `error`
+- `fail`
+- `done`
+- invalid keyword output
+- malformed JSON output
+
+### Why this matters
+
+The routed loop engine is mostly deterministic once provider output is fixed.
+
+That means the most valuable tests are not “real AI” tests.
+
+They are programmatic routing tests that verify:
+
+- prompt input is built from the correct persisted state
+- unread user responses are consumed correctly
+- the selected keyword is validated correctly
+- self-loop behavior works correctly
+- transition behavior works correctly
+- state normalization works correctly
+- response cursor behavior works correctly
+- wait-for-user behavior works correctly
+- error and fail behavior work correctly
+- invalid output fails fast
+
+### Controlled provider behavior
+
+The test provider does not need to imitate intelligence.
+
+It needs to imitate provider responses in a controlled way.
+
+That can include:
+
+- returning fixed JSON payloads
+- returning different payloads across successive calls
+- using simple lambdas or scripted callbacks to inspect prompt text
+- optionally performing deterministic test-side file actions when a scenario needs to emulate external effects
+
+The important point is not the exact implementation shape.
+
+The important point is that routed loops must be testable without a live provider.
+
+### Testing scope
+
+The future system should be designed so loop definitions and routing behavior can be validated through automated tests.
+
+That includes tests for:
+
+- loop definition loading and validation
+- routing keyword validation
+- implicit self-loop behavior
+- explicit transitions
+- built-in actions
+- response cursor advancement
+- persisted state normalization
+- resume behavior across multiple invocations
+
+This testing model should be treated as part of the future architecture, not as an optional afterthought.
+
+---
+
 ## Logging and Observability
 
 Each iteration log should include:
@@ -884,3 +960,4 @@ That gives the system:
 - lower prompt cost
 - simpler loop authoring
 - less engine complexity
+- deterministic automated testing without a live provider
