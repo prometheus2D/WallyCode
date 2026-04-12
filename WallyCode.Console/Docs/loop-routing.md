@@ -839,77 +839,86 @@ Not included in v1:
 
 ## Testing Model
 
-The future architecture should include a dedicated unit test project for routed loops.
+The future architecture should include automated tests for full loop workflows and logical-unit workflows.
 
-The purpose is to test loop behavior deterministically without depending on a real external provider.
-
-### Test provider concept
-
-The test project should include a `TestProvider` implementation that stands in for the real provider.
-
-That provider should be able to return controlled outputs for test scenarios such as:
-
-- `continue` on the same loop unit
-- transition to another loop unit
-- `ask_user` and wait-for-user behavior
-- `error`
-- `fail`
-- `done`
-- invalid keyword output
-- malformed JSON output
-
-### Why this matters
-
-The routed loop engine is mostly deterministic once provider output is fixed.
-
-That means the most valuable tests are not “real AI” tests.
-
-They are programmatic routing tests that verify:
-
-- prompt input is built from the correct persisted state
-- unread user responses are consumed correctly
-- the selected keyword is validated correctly
-- self-loop behavior works correctly
-- transition behavior works correctly
-- state normalization works correctly
-- response cursor behavior works correctly
-- wait-for-user behavior works correctly
-- error and fail behavior work correctly
-- invalid output fails fast
-
-### Controlled provider behavior
-
-The test provider does not need to imitate intelligence.
-
-It needs to imitate provider responses in a controlled way.
-
-That can include:
-
-- returning fixed JSON payloads
-- returning different payloads across successive calls
-- using simple lambdas or scripted callbacks to inspect prompt text
-- optionally performing deterministic test-side file actions when a scenario needs to emulate external effects
-
-The important point is not the exact implementation shape.
-
-The important point is that routed loops must be testable without a live provider.
+These tests should verify the programmatic workflow of WallyCode end to end across one or more invocations while keeping provider behavior fully controlled.
 
 ### Testing scope
 
-The future system should be designed so loop definitions and routing behavior can be validated through automated tests.
+The required automated coverage is workflow-level coverage only.
 
-That includes tests for:
+That means the tests should focus on:
 
-- loop definition loading and validation
-- routing keyword validation
-- implicit self-loop behavior
-- explicit transitions
-- built-in actions
-- response cursor advancement
-- persisted state normalization
-- resume behavior across multiple invocations
+- full loop runs from a starting unit through one or more routing decisions
+- logical-unit workflows that span repeated executions of the same active unit
+- resume behavior across `loop` and `respond`
+- persisted state changes across successive invocations
+- routing, action execution, and normalization as observed through the public workflow behavior
 
-This testing model should be treated as part of the future architecture, not as an optional afterthought.
+This does not require a broad set of isolated low-level unit tests for every internal helper.
+
+### Mock provider requirement
+
+Workflow tests should use mock provider output to simulate each step.
+
+The provider in tests should be able to:
+
+- return fixed JSON payloads in sequence across successive calls
+- simulate self-loop results such as `continue`
+- simulate explicit transitions such as `requirements_ready` or `tasks_ready`
+- simulate `ask_user`, `error`, `fail`, and `done`
+- simulate invalid keyword output
+- simulate malformed JSON output
+- optionally inspect the prompt passed into each step so tests can verify that the workflow resumed with the correct state
+
+The goal is to make workflow behavior deterministic without depending on a live external provider.
+
+### Why this matters
+
+Once provider output is fixed, routed loop behavior should be deterministic.
+
+That means the most valuable tests are workflow tests that verify WallyCode itself:
+
+- starts from the correct loop unit
+- builds the next prompt from the correct persisted state
+- consumes unread user responses correctly
+- validates the selected keyword correctly
+- stays on the same unit when no explicit transition exists
+- transitions when an explicit transition exists
+- executes built-in actions in the expected flow
+- normalizes persisted state after each successful iteration
+- advances the response cursor only when appropriate
+- resumes correctly after `respond`
+- stops correctly for `wait-for-user`, `error`, `fail`, and `done`
+- fails fast on invalid provider output
+
+### Required workflow scenarios
+
+The documentation should treat the following as required workflow test scenarios:
+
+- self-loop workflow where the active unit returns `continue` and remains active
+- transition workflow where a keyword moves execution to another unit
+- ask-user workflow where the engine records questions, enters `waiting-for-user`, and stops
+- respond-and-resume workflow where unread responses are injected on the next run and the cursor advances after success
+- done workflow where the session is marked complete
+- error workflow where blockers and summary persist and phase changes appropriately
+- fail workflow where summary persists and phase changes appropriately
+- invalid-output workflow where malformed JSON or an invalid keyword causes immediate failure
+
+### Test design guidance
+
+Each workflow test should define:
+
+- the loop definition under test
+- the starting persisted state
+- the ordered mock provider outputs for each invocation
+- any user responses appended between invocations
+- the expected active unit after each step
+- the expected phase after each step
+- the expected persisted summary, decisions, questions, blockers, and response cursor
+- the expected completion or stop condition
+
+This testing model should be treated as part of the architecture, not as an optional afterthought.
 
 ---
 
@@ -960,4 +969,4 @@ That gives the system:
 - lower prompt cost
 - simpler loop authoring
 - less engine complexity
-- deterministic automated testing without a live provider
+- deterministic workflow testing with mocked provider output
