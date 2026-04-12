@@ -928,34 +928,60 @@ The requirements collection loop must support explicit user interaction through 
 
 ### Required behavior
 
-1. active loop unit selects `[ASK_USER]`
-2. engine records returned questions
-3. engine executes `wait-for-user`
-4. phase becomes `waiting-for-user`
-5. current invocation ends
-6. user runs `respond`
-7. response is appended to the response store
-8. next `loop` run resumes the same active loop unit unless a transition changed it
-9. unread responses are injected into the prompt
-10. after a successful iteration, the consumed response cursor advances
+1. the active loop unit selects `[ASK_USER]`
+2. the engine records the returned questions
+3. the engine persists the current loop state
+4. the engine sets phase to `waiting-for-user`
+5. the current invocation stops
+6. the user later runs `respond`
+7. `respond` stores the user's response in the response store
+8. `respond` does not run the provider and does not change the active loop unit
+9. the next `loop` run resumes the same active loop unit unless a transition had already changed it
+10. that next `loop` run injects unread user responses into the prompt
+11. after that later loop iteration succeeds, the consumed response cursor advances
 
-This is how a loop unit requests user input and then picks back up exactly where it left off.
+This is how a loop unit requests user input, stops cleanly, accepts a later user response, and then resumes the same logical unit with the new information.
+
+### Respond command rules
+
+The `respond` command should:
+
+- only append a new user response entry
+- preserve existing loop state
+- preserve the current active loop unit
+- preserve the current phase unless product rules explicitly allow `respond` to move `waiting-for-user` back to `active`
+- never consume the response by itself
+- never invoke the provider by itself
+
+The next `loop` invocation is what consumes unread responses and continues execution.
 
 ---
 
-## Concurrency and Session Locking
+## Single-Writer Session Rule
 
-This area still needs one concrete product decision.
+Each session should be touched by only one writer or provider at a time.
 
-Open question:
+This is a required runtime rule.
 
-- can the same session be modified by more than one process, terminal window, or future UI at the same time
+### Meaning
 
-If the answer is yes, the runtime needs a lock or another single-writer rule.
+For a given session, only one active mutating operation may run at once.
 
-If the answer is no because the product guarantees one active writer, then the runtime can stay simpler.
+Examples of mutating operations:
 
-This should be decided explicitly before implementation is finalized.
+- `loop`
+- `respond`
+- any future command that writes canonical session state
+- any provider-backed execution that writes loop state
+
+### Required behavior
+
+- the runtime must prevent overlapping writes to the same session
+- a second writer must not modify the same session while another writer is active
+- the runtime should fail fast with a clear message rather than allowing interleaved writes
+- the engine should never allow two providers or commands to race on the same session state
+
+This keeps routing, response consumption, and persistence deterministic.
 
 ---
 
@@ -972,8 +998,8 @@ Purpose:
 Typical behavior:
 
 - active loop unit asks targeted questions
-- user answers with `respond`
-- same loop unit resumes
+- user answers later with `respond`
+- the same loop unit resumes on the next `loop` run
 - when satisfied, it routes forward or ends
 
 Suggested starting unit:
@@ -1164,6 +1190,7 @@ That means the most valuable tests are workflow tests that verify WallyCode itse
 - resumes correctly after `respond`
 - stops correctly for `wait-for-user`, `[ERROR]`, `[FAIL]`, and `[DONE]`
 - fails fast on invalid provider output
+- prevents overlapping writers on the same session
 
 ### Required workflow scenarios
 
@@ -1172,7 +1199,7 @@ The documentation should treat the following as required workflow test scenarios
 - self-loop workflow where the active unit returns `[CONTINUE]` and remains active
 - transition workflow where a keyword moves execution to another unit
 - ask-user workflow where the engine records questions, enters `waiting-for-user`, and stops
-- respond-and-resume workflow where unread responses are injected on the next run and the cursor advances after success
+- respond-and-resume workflow where the engine stops, `respond` stores a later user response, unread responses are injected on the next `loop` run, and the cursor advances only after that later loop iteration succeeds
 - done workflow where the session is marked complete
 - error workflow where blockers and summary persist and the user is alerted
 - fail workflow where summary persists and execution stops
@@ -1180,6 +1207,7 @@ The documentation should treat the following as required workflow test scenarios
 - persistence-failure workflow where canonical state remains unchanged
 - action-failure workflow where canonical state remains unchanged
 - resume-failure workflow where persisted state references a missing unit or invalid schema
+- single-writer workflow where a second writer is rejected while the first writer is active
 
 ### Test design guidance
 
