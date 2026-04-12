@@ -2,367 +2,474 @@
 
 ## Purpose
 
-This document defines the next evolution of WallyCode loops.
+This document defines the future loop architecture.
 
-Today, WallyCode loops are iterative memory-driven sessions:
+A loop is the entry point into a JSON-defined flow of loop units.
 
-- a loop template provides a system prompt and initial memory
-- each iteration sends memory plus metadata to the provider
-- the provider returns structured JSON
-- WallyCode updates memory and session state
-- the user can respond between iterations
+In practice:
 
-That model is already useful, but it is still mostly a **single generic loop**.
+- the user chooses a loop
+- that loop selects a starting loop unit
+- the engine runs the active loop unit
+- the active loop unit usually repeats on itself
+- when the model returns a routing keyword that changes execution, the engine moves to another loop unit or ends
 
-The next step is to make loops into a **simple JSON-defined routing system** where:
+So a loop is not a separate runtime mechanism beyond routing.
 
-- a loop is made of named steps
-- each step tells the LLM what kind of decision or work to do
-- the LLM returns one or more routing keywords in structured output
-- those keywords determine the next step, next loop, or a built-in action
-- memory remains a minimal persistent context layer across the whole session
+A loop is the named starting point into a routed sequence of loop units.
 
-The goal is to keep the system:
-
-- simple to author in JSON
-- robust enough for real workflows
-- memory-light between iterations
-- token-efficient
-- deterministic at the routing layer
-- compatible with one-step-at-a-time loop execution plus user responses between runs
-- extensible without embedding workflow logic into C# for every new loop
+This document describes that future state directly.
 
 ---
 
-## Current Application Review
+## Core Model
 
-## What exists today
+The runtime needs only a small number of concepts.
 
-The current loop system already has strong foundations.
+### 1. Loop
 
-### 1. Loop templates are JSON-driven
+A loop is a named workflow entry point.
 
-Current templates live under:
-
-- `WallyCode.Console/Templates/Loops/default.json`
-- `WallyCode.Console/Templates/Loops/requirements.json`
-
-Current `LoopTemplate` supports:
-
-- `name`
-- `description`
-- `systemPrompt`
-- `responseSchemaPrompt`
-- initial memory documents
-- optional `stopKeyword`
-
-This is a good starting point because loop behavior is already partially data-driven.
-
-### 2. Memory is already externalized and persistent
-
-`MemoryWorkspace` persists:
-
-- session state
-- loop state
-- prompts
-- raw outputs
-- logs
-- memory documents
-- user responses
-
-This is exactly the right substrate for routed loops.
-
-### 3. The loop runner already separates concerns reasonably well
-
-Current flow:
-
-1. load template
-2. load loop state
-3. read memory snapshot
-4. build prompt
-5. call provider
-6. parse structured response
-7. update loop state
-8. render memory
-9. persist session
-
-This means the architecture is already close to a generic engine.
-
-### 4. Structured output already exists
-
-The current prompt requires JSON-only output with fields like:
-
-- `status`
-- `summary`
-- `workLog`
-- `questions`
-- `decisions`
-- `assumptions`
-- `blockers`
-- `doneReason`
-
-That is important because routing should also be driven by structured output, not free text.
-
----
-
-## Current Limitations
-
-The current loop model has several limitations that the new routing design should solve.
-
-### 1. Only one implicit step exists
-
-Even though templates differ, the engine itself behaves like one generic repeated step.
-
-There is no explicit concept of:
-
-- current step id
-- step-local instructions
-- step-local routing rules
-- transitions between steps
-- nested loops or subflows
-
-### 2. Routing is mostly inferred, not declared
-
-Today the loop decides only a few things:
-
-- continue vs done
-- waiting-for-user vs active
-- stop keyword matched or not
-
-That is too limited for richer workflows.
-
-### 3. Memory is doing too much semantic work
-
-Memory currently carries:
-
-- context
-- progress
-- open questions
-- decisions
-- implicit workflow state
-
-Memory should remain important, but workflow routing should become explicit and machine-readable.
-
-### 4. Token usage can grow unnecessarily
-
-If the LLM must repeatedly infer the workflow from large memory documents, token usage rises and routing becomes less deterministic.
-
-A step-based routing model can reduce this by:
-
-- narrowing the prompt to the current step
-- using explicit allowed keywords
-- using compact transition rules
-
----
-
-## Design Goals
-
-The new routing system should satisfy the following goals.
-
-### Primary goals
-
-1. **Loops are defined in JSON**
-   - no custom C# logic per workflow
-   - workflows should be programmable by editing JSON files
-
-2. **Routing is keyword-driven**
-   - the LLM emits explicit routing keywords
-   - WallyCode maps those keywords to transitions or actions
-
-3. **The routed runtime stays memory-light**
-   - keep only canonical memory that cannot be reconstructed from routed state or the loop definition
-   - prefer generated artifacts over rewritten prompt-source markdown documents
-   - keep user responses append-only and compact
-
-4. **The engine is deterministic where possible**
-   - the LLM chooses from declared keywords
-   - WallyCode validates the keyword
-   - WallyCode performs the transition/action deterministically
-
-5. **Prompt token usage is reduced where possible**
-   - step-local instructions replace repeated generic reasoning
-   - routing rules are compact and explicit
-
-6. **Single-step loop execution remains first-class**
-   - one `loop` invocation should remain a valid complete unit of routed execution
-   - `respond` should fit cleanly between loop invocations
-
-### Secondary goals
-
-7. **Safe built-in actions**
-   - actions should be constrained and explicit
-   - avoid arbitrary scripting in v1
-
-8. **Good observability**
-   - logs should show step, keyword, transition, and action results
-
-9. **Forward-only design**
-   - the new routed loop schema is the source of truth
-   - legacy schema support is not a goal
-   - the implementation should optimize for the new model, not preserve the old one
-
-10. **Remove obsolete code during implementation**
-   - legacy loop code should be deleted, not preserved
-   - transitional compatibility layers should be avoided
-   - unused models, parsers, and template paths should be removed once replaced
-
----
-
-## Non-Goals for V1
-
-To keep the first version simple and robust, the following should not be part of v1.
-
-1. Arbitrary shell execution from JSON
-2. Arbitrary code execution from JSON
-3. Full scripting language inside loop definitions
-4. Dynamic prompt templating language beyond simple placeholders
-5. Multi-keyword branching with complex boolean expressions
-6. Nested loop invocation as a required v1 feature
-7. Legacy schema compatibility
-8. Migration tooling for older loop definitions
-9. Transitional code paths kept only for safety
-
-Nested loops may be added later, but should not be required to make the first routed-loop engine useful.
-
----
-
-## Core Mental Model
-
-A routed loop is a **state machine with memory**.
-
-### Memory answers:
-
-- what has happened
-- what the user said
-- what decisions were made
-- what the current context is
-
-### Routing answers:
-
-- what step is active now
-- what keyword the LLM selected
-- what action should happen next
-- what step should run next
-
-This separation is important.
-
-Memory is semantic continuity.
-Routing is execution continuity.
-
----
-
-## Proposed V1 Architecture
-
-## Top-level concepts
-
-### 1. Loop Definition
-
-A loop definition is a JSON file that declares:
+A loop definition declares:
 
 - loop id
 - name
 - description
-- start step id
-- optional shared instructions
-- step definitions
-- optional built-in defaults
+- start unit id
+- shared instructions
+- loop units
 
-### 2. Step Definition
+### 2. Loop Unit
 
-A step defines one bounded unit of reasoning.
+A loop unit is the current mode of work.
 
-A step should contain:
+Examples:
 
-- `id`
-- `title`
-- `purpose`
-- `instructions`
-- `allowedKeywords`
-- `transitions`
-- optional `actions`
-- optional `completionRules`
+- collect missing requirements
+- analyze requirements
+- produce tasks
+- review task queue
+- execute task batch
+- review results
+
+Only one loop unit is active at a time.
 
 ### 3. Keyword
 
-A keyword is a compact machine-readable token emitted by the LLM.
+A keyword is the single machine-readable routing decision returned by the model.
 
 Examples:
 
-- `continue_work`
-- `need_user_input`
-- `requirements_clear`
+- `continue`
+- `ask_user`
+- `requirements_ready`
+- `tasks_ready`
 - `done`
-- `retry_same_step`
-
-Keywords should be:
-
-- explicit
-- normalized
-- finite per step
-- validated by the engine
+- `error`
+- `fail`
 
 ### 4. Transition
 
-A transition maps a keyword to the next engine behavior.
+A transition is what happens when a keyword changes execution.
 
-Examples:
+If no explicit transition exists for the selected keyword, execution stays on the current loop unit.
 
-- keyword -> next step
-- keyword -> same step
-- keyword -> done
-- keyword -> built-in action then next step
+That means self-looping is the default behavior.
 
-### 5. Built-in Action
+### 5. Action
 
-An action is a small deterministic engine behavior.
+An action is a small built-in engine behavior such as:
 
-Examples for v1:
-
-- `set-phase`
-- `mark-done`
-- `record-summary`
-- `record-decision`
-- `record-question`
-- `wait-for-user`
-
-Actions should be safe, bounded, and internal.
+- wait for user input
+- record summary
+- record decisions
+- record questions
+- mark done
 
 ---
 
-## Proposed JSON Shape
+## Standard System Keywords
 
-This is a proposed v1 shape, not final syntax.
+The future system should treat a small set of keywords as standard routing conventions across loops.
+
+These can be hardcoded by the engine if that keeps authoring simpler and behavior more consistent.
+
+### `continue`
+
+This should be the standard default self-loop keyword.
+
+Meaning:
+
+- the current loop unit should continue
+- no unit transition is needed
+- the iteration succeeded
+- state should still be updated normally
+
+If `continue` has no explicit transition entry, the engine remains on the same loop unit.
+
+### `error`
+
+This should mean the model believes a technical or execution problem is preventing useful progress.
+
+Examples:
+
+- required file or artifact is missing
+- expected input is malformed
+- the current task cannot proceed because of a concrete technical issue
+
+This is not the same as uncertainty.
+
+This means the model believes there is a real blocking problem.
+
+Recommended handling:
+
+- record summary and blockers
+- set phase to an error or blocked state
+- stop the current invocation
+- require operator inspection or a future recovery policy
+
+### `fail`
+
+This should mean the model cannot determine a valid next action inside the current loop unit.
+
+Examples:
+
+- the available keywords do not fit the situation
+- the model cannot confidently choose the next action
+- the prompt or loop definition is insufficient for the current state
+
+This is not a technical execution error.
+
+This is a routing failure or reasoning failure.
+
+Recommended handling:
+
+- record summary
+- log the failure clearly
+- stop the current invocation
+- do not guess a transition
+
+### Why these standard keywords are useful
+
+They give every loop a small common control vocabulary:
+
+- `continue` for normal self-looping
+- `error` for concrete technical blockage
+- `fail` for inability to determine the next valid action
+
+That makes prompts, logs, and loop authoring more consistent.
+
+---
+
+## How Memory Works
+
+Memory is not the routing system.
+
+Memory is the persisted information the next iteration needs in order to continue work without losing context.
+
+That means memory stores concrete things such as:
+
+- the goal
+- the selected loop id
+- the active loop unit id
+- the latest compact summary
+- decisions already made
+- questions already asked
+- user responses already received
+- which user responses have already been consumed by the model
+- raw model outputs
+- prompts sent to the provider
+- logs
+
+### What memory is for
+
+Memory exists so the next iteration can answer questions like:
+
+- what is the user trying to accomplish
+- what has already been clarified
+- what decisions are already fixed
+- what questions are still open
+- what did the model say last time
+- which user responses are new and unread
+- which loop unit should resume
+
+### What memory is not for
+
+Memory should not be the place where the engine guesses workflow behavior from large prose documents.
+
+The engine should not need to infer things like:
+
+- whether it is still collecting requirements
+- whether it should move to task generation
+- whether it should wait for the user
+- whether it should finish
+
+Those are routing decisions and should come from:
+
+- active loop unit id
+- selected keyword
+- transition mapping
+- explicit phase state
+
+### Concrete example
+
+Suppose the active loop unit is `collect_requirements`.
+
+The persisted state might contain:
+
+- goal: build a desktop app for invoice tracking
+- active unit: `collect_requirements`
+- working summary: target users are internal finance staff; export format still unclear
+- decisions:
+  - desktop first
+  - local storage acceptable for v1
+- open questions:
+  - should exports be csv only or csv plus pdf
+- last consumed user response id: 3
+
+Then the user runs `respond` and adds:
+
+- response 4: csv is enough for v1
+
+On the next `loop` run, the engine does not replay every historical response as if it were new.
+
+It does this instead:
+
+1. load the active unit `collect_requirements`
+2. load the stored summary, decisions, and open questions
+3. load unread user responses where id > 3
+4. inject only response 4 into the prompt
+5. run the provider once
+6. parse the returned keyword
+7. either stay in `collect_requirements` or transition elsewhere
+8. if successful, advance the consumed response cursor to 4
+
+That is what memory does.
+
+It preserves the exact persisted facts needed for the next iteration.
+
+### Canonical memory should stay small
+
+Canonical persisted memory should be limited to data that cannot be reconstructed cheaply from the loop definition or routing state.
+
+Keep:
+
+- goal
+- loop id
+- active loop unit id
+- phase
+- compact working summary
+- decisions
+- open questions
+- append-only user responses
+- consumed response cursor
+- prompts
+- raw outputs
+- logs
+
+Avoid making these canonical:
+
+- rewritten workflow narratives every iteration
+- repeated copies of unit instructions
+- repeated copies of static loop guidance
+- large markdown files that duplicate structured state
+
+Human-readable files can still exist, but they should be generated artifacts, not the routing source of truth.
+
+---
+
+## Routing Rule
+
+The routing rule should stay extremely simple:
+
+**Run the active loop unit again unless the selected keyword explicitly transitions to another loop unit, waits for user input, or ends the loop.**
+
+This is the default behavior of the engine.
+
+In normal operation, `continue` should be the standard keyword used for this self-loop case.
+
+---
+
+## State Normalization After Every Successful Iteration
+
+This needs to be explicit.
+
+After every successful iteration, the engine should normalize persisted state before ending the invocation.
+
+This applies in both cases:
+
+- the loop stays on the same loop unit
+- the loop transitions to another loop unit
+
+The only difference between those two outcomes is whether the active loop unit id changes.
+
+Everything else should follow the same cleanup and persistence pipeline.
+
+### The engine should always do these things after a successful iteration
+
+1. accept the selected keyword
+2. resolve the matching transition if one exists
+3. execute any built-in actions
+4. normalize persisted loop state
+5. set the next active loop unit id
+6. persist the updated loop execution state
+7. persist logs, prompt, and raw output
+8. end the current invocation
+
+### Data that should carry forward after a successful iteration
+
+These values should normally persist because the next iteration still needs them:
+
+- goal
+- selected loop id
+- append-only user response history
+- last consumed user response id
+- last consumed user response timestamp
+- durable decisions that are still valid
+- compact working summary, updated to the newest useful version
+- logs, prompts, and raw outputs
+
+### Data that should be overwritten after a successful iteration
+
+These values describe the latest routing result and should be replaced each time:
+
+- active loop unit id
+- last selected keyword
+- last routing outcome
+- phase
+- working summary when a newer summary is returned
+
+### Data that should be cleared or filtered after a successful iteration
+
+These values should not be blindly carried forward:
+
+- open questions that were resolved in the completed iteration
+- temporary unit-local notes if such notes exist
+- stale blockers that no longer apply
+
+The rule is simple:
+
+- keep unresolved facts
+- remove resolved temporary state
+- do not carry stale local clutter into the next iteration
+
+### Response cursor behavior after a successful iteration
+
+The consumed user response cursor should not reset.
+
+If response 7 was the last consumed response before or during the iteration, the next iteration should continue from that same cursor.
+
+Otherwise the engine would re-read old user input as if it were new.
+
+### Self-loop example
+
+Suppose the active loop unit is `collect_requirements` and the model returns:
+
+- selected keyword: `continue`
+- summary: one requirement is still unclear
+- decisions:
+  - desktop first
+- open questions:
+  - should exports be csv only or csv plus pdf
+
+There is no explicit transition, so the loop stays on `collect_requirements`.
+
+After persistence, the state should look conceptually like this:
+
+- active loop unit = `collect_requirements`
+- phase = `active`
+- working summary = one requirement is still unclear
+- decisions = desktop first
+- open questions = should exports be csv only or csv plus pdf
+- last consumed user response id = updated only if unread responses were consumed successfully
+
+That means the same loop unit continues, but stale state is still cleaned up and replaced with the newest useful state.
+
+### Transition example
+
+Suppose the active loop unit is `collect_requirements` and the model returns:
+
+- selected keyword: `requirements_ready`
+- summary: requirements are now clear enough to produce tasks
+- decisions:
+  - desktop first
+  - csv export only for v1
+- open questions: none
+
+The transition moves to `produce_tasks`.
+
+After persistence, the state should look conceptually like this:
+
+- active loop unit = `produce_tasks`
+- phase = `active`
+- working summary = requirements are now clear enough to produce tasks
+- decisions = desktop first, csv export only for v1
+- open questions = empty
+- last consumed user response id = unchanged except for any newly consumed responses in the completed iteration
+
+That means the next loop unit starts with the clarified facts, not with stale unresolved-question state from the previous loop unit.
+
+### Default normalization policy
+
+Unless a loop definition says otherwise, the engine should follow this default policy:
+
+- preserve durable context
+- overwrite routing fields
+- filter resolved questions and blockers
+- keep the response cursor intact
+- never fully reset loop state during normal iteration flow
+
+---
+
+## Future JSON Structure
+
+The future JSON structure should be explicit enough to author real workflows without adding workflow-specific C#.
+
+### Recommended top-level shape
 
 ```json
 {
-  "name": "Requirements Loop",
-  "description": "Collect missing requirements and route based on explicit LLM decisions.",
-  "startStep": "analyze_requirements",
-  "sharedInstructions": "Keep questions minimal and high value.",
-  "steps": [
+  "id": "requirements-collection",
+  "name": "Requirements Collection",
+  "description": "Collect missing requirements from the user until the specification is clear enough to move forward.",
+  "startUnit": "collect_requirements",
+  "sharedInstructions": "Stay concrete. Ask the fewest questions that unlock the most progress.",
+  "units": [
     {
-      "id": "analyze_requirements",
-      "title": "Analyze Requirements",
-      "purpose": "Find the highest-value ambiguity or decision point.",
-      "instructions": "Review memory and pending user responses. Choose exactly one routing keyword.",
+      "id": "collect_requirements",
+      "title": "Collect Requirements",
+      "purpose": "Identify the highest-value missing requirement or decision and either ask the user or conclude that requirements are ready.",
+      "instructions": "Review the goal, stored summary, decisions, open questions, and unread user responses. Choose exactly one keyword.",
       "allowedKeywords": [
+        "continue",
         "ask_user",
-        "requirements_clear",
-        "continue_analysis"
+        "requirements_ready",
+        "error",
+        "fail",
+        "done"
       ],
       "transitions": [
         {
           "keyword": "ask_user",
-          "actions": [ "wait-for-user" ],
-          "nextStep": "analyze_requirements"
+          "actions": ["wait-for-user", "record-question"]
         },
         {
-          "keyword": "continue_analysis",
-          "nextStep": "analyze_requirements"
+          "keyword": "requirements_ready",
+          "nextUnit": "done",
+          "actions": ["record-summary", "mark-done"]
         },
         {
-          "keyword": "requirements_clear",
-          "nextStep": "done"
+          "keyword": "error",
+          "actions": ["record-summary", "set-phase:error"]
+        },
+        {
+          "keyword": "fail",
+          "actions": ["record-summary", "set-phase:failed"]
+        },
+        {
+          "keyword": "done",
+          "nextUnit": "done",
+          "actions": ["mark-done"]
         }
       ]
     }
@@ -370,617 +477,410 @@ This is a proposed v1 shape, not final syntax.
 }
 ```
 
-This shape is intentionally simple.
+### Top-level fields
 
-The engine should not need custom code for each loop.
+#### `id`
+Stable machine-readable loop id.
+
+#### `name`
+Human-readable loop name.
+
+#### `description`
+Short explanation of what the loop is for.
+
+#### `startUnit`
+The loop unit where execution begins.
+
+#### `sharedInstructions`
+Instructions included in every prompt for this loop.
+
+#### `units`
+The list of loop units available to the loop.
 
 ---
 
-## Proposed LLM Output Contract
+## Loop Unit Structure
 
-The routing system depends on strict structured output.
+Each loop unit should support the following fields.
 
-The current response schema should evolve to include routing fields.
+```json
+{
+  "id": "produce_tasks",
+  "title": "Produce Tasks",
+  "purpose": "Turn clarified requirements into an ordered task list.",
+  "instructions": "Produce or refine the task list. Choose exactly one keyword.",
+  "allowedKeywords": [
+    "continue",
+    "ask_user",
+    "tasks_ready",
+    "error",
+    "fail",
+    "done"
+  ],
+  "transitions": [
+    {
+      "keyword": "ask_user",
+      "actions": ["wait-for-user", "record-question"]
+    },
+    {
+      "keyword": "tasks_ready",
+      "nextUnit": "done",
+      "actions": ["record-summary", "mark-done"]
+    },
+    {
+      "keyword": "error",
+      "actions": ["record-summary", "set-phase:error"]
+    },
+    {
+      "keyword": "fail",
+      "actions": ["record-summary", "set-phase:failed"]
+    },
+    {
+      "keyword": "done",
+      "nextUnit": "done",
+      "actions": ["mark-done"]
+    }
+  ]
+}
+```
 
-### Proposed v1 response shape
+### Loop unit fields
+
+#### `id`
+Stable machine-readable unit id.
+
+#### `title`
+Human-readable unit title.
+
+#### `purpose`
+What this unit is trying to accomplish.
+
+#### `instructions`
+Prompt instructions specific to this unit.
+
+#### `allowedKeywords`
+The exact keywords the model is allowed to return while this unit is active.
+
+#### `transitions`
+Optional explicit routing rules.
+
+If a selected keyword has no explicit transition entry, the engine stays on the same loop unit.
+
+That implicit self-loop behavior is part of the design.
+
+In normal cases, `continue` should be the keyword used for that behavior.
+
+---
+
+## Transition Structure
+
+A transition only needs to exist when a keyword changes execution behavior or should trigger actions.
+
+```json
+{
+  "keyword": "tasks_ready",
+  "nextUnit": "execute_tasks",
+  "actions": ["record-summary"]
+}
+```
+
+### Transition fields
+
+#### `keyword`
+The keyword that triggers this transition.
+
+#### `nextUnit`
+Optional target unit.
+
+Allowed values:
+
+- another unit id
+- `done`
+- omitted, which means remain on the current unit
+
+#### `actions`
+Optional built-in actions to execute after the keyword is accepted.
+
+---
+
+## Output Contract
+
+Each iteration must return strict JSON.
 
 ```json
 {
   "status": "continue",
   "selectedKeyword": "ask_user",
-  "summary": "One sentence summary.",
-  "workLog": "Markdown work log.",
-  "questions": ["What platform should this target?"],
-  "decisions": [],
+  "summary": "One export-format question remains before requirements are complete.",
+  "workLog": "Reviewed unread user responses and narrowed the remaining ambiguity to export format.",
+  "questions": [
+    "Should exports support csv only, or csv plus pdf?"
+  ],
+  "decisions": [
+    "Desktop first",
+    "Local storage is acceptable for v1"
+  ],
   "assumptions": [],
   "blockers": [],
   "doneReason": ""
 }
 ```
 
-### Required routing fields
+### Required behavior
 
-- `selectedKeyword`
-  - exactly one keyword in v1
-  - must match one of the current step's allowed keywords
+- exactly one `selectedKeyword`
+- keyword must match the active loop unit's `allowedKeywords`
+- output must be valid JSON
+- invalid keyword means immediate failure
+- no guessing
+- no repair prompt in v1
 
-### Why exactly one keyword in v1
+### Standard keyword behavior
 
-This keeps the engine simple and deterministic.
+#### `continue`
+- successful iteration
+- remain on current loop unit unless an explicit transition says otherwise
+- still run normal state normalization after the iteration
+- persist updated summary, decisions, questions, blockers, and response cursor normally
 
-It avoids:
+#### `error`
+- successful structured output indicating a technical blockage
+- persist summary and blockers
+- move phase into an error or blocked state
+- stop current invocation
 
-- ambiguous branching
-- priority rules
-- boolean routing expressions
-- action ordering complexity
-
-Multiple keywords can be considered later if needed.
-
----
-
-## Routing Semantics
-
-## V1 routing rules
-
-For each iteration:
-
-1. load current step id from session/loop state
-2. build prompt for that step
-3. provider returns structured JSON
-4. parse `selectedKeyword`
-5. validate keyword against current step
-6. find matching transition
-7. execute built-in actions
-8. move to next step or mark done
-9. persist updated state and memory
-
-### Transition targets
-
-V1 should support:
-
-- `nextStep: <step-id>`
-- `nextStep: same`
-- `nextStep: done`
-
-This is enough for a strong first version.
-
-### Invalid keyword behavior
-
-If the LLM returns an invalid keyword:
-
-- mark the iteration as invalid
-- log the failure clearly
-- fail the run immediately in v1
-
-Do not silently guess.
-
-Deterministic routing is more important than permissive recovery.
+#### `fail`
+- successful structured output indicating the model cannot determine a valid next action
+- persist summary
+- move phase into a failed state
+- stop current invocation
 
 ---
 
-## Memory Model in the New System
+## Prompt Contents
 
-The memory system remains valuable, but the routed engine should be as memory-light as possible.
-
-### Canonical persisted data should stay small
-
-- goal
-- loop definition id
-- current routed step id
-- phase and other compact routing state
-- a compact working summary when needed
-- append-only user responses
-- prompt history
-- raw outputs
-- logs
-
-### Canonical persisted data should avoid derived workflow views
-
-The engine should avoid storing large markdown documents as source-of-truth when the same information already exists in JSON state or the loop definition.
-
-That means the routed system should avoid treating these as canonical persisted memory:
-
-- rewritten current tasks documents each iteration
-- rewritten next steps documents each iteration
-- repeated step instructions that already live in the loop definition
-- static perspectives text that never changes after session start
-- duplicated human-readable summaries that can be rendered from state on demand
-
-### Generated artifacts are still fine
-
-Human-readable files can still exist for observability, debugging, or operator inspection.
-
-But they should be:
-
-- generated from routed state and response history
-- optional where possible
-- excluded from canonical prompt input if the same information already exists in structured state
-
-### User responses should be append-only and cursor-based
-
-`respond` should append new entries into a durable response store.
-
-The routed engine should then track a compact cursor such as `LastConsumedUserResponseId` in JSON state.
-
-Pending responses are simply the entries with ids greater than that cursor.
-
-This keeps the system efficient because:
-
-- the application does not need to rewrite a full user-response memory document every time the user answers
-- the next loop run only needs to inject unread responses into the prompt
-- pending-response detection remains deterministic and machine-readable
-
-### But memory should no longer be the only workflow state
-
-The new system should add explicit machine-readable routing state.
-
-That means:
-
-- memory remains human-readable continuity
-- loop state becomes machine-readable execution continuity
-
-This is a major conceptual improvement.
-
----
-
-## Schema Change Scope
-
-This document should describe the scope of change required for routed loops, without locking the final field-by-field schema too early.
-
-Exact property names, validation details, and versioning can be finalized later in the dedicated schema document.
-
-At a high level, routed loops require schema changes in these areas:
-
-- loop definition schema
-   - enough structure to define steps, routing keywords, transitions, and safe built-in actions
-- model output schema
-   - enough structure to return routing decisions in a deterministic machine-readable form alongside summary data
-- session continuity schema
-   - enough structure to identify the active loop definition, track whether the session is active or complete, and know where to resume
-- loop execution state schema
-   - enough structure to track the active routed step, recent routing outcomes, unread user-response progress, and lightweight execution history
-- user-response store contract
-   - enough structure to support append-only responses and deterministic unread-response detection between `respond` and the next `loop` run
-- artifact boundary rules
-   - enough structure to clearly separate canonical state from generated prompts, raw outputs, logs, and any optional human-readable views
-
-The important point for v1 is not exact field naming.
-
-The important point is that routing, resume behavior, and unread user-response handling become explicit in structured state instead of being inferred from large memory documents.
-
----
-
-## Minimal Memory Layout Scope
-
-V1 should aim for the smallest on-disk memory layout that still supports deterministic routing, one-step loop execution, and `respond` between runs.
-
-The minimal canonical layout should conceptually include only:
-
-- one session continuity file
-   - high-level session identity, selected loop definition, completion state, and resume context
-- one loop execution state file
-   - routed execution continuity such as current step position, phase, and unread-response progress
-- one append-only user-response store
-   - the durable input stream written by `respond`
-- optional artifact directories
-   - prompts, raw outputs, logs, and any generated operator-facing views
-
-The routed design should explicitly avoid requiring these as canonical inputs for every iteration:
-
-- rewritten current-tasks markdown files
-- rewritten next-steps markdown files
-- rewritten current-state markdown files
-- full user-response narrative documents that duplicate the append-only response store
-- static perspective files that can live in the loop definition itself
-
-If operator-facing markdown files still exist, they should be treated as generated artifacts rather than required prompt-source memory.
-
-That keeps the file layout aligned with the routing goal:
-
-- `loop` runs one bounded routed step
-- `respond` appends input without rewriting broad memory state
-- the next `loop` run resumes from compact JSON state plus unread responses
-
----
-
-## Proposed State Changes
-
-The sections below describe the expected scope of state changes.
-
-They are intentionally directional rather than final.
-
-## Session state additions
-
-`LoopSessionState` likely needs scope in these areas:
-
-- active loop identity and selected routed definition
-- enough resume context to know where the next `loop` run should continue
-- coarse lifecycle state such as active, waiting, or complete
-- high-level timestamps or metadata where useful
-
-## Loop state additions
-
-`LoopState` likely needs scope in these areas:
-
-- current routed execution position
-- recent routing outcome and transition continuity
-- unread user-response progress
-- invalid-response or retry tracking if retained in v1
-- compact summaries, decisions, or question indexes only where they reduce prompt cost
-
-### Recommended user-response contract
-
-- the response store remains append-only
-- loop state owns the canonical consumed-response cursor
-- pending-response detection is derived from the response store plus that cursor
-- a persisted `HasPendingUserResponses` flag is optional and should not be required if it only duplicates derivable state
-
-### Why both session state and loop state?
-
-- session state = durable session identity and high-level continuity
-- loop state = mutable execution details for the routed engine
-
-This matches the current architecture well.
-
----
-
-## Prompt Design Changes
-
-The current `LoopPromptBuilder` sends:
-
-- template system prompt
-- metadata
-- memory documents
-- response schema
-
-The new prompt builder should become step-aware.
-
-### Prompt should include
+The prompt for each iteration should include:
 
 - shared loop instructions
-- current step id and title
-- current step purpose
-- current step instructions
-- allowed keywords for this step
-- explicit rule: choose exactly one keyword
-- compact working memory
-- unread user responses since `LastConsumedUserResponseId`
-- current routing state summary
+- active loop unit id and title
+- active loop unit purpose
+- active loop unit instructions
+- allowed keywords
+- explicit instruction to choose exactly one keyword
+- goal
+- compact working summary
+- decisions already recorded
+- open questions already recorded
+- unread user responses only
 
-### Prompt should avoid
-
-- dumping unnecessary workflow explanation every time
-- asking the model to infer routing from prose
-- injecting large derived documents that can be regenerated from routed state
-- replaying already-consumed user responses
-
-### Example routing instruction
-
-The prompt should say something like:
-
-- You are currently in step `analyze_requirements`.
-- You must choose exactly one keyword from this list:
-  - `ask_user`
-  - `continue_analysis`
-  - `requirements_clear`
-- Return that keyword in `selectedKeyword`.
-- Do not invent new keywords.
-
-This is the core token-saving and determinism improvement.
+The prompt should not include large derived workflow documents unless they provide unique value that is not already present in structured state.
 
 ---
 
-## Single-Step Invocation Model
+## User Response Flow
 
-V1 should preserve the simplest operator workflow.
+The requirements collection loop must support explicit user interaction through `respond`.
 
-Each `loop` invocation should execute exactly one routed step, persist state, and then stop.
+### Required behavior
 
-That means the core loop experience remains:
+1. active loop unit selects `ask_user`
+2. engine records returned questions
+3. engine executes `wait-for-user`
+4. phase becomes `waiting-for-user`
+5. current invocation ends
+6. user runs `respond`
+7. response is appended to the response store
+8. next `loop` run resumes the same active loop unit unless a transition changed it
+9. unread responses are injected into the prompt
+10. after a successful iteration, the consumed response cursor advances
 
-1. run `loop`
-2. WallyCode executes one bounded routed step
-3. WallyCode persists routing state and artifacts
-4. the process exits
-5. the user either runs `loop` again or uses `respond` before the next run
-
-This is a good fit for routed loops because it:
-
-- keeps each provider call bounded
-- keeps prompt growth under control
-- gives the user a clean chance to inspect artifacts between steps
-- avoids hidden multi-step behavior inside a single command invocation
-
-### Respond behavior in the routed system
-
-`respond` should remain part of the core lifecycle.
-
-Recommended behavior:
-
-1. `respond` appends a new entry into the append-only response store
-2. it does not need to rewrite large memory documents
-3. the next `loop` run loads the current routed step from JSON state
-4. the next `loop` run compares the response cursor to the response store
-5. only unread responses are injected into the prompt
-6. after a successful routed step, the response cursor advances
-
-### Waiting for user input
-
-The `wait-for-user` action should:
-
-- set phase to `waiting-for-user`
-- persist the current step or configured next step
-- end the current `loop` invocation immediately
-
-When the user later runs `respond`, the application does not need to guess what happened.
-
-The routed state plus response cursor tells the next `loop` invocation exactly:
-
-- which step should resume
-- whether unread user responses exist
-- which responses still need to be provided to the model
+This is how a loop unit requests user input and then picks back up exactly where it left off.
 
 ---
 
-## Built-in Actions for V1
+## First Three Loops
 
-Actions should be intentionally narrow.
+The first three loop definitions should be:
 
-Recommended v1 action set:
+### 1. Requirements Collection
 
-### 1. `wait-for-user`
+Purpose:
 
-Effects:
+- collect missing requirements from the user until the specification is clear enough to move forward
 
+Typical behavior:
+
+- active loop unit asks targeted questions
+- user answers with `respond`
+- same loop unit resumes
+- when satisfied, it routes forward or ends
+
+Suggested starting unit:
+
+- `collect_requirements`
+
+Suggested keywords:
+
+- `continue`
+- `ask_user`
+- `requirements_ready`
+- `error`
+- `fail`
+- `done`
+
+### 2. Requirements To Tasks
+
+Purpose:
+
+- turn a requirement or definition document into a concrete ordered task list
+
+Suggested units:
+
+- `analyze_requirements`
+- `produce_tasks`
+
+Suggested keywords:
+
+- `continue`
+- `ask_user`
+- `tasks_ready`
+- `error`
+- `fail`
+- `done`
+
+### 3. Execute Tasks
+
+Purpose:
+
+- execute tasks until completion
+
+Suggested units:
+
+- `review_task_queue`
+- `execute_task_batch`
+- `review_results`
+
+Suggested keywords:
+
+- `continue`
+- `need_clarification`
+- `more_execution_needed`
+- `error`
+- `fail`
+- `done`
+
+These loops are not different runtime systems.
+
+They are different starting points into different sets of loop units.
+
+---
+
+## Required Persisted State
+
+### Session state
+
+Session state should hold:
+
+- session identity
+- selected loop id
+- lifecycle status
+- completion status
+- timestamps
+
+### Loop execution state
+
+Loop execution state should hold:
+
+- active loop unit id
+- phase
+- last selected keyword
+- last routing outcome
+- compact working summary
+- decisions
+- open questions
+- last consumed user response id
+- last consumed user response timestamp
+
+That is enough to resume deterministically.
+
+---
+
+## Built-In Actions for V1
+
+Recommended built-in actions:
+
+### `wait-for-user`
 - set phase to `waiting-for-user`
-- keep next step as configured
-- end the current `loop` invocation after state is persisted
+- end current invocation after persistence
 
-### 2. `mark-done`
-
-Effects:
-
+### `mark-done`
 - set phase to `done`
-- mark session done
+- mark session complete
 
-### 3. `set-phase:<value>`
+### `set-phase:<value>`
+- set explicit phase value
 
-Examples:
+### `record-summary`
+- persist compact summary
 
-- `set-phase:active`
-- `set-phase:waiting-for-user`
-- `set-phase:done`
+### `record-decision`
+- persist decisions
 
-### 4. `record-decision`
+### `record-question`
+- persist questions
 
-Effects:
-
-- persist returned decisions into loop state and memory
-
-### 5. `record-question`
-
-Effects:
-
-- persist returned questions into loop state and memory
-
-### 6. `record-summary`
-
-Effects:
-
-- persist a compact summary for future routed steps
-- avoid forcing the engine to rebuild large narrative memory files
-
-These may overlap with current behavior, which is good. The engine should prefer compact structured state first and optional rendered artifacts second.
-
-### What not to include in v1
+Not included in v1:
 
 - arbitrary shell commands
-- arbitrary file edits from JSON actions
-- arbitrary provider calls from JSON actions
-
-Those can come later once the routing core is stable.
+- arbitrary file edits from JSON
+- arbitrary provider chaining from JSON
 
 ---
 
 ## Logging and Observability
 
-The new system should log routing explicitly.
-
 Each iteration log should include:
 
-- current step id
+- loop id
+- active loop unit id
 - selected keyword
-- matched transition
+- whether execution stayed or transitioned
 - actions executed
-- next step id
-- phase after transition
+- next active loop unit id
+- phase after routing
 - summary
 - done reason if any
 
-This is critical for debugging JSON-defined workflows.
+---
 
-Without this, routed loops will be hard to trust.
+## Safety Limits
+
+Even with `continue` as the standard self-loop keyword, the runtime should still enforce practical safety limits.
+
+Examples:
+
+- max iterations per invocation
+- max repeated self-loops without meaningful state change
+- operator-visible warnings when the same unit keeps returning low-value `continue` results
+
+These limits are runtime safeguards.
+
+They do not change the routing model.
 
 ---
 
-## Forward-Only Implementation Strategy
+## Final Direction
 
-WallyCode should treat the routed loop model as the new source of truth.
+The future architecture should optimize for one simple rule:
 
-That means:
+**A loop is a named starting point into a set of loop units. One loop unit is active at a time. That loop unit repeats by default. The model returns one keyword. That keyword either keeps execution on the same unit, waits for user input, moves to another unit, or ends the loop.**
 
-- no effort should be spent preserving the old loop schema
-- no migration tooling is required
-- no dual-engine support is required
-- implementation decisions should optimize for the new routed model
+That gives the system:
 
-This keeps the architecture cleaner and avoids carrying transitional complexity into the codebase.
-
-The practical implication is simple:
-
-1. define the new routed schema
-2. implement the routed engine
-3. replace the old loop template model
-4. move forward
-
-### Code cleanup requirement
-
-This is not only a schema decision. It is also a codebase hygiene decision.
-
-When the routed loop engine is implemented:
-
-- legacy loop models should be removed
-- old template parsing paths should be removed
-- obsolete prompt-building logic should be removed
-- dead state fields that only existed for the old model should be removed
-- transitional adapters should not be kept around
-
-The implementation should leave the codebase simpler than it was before the change.
-
----
-
-## Suggested Implementation Plan
-
-## Phase 1: Design and schema
-
-1. finalize JSON schema for routed loops
-2. finalize response schema with `selectedKeyword`
-3. define built-in actions for v1
-4. define validation rules
-5. define the minimal canonical memory and response-cursor contract
-
-## Phase 2: Engine scaffolding
-
-6. replace the current loop template model with routed loop definition models
-7. add loader/validator for routed templates
-8. extend session and loop state with step/routing fields
-9. add step-aware prompt builder
-10. add response-cursor handling for unread user responses
-
-## Phase 3: Runtime routing
-
-11. update loop runner to:
-   - load current step
-   - parse selected keyword
-   - validate transition
-   - execute actions
-   - persist next step
-12. make one routed step per `loop` invocation the default execution model
-13. update `respond` integration so it only appends responses and relies on routed state to resume cleanly
-14. update logs and optional rendered artifacts
-
-## Phase 4: Templates
-
-15. create one routed template for requirements gathering
-16. create one routed template for implementation flow
-17. compare token usage and reliability across routed templates
-
-## Phase 5: Cleanup
-
-18. remove obsolete loop models and parsers
-19. remove obsolete template files and loading paths
-20. remove dead fields and transitional code
-21. remove markdown memory files that are no longer canonical inputs
-22. verify the final loop system only reflects the routed model
-
-## Phase 6: Optional future work
-
-23. nested loop invocation
-24. richer action types
-25. retry/recovery policies
-26. richer optional generated views for operators
-
----
-
-## Recommended V1 Constraints
-
-To keep the system simple and robust, v1 should enforce:
-
-- exactly one selected keyword per iteration
-- exactly one routed step per `loop` invocation
-- exact keyword matching only
-- one transition per keyword
-- only built-in safe actions
-- no nested loops required
-- fail fast on invalid routing output
-- unread user responses are consumed through an append-only store plus response cursor
-- no legacy schema support
-- no leftover transitional code after replacement
-
-These constraints are not limitations of vision. They are what make the first version reliable.
-
----
-
-## Open Questions
-
-These should be resolved before implementation.
-
-1. Should routed loops reuse `LoopTemplate`, or should there be a new `RoutedLoopTemplate` type?
-   - recommendation: new type or a versioned schema dedicated to routed loops
-
-2. Should `selectedKeyword` be required even when `status = done`?
-   - recommendation: yes, unless `done` itself is a valid keyword
-
-3. Should `done` be represented as a status, a keyword, or both?
-   - recommendation: keep both for now, but route primarily by keyword
-
-4. Should actions be strings or structured objects?
-   - recommendation: strings for v1 if simple, structured objects if parameters are needed immediately
-
-5. Should step-local memory views be supported?
-   - recommendation: use a compact shared memory snapshot first, and only add step-local rendered views if they reduce tokens without becoming canonical state
-
-6. Should invalid keyword responses trigger an automatic retry with a repair prompt?
-   - recommendation: no in v1; fail fast and inspect logs
-
----
-
-## Recommended Direction
-
-The strongest next move is:
-
-1. keep `prompt` unchanged
-2. replace the current loop template model with a routed state-machine engine
-3. minimize canonical loop memory to goal, compact routed state, and append-only user responses
-4. treat human-readable memory files as optional generated artifacts instead of prompt source-of-truth
-5. keep routed loop execution single-step per invocation in v1
-6. keep `respond` append-only and make resume behavior cursor-driven
-7. define loops in JSON
-8. route by explicit LLM keywords
-9. keep actions safe and internal
-10. remove obsolete loop code and memory-heavy prompt inputs as part of the implementation
-11. ship a minimal deterministic v1 before adding nested loops or arbitrary actions
-
-This gives WallyCode a much stronger architecture:
-
-- prompt remains simple
-- loop becomes programmable
-- memory remains durable without carrying unnecessary derived state
-- routing becomes explicit
-- token usage can improve
-- workflows become easier to author and reason about
-- the codebase stays cleaner instead of accumulating compatibility debt
-
----
-
-## Proposed Next Deliverables
-
-After this document, the next concrete deliverables should be:
-
-1. `docs/loop-routing-schema-v1.md`
-   - exact JSON schema proposal
-
-2. `docs/loop-routing-examples.md`
-   - example routed loops
-   - requirements loop
-   - implementation loop
-   - review/fix loop
-
-3. implementation plan issue/task list
-   - model changes
-   - parser changes
-   - runner changes
-   - cleanup removals
-
-That is the right sequence before code changes begin.
+- explicit routing
+- small persisted state
+- deterministic resume behavior
+- clean `respond` integration
+- lower prompt cost
+- simpler loop authoring
+- less engine complexity
