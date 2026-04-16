@@ -12,6 +12,15 @@ Related documents:
 
 ---
 
+## Status Note
+
+These examples describe the target routed engine behavior.
+
+Current runtime note:
+
+- `respond` stores text only
+- the operator runs `loop` later to consume the pending response
+
 ## Requirements Collection Example
 
 Example active unit:
@@ -38,7 +47,8 @@ Example ask-user result:
 - remain on `collect_requirements`
 - stop the loop
 - user answers with `respond`
-- normal `respond` mode triggers the loop to run again on `collect_requirements`
+- in routed normal mode, `respond` triggers the loop to run again on `collect_requirements`
+- in the current runtime, a later explicit `loop` run resumes from the stored response
 
 Example store-only respond result:
 

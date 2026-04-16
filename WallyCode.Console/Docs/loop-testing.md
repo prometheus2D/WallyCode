@@ -12,6 +12,15 @@ Related documents:
 
 ---
 
+## Status Note
+
+This document is the target workflow test plan for the routed engine.
+
+Current runtime note:
+
+- routed units are not implemented yet
+- `respond` currently stores input and a later `loop` run consumes it
+
 ## Purpose
 
 This document focuses on workflow-level testing of the routing engine.
@@ -57,10 +66,11 @@ The following should be treated as required workflow scenarios:
 - self-loop workflow where the active unit returns `[CONTINUE]` and remains active
 - transition workflow where a keyword moves execution to another unit
 - ask-user workflow where the engine records questions and stops
-- respond workflow where `respond` stores a user response and triggers the loop to run again
+- respond workflow where `respond` stores a user response and the next loop run resumes correctly
+- routed normal-mode coverage where `respond` stores a user response and triggers the loop to run again
 - store-only respond workflow where `respond` stores a user response without immediately running the loop
 - additive store-only workflow where repeated store-only responses add to stored response context instead of replacing prior text
-- respond-and-continue workflow where the resumed run includes the stored response and then clears it after success
+- respond-and-continue workflow where the resumed run includes the stored response and then advances the response cursor after success
 - done workflow where the session is marked complete and retains the last `activeUnitId`
 - error workflow where blockers and summary persist and the user is alerted
 - fail workflow where summary persists and execution stops

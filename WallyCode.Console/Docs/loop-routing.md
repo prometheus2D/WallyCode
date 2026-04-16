@@ -26,6 +26,17 @@ Companion documents:
 
 ---
 
+## Status Note
+
+This document describes the routed loop design target.
+
+The current runtime is still simpler:
+
+- one generic loop template repeats instead of routed loop units
+- `session.json` and `state.json` are already split
+- `respond` currently stores response text only
+- a later `loop` invocation consumes pending responses
+
 ## Core Model
 
 ### Loop
@@ -188,6 +199,160 @@ Explicit completion signal.
 
 ---
 
+## Design Rationale
+
+### Why `phase` exists
+
+`activeUnitId` answers where work resumes.
+
+It does not answer whether the loop is still healthy, terminal, or paused on some external condition.
+
+`phase` exists to persist that coarse lifecycle state without replaying prompts or inferring meaning from logs.
+
+Keep these roles separate:
+
+- `activeUnitId`: where the next routed step resumes
+- `lastRoutingOutcome`: what the last iteration decided
+- `phase`: coarse lifecycle of the loop execution state
+- session `status`: operator-facing state of the overall session
+
+This separation matters because the same unit may remain active after `[CONTINUE]`, `[ASK_USER]`, `[ERROR]`, or `[DONE]`, but resume behavior and operator messaging should not treat those cases as equivalent.
+
+Current implementation note:
+
+- today's runtime stores `active`, `waiting-for-user`, or `done` in `state.json.phase`
+- the routed design keeps the same concept but prefers `lastRoutingOutcome = ask-user` plus stored-response state for the user-input wait condition
+
+### Why state is split
+
+Stable session metadata and mutable loop execution state change at different rates and have different failure semantics.
+
+Keep in session state:
+
+- goal
+- provider and model choice
+- source path
+- iteration counter
+- selected loop or template id
+- overall completion marker
+
+Keep in loop execution state:
+
+- active unit id
+- phase
+- last selected keyword
+- last routing outcome
+- working summary
+- decisions, questions, blockers
+- response-consumption cursor
+
+The split is deliberate because it:
+
+- lets routing behavior evolve without constantly reshaping session identity data
+- keeps resume validation small and deterministic
+- reduces the blast radius of a bad iteration-state write
+- matches the current runtime, which already persists `session.json` separately from `state.json`
+
+### Why `respond` has two modes
+
+The design separates two operator intents:
+
+- answer the current `[ASK_USER]` and continue now
+- add more context without spending a provider call yet
+
+Normal mode exists for the common human-in-the-loop path.
+
+Store-only mode exists because operators sometimes want to stage multiple clarifications, capture context while reviewing files, or wait until they are ready to spend the next loop step.
+
+The modes change when the next loop invocation happens, not what gets stored.
+
+Current implementation note:
+
+- today's `respond` behaves like store-only mode
+- the operator must run `loop` explicitly to continue
+- auto-resume is a routed-engine capability, not current behavior
+
+### Exact stored-response contract
+
+The stored-response contract should be explicit and small.
+
+Current runtime contract:
+
+- canonical response storage is `responses.json`
+- human-readable history is mirrored in `memory/user-responses.md`
+- each response entry is append-only and contains `id`, `timestampUtc`, and `text`
+- pending responses are the entries whose `id` is greater than `lastProcessedUserResponseId`
+- pending responses are supplied to the next loop prompt in ascending id order
+- after a successful loop iteration, `lastProcessedUserResponseId` and `lastProcessedUserResponseAt` advance to the newest consumed entry
+- a failed iteration must not advance that cursor
+- response text is never rewritten in place; additional operator input always appends a new entry
+
+That means the current runtime behaves as an append-only response log plus a consumption cursor, not as a single mutable stored-response slot.
+
+Routed-design implication:
+
+- normal and store-only `respond` can share the same storage contract
+- the only difference between the modes is whether `respond` also starts the next loop step immediately
+
+Example response log:
+
+```json
+{
+  "responses": [
+    {
+      "id": 1,
+      "timestampUtc": "2025-01-01T00:00:00Z",
+      "text": "Exports should support csv and pdf."
+    }
+  ]
+}
+```
+
+### Whether built-ins are truly rigid
+
+Yes, in the sense that the engine owns their semantics.
+
+Rigid means:
+
+- loop authors cannot redefine `[CONTINUE]`, `[ASK_USER]`, `[DONE]`, `[ERROR]`, or `[FAIL]`
+- loop authors cannot attach custom `nextUnit` behavior to those built-ins
+- the engine, not the loop definition, decides what those keywords do
+
+Rigid does not mean every unit must expose every built-in.
+
+Units still control access through `allowedKeywords`.
+
+That boundary is intentional: built-ins define engine control flow, while loop-specific keywords define workflow meaning.
+
+### Current strengths deliberately being kept
+
+The routed design intentionally preserves the best parts of the current runtime:
+
+- bounded iterations with explicit stop points
+- small inspectable state files
+- append-only prompts, raw outputs, and logs for auditability
+- provider-agnostic execution
+- explicit human-in-the-loop response handling
+- deterministic resume based on persisted state instead of prompt-only inference
+
+The point of routing is to add explicit workflow structure without losing the current system's operator control and debuggability.
+
+### Implementation order implied by this design
+
+Recommended implementation order:
+
+1. lock the persisted contracts first: split session state, execution state, response log, and response cursor
+2. enforce strict iteration output parsing and built-in keyword validation
+3. load routed loop definitions and persist `activeUnitId`, `lastSelectedKeyword`, `lastRoutingOutcome`, and `phase` atomically
+4. implement `[ASK_USER]` stop-and-resume using the existing response log and cursor
+5. add normal `respond` auto-resume on top of that same storage contract
+6. add loop-specific transitions and definition validation
+7. add single-writer protection, workflow tests, and cleanup of legacy inference paths
+
+This order keeps the current strengths in place while changing only one control-plane concern at a time.
+
+---
+
 ## Memory Model
 
 Memory stores persisted facts needed for deterministic resume.
@@ -201,8 +366,8 @@ Keep:
 - compact working summary
 - decisions
 - open questions
-- latest response provided through `respond`, when present
-- additional stored response text when store-only mode is used
+- persisted user-response log
+- response cursor for the last consumed user response
 - prompts
 - raw outputs
 - logs
@@ -248,8 +413,8 @@ Routing must come from:
   "decisions": ["Desktop first"],
   "openQuestions": ["One unresolved question remains."],
   "blockers": [],
-  "latestUserResponse": "CSV plus PDF.",
-  "latestUserResponseTimestampUtc": "2025-01-01T00:00:00Z"
+  "lastProcessedUserResponseId": 3,
+  "lastProcessedUserResponseAt": "2025-01-01T00:00:00Z"
 }
 ```
 
@@ -259,6 +424,8 @@ Rules:
 - persisted state must be forward-migratable
 - missing required fields cause deterministic load failure
 - the engine must not silently invent missing routing fields during resume
+- loop execution state stores response-consumption metadata, not response text
+- response text itself lives in the append-only response log
 
 ---
 
@@ -414,16 +581,15 @@ After every successful iteration:
 Default behavior:
 
 - store the response
-- immediately run the loop again
-- include the stored response in the prompt
-- clear the stored response after that resumed loop run succeeds
+- in routed normal mode, immediately run the loop again
+- include all pending stored responses in the prompt
+- after a successful resumed loop run, advance the response cursor to the newest consumed entry
 
 Optional niche behavior:
 
 - support a hardcoded store-only mode that records additional response text without immediately running the loop
-- store-only mode adds to the stored response context rather than replacing prior response text
-
-There is no stacked unread-response queue in this design.
+- store-only mode appends additional response entries rather than replacing prior text
+- both modes share the same append-only response log
 
 ---
 
@@ -530,7 +696,7 @@ Each iteration prompt should include:
 - compact working summary
 - recorded decisions
 - recorded open questions
-- latest response from `respond`, when present
+- pending responses from `respond`, when present
 
 Do not include large derived workflow documents unless they add unique value not already present in structured state.
 
@@ -546,12 +712,12 @@ Flow:
 2. engine records returned questions through normal successful iteration persistence
 3. invocation stops
 4. user later runs `respond`
-5. `respond` stores the user's response
-6. normal `respond` mode triggers the loop to run again
-7. the loop resumes the same active unit
-8. the resumed run includes the stored response in the prompt
-9. the resumed run continues normal routing
-10. after a successful resumed run, the stored response is cleared
+5. `respond` appends the user's response to the session response log
+6. in routed normal mode, `respond` immediately starts the next loop run
+7. in store-only mode, `respond` stops after storing the response and a later `loop` run consumes it
+8. the next loop run resumes the same active unit
+9. the next run includes all pending stored responses in the prompt
+10. after a successful run, the response cursor advances
 
 ### `respond` rules
 
@@ -565,13 +731,18 @@ Flow:
 - allow the loop to continue after `[ASK_USER]`
 - potentially be used to retry progress after `error` or `fail`
 - support a niche store-only mode for adding more response text without immediately running the loop
+- append new response entries instead of rewriting prior ones
 
 `respond` should not:
 
-- create a stacked unread-response queue in v1
 - directly answer open questions by itself
 - directly change routing by itself
 - replace previously stored response text when store-only mode is used
+
+Current runtime note:
+
+- today's `respond` implements the storage half of this contract only
+- the operator still runs `loop` explicitly to consume the stored response
 
 ---
 
