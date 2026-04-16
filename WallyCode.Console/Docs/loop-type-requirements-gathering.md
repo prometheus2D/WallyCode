@@ -21,8 +21,10 @@ Collect missing requirements from the user until the specification is clear enou
 ## Typical Behavior
 
 - the active loop unit asks targeted questions
-- the user answers later with `respond`
-- the same loop unit resumes on the next `loop` run
+- `[ASK_USER]` stops the loop when user input is needed
+- the user answers with `respond`
+- normal `respond` mode triggers the loop to run again on the same unit
+- store-only `respond` mode may be used to add more response text before a later loop run
 - when satisfied, it routes forward or ends
 
 ---
@@ -52,4 +54,4 @@ Suggested units:
 
 This loop type is intentionally simple.
 
-Its main special behavior is repeated pause-and-resume through `[ASK_USER]` and `respond`.
+Its main special behavior is repeated stop-and-resume through built-in `[ASK_USER]` and `respond`.

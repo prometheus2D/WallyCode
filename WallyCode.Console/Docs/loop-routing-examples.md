@@ -36,8 +36,17 @@ Example ask-user result:
 
 - selected keyword: `[ASK_USER]`
 - remain on `collect_requirements`
-- execute `wait-for-user`
-- stop and wait for `respond`
+- stop the loop
+- user answers with `respond`
+- normal `respond` mode triggers the loop to run again on `collect_requirements`
+
+Example store-only respond result:
+
+- user runs `respond` in store-only mode
+- response text is recorded
+- later store-only responses add more response text instead of replacing prior text
+- the loop does not start yet
+- a later `loop` run uses the stored response context
 
 ---
 
@@ -56,6 +65,6 @@ The engine only cares about:
 
 - active unit id
 - selected keyword
-- matching transition
+- built-in keyword behavior
+- matching transition for loop-specific keywords
 - optional `nextUnit`
-- optional `wait-for-user`

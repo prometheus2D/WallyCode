@@ -23,6 +23,9 @@ Execute tasks until completion.
 - review the task queue
 - execute a batch of work
 - review results
+- ask for clarification when needed
+- `respond` can provide clarification and trigger the loop to continue
+- store-only `respond` mode may be used when extra user input should be recorded before a later loop run
 - continue until more execution is not needed or the loop is done
 
 ---
@@ -38,7 +41,7 @@ Execute tasks until completion.
 ## Suggested Keywords
 
 - `[CONTINUE]`
-- `[NEED_CLARIFICATION]`
+- `[ASK_USER]`
 - `[MORE_EXECUTION_NEEDED]`
 - `[ERROR]`
 - `[FAIL]`

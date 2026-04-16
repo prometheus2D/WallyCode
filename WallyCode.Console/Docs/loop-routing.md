@@ -12,7 +12,7 @@ Runtime model:
 - the loop starts at its configured start unit
 - the engine runs the active unit
 - the active unit repeats by default
-- a returned keyword may keep the same unit active, wait for user input, move to another unit, or end the loop
+- a returned keyword may keep the same unit active, ask the user for input and stop, move to another unit, or end the loop
 
 This document covers engine semantics only.
 
@@ -43,6 +43,12 @@ The current mode of work.
 
 Only one loop unit is active at a time.
 
+A loop unit may use only the keywords listed in its `allowedKeywords`.
+
+Built-in standard keywords are still subject to this rule.
+
+If a built-in keyword is not listed for the active unit, it is not valid for that unit.
+
 ### Keyword
 The single machine-readable routing decision returned by the model.
 
@@ -62,24 +68,33 @@ Examples:
 Loop-specific keywords may also exist.
 
 ### Transition
-The routing rule for a selected keyword.
+The routing rule for a selected loop-specific keyword.
 
 If no explicit transition exists, execution stays on the current unit.
 
-### Action
-A built-in engine behavior.
+Built-in standard keywords use built-in engine behavior and are not overridden by loop-defined transition logic.
 
-Current action set:
+### Built-In Keyword
+A standard keyword with fixed engine behavior.
 
-- `wait-for-user`
+Current built-in standard keywords:
 
-Actions are not a general command system.
+- `[CONTINUE]`
+- `[ASK_USER]`
+- `[DONE]`
+- `[ERROR]`
+- `[FAIL]`
+
+Built-in keywords:
+
+- must still appear in a unit's `allowedKeywords` to be valid there
+- use engine-defined behavior
+- cannot be redefined by a loop author
 
 ### `nextUnit`
 The routing destination after a successful iteration.
 
-- action = what the engine does
-- `nextUnit` = where the engine goes next
+`nextUnit` is used only for loop-specific routing keywords or explicit non-built-in transitions.
 
 ---
 
@@ -89,8 +104,19 @@ The routing destination after a successful iteration.
 Default self-loop keyword.
 
 - iteration succeeds
-- remain on current unit unless an explicit transition overrides it
+- remain on current unit unless an explicit non-built-in transition overrides it
 - persist normal state updates
+
+### `[ASK_USER]`
+Built-in user-input keyword.
+
+- iteration succeeds
+- remain on current unit
+- stop the loop so the user can answer with `respond`
+- do not move to a next unit
+- preserve returned questions and normal state updates
+
+`[ASK_USER]` is a built-in keyword, not a loop-defined routing keyword.
 
 ### `[ERROR]`
 Concrete execution failure.
@@ -102,9 +128,9 @@ Examples:
 - file operation failure
 - literal programming action failure
 
-Required handling:
+Handling:
 
-- persist summary and blockers
+- persist summary and blockers when provided
 - persist debugging information
 - alert the user
 - stop the current process
@@ -118,9 +144,9 @@ Examples:
 - model cannot choose confidently
 - prompt or loop definition is insufficient
 
-Required handling:
+Handling:
 
-- persist summary
+- persist summary when provided
 - log clearly
 - stop the current invocation
 - do not guess a transition
@@ -128,7 +154,9 @@ Required handling:
 ### `[DONE]`
 Explicit completion signal.
 
-No extra completion action is required.
+- mark the loop complete
+- stop invocation
+- retain `activeUnitId` as the last executed unit for auditability and simpler diagnostics
 
 ---
 
@@ -144,7 +172,6 @@ No extra completion action is required.
 ### Loop phase
 
 - `active`
-- `waiting-for-user`
 - `done`
 - `error`
 - `failed`
@@ -153,7 +180,7 @@ No extra completion action is required.
 
 - `self-loop`
 - `transition`
-- `waiting-for-user`
+- `ask-user`
 - `done`
 - `error`
 - `fail`
@@ -174,8 +201,8 @@ Keep:
 - compact working summary
 - decisions
 - open questions
-- append-only user responses
-- consumed response cursor
+- latest response provided through `respond`, when present
+- additional stored response text when store-only mode is used
 - prompts
 - raw outputs
 - logs
@@ -186,7 +213,8 @@ Routing must come from:
 
 - active unit id
 - selected keyword
-- transition mapping
+- built-in keyword behavior
+- transition mapping for loop-specific keywords
 - explicit phase state
 
 ---
@@ -220,8 +248,8 @@ Routing must come from:
   "decisions": ["Desktop first"],
   "openQuestions": ["One unresolved question remains."],
   "blockers": [],
-  "lastConsumedUserResponseId": 4,
-  "lastConsumedUserResponseTimestampUtc": "2025-01-01T00:00:00Z"
+  "latestUserResponse": "CSV plus PDF.",
+  "latestUserResponseTimestampUtc": "2025-01-01T00:00:00Z"
 }
 ```
 
@@ -236,9 +264,11 @@ Rules:
 
 ## Routing Rule
 
-**Run the active unit again unless the selected keyword explicitly transitions to another unit, waits for user input, or ends the loop.**
+**Run the active unit again unless the selected keyword explicitly moves to another unit, asks the user for input and stops, or ends the loop.**
 
 `[CONTINUE]` is the standard self-loop keyword.
+
+`[ASK_USER]` is the standard built-in stop-and-wait-for-response keyword.
 
 ---
 
@@ -248,42 +278,41 @@ Resolution order:
 
 1. accept the selected keyword
 2. validate it against the active unit
-3. resolve an explicit transition if present
-4. determine the next active unit
-5. execute any built-in action
+3. apply built-in keyword behavior when the keyword is built in
+4. otherwise resolve an explicit transition if present
+5. determine the next active unit
 6. normalize and persist state
 
 Rules:
 
 - no explicit transition => remain on current unit
 - `nextUnit` => move after successful iteration
-- `wait-for-user` => persist, stop, wait for later `respond`
+- `[ASK_USER]` => persist, stop, wait for `respond`, remain on same unit
 - `[DONE]` => end the loop
 
-### `nextUnit` vs `actions`
+### Built-In Keywords vs `nextUnit`
 
-`nextUnit` selects the next logical unit.
+Built-in keywords use built-in engine behavior.
 
-`actions` trigger built-in engine behavior.
+`nextUnit` is for loop-specific routing.
 
 Current design:
 
 - use `nextUnit` for routing to another unit
-- use `wait-for-user` only when the same unit must pause for user input
-- avoid combining `nextUnit` and `wait-for-user` unless there is a clear product need
+- use `[ASK_USER]` when the loop must stop and wait for user input
+- `[ASK_USER]` must never set `nextUnit`
+- loop authors must not override built-in keyword behavior
 
 Examples:
 
 ```json
 {
-  "keyword": "[ASK_USER]",
-  "actions": ["wait-for-user"]
+  "keyword": "[ASK_USER]"
 }
 ```
 
 - remain on same unit
 - persist returned questions and summary normally
-- set phase to `waiting-for-user`
 - stop and wait for `respond`
 
 ```json
@@ -293,7 +322,7 @@ Examples:
 }
 ```
 
-- no wait-for-user behavior
+- no ask-user behavior
 - next active unit becomes `another_unit`
 
 ---
@@ -305,9 +334,7 @@ One loop invocation is one logical transaction.
 Required rule:
 
 - routing resolution
-- action execution
 - state normalization
-- cursor advancement
 - persistence
 
 must succeed or fail as one atomic update.
@@ -320,7 +347,7 @@ If any step after provider output parsing fails, do not partially commit:
 - decisions
 - questions
 - blockers
-- consumed response cursor
+- latest response consumption state
 
 Diagnostic artifacts may still be persisted separately:
 
@@ -330,36 +357,24 @@ Diagnostic artifacts may still be persisted separately:
 - exception details
 - invocation log entry
 
-If a built-in action fails:
-
-- invocation fails
-- canonical loop state remains unchanged
-- consumed response cursor does not advance
-- failure details are logged and persisted
-- user is alerted clearly
-
 ---
 
-## Successful Iteration Normalization
+## Successful Iteration State Update
 
 After every successful iteration:
 
 1. accept keyword
-2. resolve transition
-3. execute built-in actions
-4. normalize loop state
-5. set next active unit id
-6. persist updated execution state
-7. persist logs, prompt, raw output
-8. end invocation
+2. resolve built-in behavior or transition
+3. update loop state
+4. set next active unit id
+5. persist updated execution state
+6. persist logs, prompt, raw output
+7. end invocation
 
 ### Carry forward
 
 - goal
 - selected loop id
-- append-only user response history
-- last consumed user response id
-- last consumed user response timestamp
 - compact working summary
 - logs, prompts, raw outputs
 
@@ -369,9 +384,9 @@ After every successful iteration:
 - last selected keyword
 - last routing outcome
 - phase
-- working summary
+- workingSummary
 - decisions
-- open questions
+- openQuestions
 - blockers
 
 ### Clear or filter
@@ -379,11 +394,12 @@ After every successful iteration:
 - resolved open questions
 - temporary unit-local notes
 - stale blockers
+- consumed response data after a resumed loop run uses it successfully
 
-### Normalization rules
+### State cleanup rules
 
-- `workingSummary`: replace with latest non-empty summary
-- `decisions`: replace with latest normalized decision list
+- `workingSummary`: replace with latest non-empty summary when provided
+- `decisions`: replace with latest cleaned decision list
 - `openQuestions`: replace with latest unresolved question set
 - `blockers`: replace with latest unresolved blocker set
 - trim whitespace
@@ -391,17 +407,23 @@ After every successful iteration:
 - deduplicate exact duplicates
 - preserve returned ordering
 
-### Response cursor advancement
+### Response handling
 
-Advance the consumed response cursor only if all are true:
+`respond` provides the user's answer.
 
-- unread responses were included in the prompt
-- provider output was valid
-- selected keyword was valid for the active unit
-- all actions succeeded
-- canonical loop state persisted successfully
+Default behavior:
 
-Otherwise do not advance it.
+- store the response
+- immediately run the loop again
+- include the stored response in the prompt
+- clear the stored response after that resumed loop run succeeds
+
+Optional niche behavior:
+
+- support a hardcoded store-only mode that records additional response text without immediately running the loop
+- store-only mode adds to the stored response context rather than replacing prior response text
+
+There is no stacked unread-response queue in this design.
 
 ---
 
@@ -413,7 +435,7 @@ Each iteration must return strict JSON.
 {
   "selectedKeyword": "[ASK_USER]",
   "summary": "One export-format question remains before requirements are complete.",
-  "workLog": "Reviewed unread user responses and narrowed the remaining ambiguity to export format.",
+  "workLog": "Reviewed the current state and identified one remaining ambiguity.",
   "questions": ["Should exports support csv only, or csv plus pdf?"],
   "decisions": ["Desktop first", "Local storage is acceptable for v1"],
   "assumptions": [],
@@ -425,23 +447,32 @@ Each iteration must return strict JSON.
 Rules:
 
 - `selectedKeyword` is required and authoritative
-- `summary` is required unless the loop explicitly allows empty
+- `summary` is recommended because it gives the next run compact context
 - omitted arrays normalize to `[]`
 - omitted strings normalize to `""`
 - `null` is invalid for v1 fields
 - exactly one `selectedKeyword`
 - keyword must match the active unit's `allowedKeywords`
+- built-in keywords use built-in engine behavior
 - output must be valid JSON
 - invalid keyword means immediate failure
 - no guessing
 - no repair prompt
+
+### Unknown output fields
+
+If provider output includes extra fields not defined by the contract:
+
+- fields needed by the engine contract must be parsed and used
+- fields not needed by the engine contract should be ignored in v1
+- unknown fields must not affect routing unless the contract is explicitly expanded to support them
 
 ### Invalid output handling
 
 Malformed JSON, missing required fields, invalid field types, or invalid keywords:
 
 - leave canonical loop state unchanged
-- do not advance consumed response cursor
+- do not consume the stored response
 - still log and persist raw output and validation failure details
 - end current invocation in failure
 
@@ -449,12 +480,20 @@ Malformed JSON, missing required fields, invalid field types, or invalid keyword
 
 #### `[CONTINUE]`
 - successful iteration
-- remain on current unit unless explicitly transitioned
-- run normal normalization
+- remain on current unit unless explicitly transitioned by non-built-in routing
+- run normal state update
+
+#### `[ASK_USER]`
+- successful iteration
+- persist summary and questions when provided
+- stop loop execution
+- remain on current unit
+- do not move to a next unit
+- routing outcome becomes `ask-user`
 
 #### `[ERROR]`
 - successful structured execution failure
-- persist summary and blockers
+- persist summary and blockers when provided
 - set phase to `error`
 - set session status to `blocked`
 - persist debugging information
@@ -463,7 +502,7 @@ Malformed JSON, missing required fields, invalid field types, or invalid keyword
 
 #### `[FAIL]`
 - successful structured routing failure
-- persist summary
+- persist summary when provided
 - set phase to `failed`
 - set session status to `failed`
 - stop invocation
@@ -472,6 +511,7 @@ Malformed JSON, missing required fields, invalid field types, or invalid keyword
 - successful structured completion
 - set phase to `done`
 - mark session complete
+- retain `activeUnitId` as the last executed unit
 - stop invocation
 
 ---
@@ -490,7 +530,7 @@ Each iteration prompt should include:
 - compact working summary
 - recorded decisions
 - recorded open questions
-- unread user responses only
+- latest response from `respond`, when present
 
 Do not include large derived workflow documents unless they add unique value not already present in structured state.
 
@@ -504,28 +544,34 @@ Flow:
 
 1. active unit selects `[ASK_USER]`
 2. engine records returned questions through normal successful iteration persistence
-3. engine persists current loop state
-4. engine executes `wait-for-user`
-5. engine sets phase to `waiting-for-user`
-6. invocation stops
-7. user later runs `respond`
-8. `respond` stores the user response
-9. `respond` does not run the provider
-10. `respond` does not change the active unit
-11. next `loop` run resumes the same active unit unless a transition had already changed it
-12. next `loop` run injects unread responses into the prompt
-13. consumed response cursor advances only after that later loop iteration succeeds
+3. invocation stops
+4. user later runs `respond`
+5. `respond` stores the user's response
+6. normal `respond` mode triggers the loop to run again
+7. the loop resumes the same active unit
+8. the resumed run includes the stored response in the prompt
+9. the resumed run continues normal routing
+10. after a successful resumed run, the stored response is cleared
 
 ### `respond` rules
 
 `respond` should:
 
-- append a new user response entry
-- preserve existing loop state
-- preserve current active unit
-- preserve phase as `waiting-for-user`
-- never consume the response by itself
-- never invoke the provider by itself
+- store a user response for the current session
+- preserve existing loop state until the resumed loop run updates it
+- preserve current active unit until the resumed loop run updates it
+- generally be used to respond to an `[ASK_USER]` situation
+- also be usable when the operator wants to provide more information
+- allow the loop to continue after `[ASK_USER]`
+- potentially be used to retry progress after `error` or `fail`
+- support a niche store-only mode for adding more response text without immediately running the loop
+
+`respond` should not:
+
+- create a stacked unread-response queue in v1
+- directly answer open questions by itself
+- directly change routing by itself
+- replace previously stored response text when store-only mode is used
 
 ---
 
@@ -549,31 +595,23 @@ Required behavior:
 
 ---
 
-## Built-In Actions
+## Built-In Keyword Rules
 
-Current built-in actions:
+Built-in standard keywords are:
 
-### `wait-for-user`
-- used only when the loop needs user input before it can continue
-- sets phase to `waiting-for-user`
-- ends the current invocation after persistence
+- `[CONTINUE]`
+- `[ASK_USER]`
+- `[DONE]`
+- `[ERROR]`
+- `[FAIL]`
 
-Action contract:
+Rules:
 
-- deterministic
-- idempotent within a single invocation plan
-- mutates only canonical loop state defined here
-- must not execute arbitrary shell commands
-- must not edit arbitrary files
-- must not invoke nested providers
-- must not depend on hidden ambient state
-
-Not supported:
-
-- arbitrary shell commands
-- arbitrary file edits from JSON
-- arbitrary provider chaining from JSON
-- arbitrary persistence commands encoded as actions
+- a unit may use a built-in keyword only if it appears in that unit's `allowedKeywords`
+- built-in keyword behavior is defined by the engine
+- loop authors cannot override built-in keyword behavior
+- `[ASK_USER]` always stops the loop and waits for `respond`
+- `[ASK_USER]` never routes to a next unit
 
 ---
 
@@ -602,21 +640,8 @@ Not supported:
       ],
       "transitions": [
         {
-          "keyword": "[ASK_USER]",
-          "actions": ["wait-for-user"]
-        },
-        {
           "keyword": "[SOME_ROUTING_KEYWORD]",
           "nextUnit": "another_unit"
-        },
-        {
-          "keyword": "[ERROR]"
-        },
-        {
-          "keyword": "[FAIL]"
-        },
-        {
-          "keyword": "[DONE]"
         }
       ]
     },
@@ -645,8 +670,8 @@ Validation rules:
 - allowed keywords within a unit must be unique
 - transition keywords within a unit must be unique
 - every transition keyword must appear in that unit's `allowedKeywords`
-- every `nextUnit` must be either an existing unit id or `done`
-- action names must be recognized built-in actions
+- built-in keywords must not appear in `transitions`
+- every `nextUnit` must be an existing unit id
 
 ---
 
@@ -659,7 +684,6 @@ Each iteration log should include:
 - active loop unit id
 - selected keyword
 - whether execution stayed or transitioned
-- actions executed
 - next active loop unit id
 - phase after routing
 - summary
@@ -682,7 +706,7 @@ These safeguards do not change the routing model.
 
 ## Final Direction
 
-**A loop is a named starting point into a set of loop units. One loop unit is active at a time. That loop unit repeats by default. The model returns one keyword. That keyword either keeps execution on the same unit, waits for user input, moves to another unit, or ends the loop.**
+**A loop is a named starting point into a set of loop units. One loop unit is active at a time. That loop unit repeats by default. The model returns one keyword. That keyword either keeps execution on the same unit, asks the user for input and stops, moves to another unit, or ends the loop. Built-in keywords are engine-defined, but each unit still controls access to them through `allowedKeywords`.**
 
 This gives the system:
 
