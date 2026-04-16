@@ -12,16 +12,6 @@ Related documents:
 
 ---
 
-## Status Note
-
-This document describes the target routed behavior for this loop type.
-
-Current runtime note:
-
-- the runtime still uses one generic iterative loop rather than routed loop units
-- `respond` stores response text only
-- the operator runs `loop` again to continue
-
 ## Purpose
 
 Collect missing requirements from the user until the specification is clear enough to move forward.
@@ -33,7 +23,7 @@ Collect missing requirements from the user until the specification is clear enou
 - the active loop unit asks targeted questions
 - `[ASK_USER]` stops the loop when user input is needed
 - the user answers with `respond`
-- in the routed design, normal `respond` mode can trigger the loop to run again on the same unit
+- normal `respond` mode can trigger the loop to run again on the same unit
 - store-only `respond` mode may be used to add more response text before a later loop run
 - when satisfied, it routes forward or ends
 

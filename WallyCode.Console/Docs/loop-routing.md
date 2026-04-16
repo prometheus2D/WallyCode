@@ -26,17 +26,6 @@ Companion documents:
 
 ---
 
-## Status Note
-
-This document describes the routed loop design target.
-
-The current runtime is still simpler:
-
-- one generic loop template repeats instead of routed loop units
-- `session.json` and `state.json` are already split
-- `respond` currently stores response text only
-- a later `loop` invocation consumes pending responses
-
 ## Core Model
 
 ### Loop
@@ -171,23 +160,16 @@ Explicit completion signal.
 
 ---
 
-## Canonical Runtime Values
+## Canonical Values
 
-### Session status
+### Lifecycle status
 
 - `active`
+- `blocked`
 - `completed`
 - `failed`
-- `blocked`
 
-### Loop phase
-
-- `active`
-- `done`
-- `error`
-- `failed`
-
-### Routing outcome
+### Last routing outcome
 
 - `self-loop`
 - `transition`
@@ -201,27 +183,31 @@ Explicit completion signal.
 
 ## Design Rationale
 
-### Why `phase` exists
+### Why lifecycle is `status` plus `lastRoutingOutcome`
 
 `activeUnitId` answers where work resumes.
 
-It does not answer whether the loop is still healthy, terminal, or paused on some external condition.
+`status` answers whether the session can continue right now.
 
-`phase` exists to persist that coarse lifecycle state without replaying prompts or inferring meaning from logs.
+`lastRoutingOutcome` answers why the current state was reached.
+
+A second lifecycle field adds overlap without adding enough information to justify the extra state machine.
 
 Keep these roles separate:
 
 - `activeUnitId`: where the next routed step resumes
+- `status`: coarse lifecycle of the session
 - `lastRoutingOutcome`: what the last iteration decided
-- `phase`: coarse lifecycle of the loop execution state
-- session `status`: operator-facing state of the overall session
+- `lastProcessedUserResponseId`: which user responses have already been consumed
 
-This separation matters because the same unit may remain active after `[CONTINUE]`, `[ASK_USER]`, `[ERROR]`, or `[DONE]`, but resume behavior and operator messaging should not treat those cases as equivalent.
+This separation matters because the same unit may remain active after `[CONTINUE]`, `[ASK_USER]`, `[ERROR]`, or `[DONE]`, but the system should not need a second lifecycle enum just to explain that difference.
 
-Current implementation note:
+Use these mappings:
 
-- today's runtime stores `active`, `waiting-for-user`, or `done` in `state.json.phase`
-- the routed design keeps the same concept but prefers `lastRoutingOutcome = ask-user` plus stored-response state for the user-input wait condition
+- waiting for user is represented as `status = blocked` plus `lastRoutingOutcome = ask-user`
+- an execution problem is represented as `status = blocked` plus `lastRoutingOutcome = error`
+- completion is represented as `status = completed` plus `lastRoutingOutcome = done`
+- terminal failure is represented as `status = failed` plus `lastRoutingOutcome = fail` or `invalid-output`
 
 ### Why state is split
 
@@ -234,12 +220,11 @@ Keep in session state:
 - source path
 - iteration counter
 - selected loop or template id
-- overall completion marker
+- lifecycle status
 
 Keep in loop execution state:
 
 - active unit id
-- phase
 - last selected keyword
 - last routing outcome
 - working summary
@@ -251,7 +236,7 @@ The split is deliberate because it:
 - lets routing behavior evolve without constantly reshaping session identity data
 - keeps resume validation small and deterministic
 - reduces the blast radius of a bad iteration-state write
-- matches the current runtime, which already persists `session.json` separately from `state.json`
+- keeps lifecycle ownership in one place instead of duplicating it across session state and loop state
 
 ### Why `respond` has two modes
 
@@ -266,17 +251,9 @@ Store-only mode exists because operators sometimes want to stage multiple clarif
 
 The modes change when the next loop invocation happens, not what gets stored.
 
-Current implementation note:
-
-- today's `respond` behaves like store-only mode
-- the operator must run `loop` explicitly to continue
-- auto-resume is a routed-engine capability, not current behavior
-
 ### Exact stored-response contract
 
 The stored-response contract should be explicit and small.
-
-Current runtime contract:
 
 - canonical response storage is `responses.json`
 - human-readable history is mirrored in `memory/user-responses.md`
@@ -287,12 +264,9 @@ Current runtime contract:
 - a failed iteration must not advance that cursor
 - response text is never rewritten in place; additional operator input always appends a new entry
 
-That means the current runtime behaves as an append-only response log plus a consumption cursor, not as a single mutable stored-response slot.
+Normal and store-only `respond` share the same storage contract.
 
-Routed-design implication:
-
-- normal and store-only `respond` can share the same storage contract
-- the only difference between the modes is whether `respond` also starts the next loop step immediately
+The only difference between the modes is whether `respond` also starts the next loop step immediately.
 
 Example response log:
 
@@ -324,9 +298,9 @@ Units still control access through `allowedKeywords`.
 
 That boundary is intentional: built-ins define engine control flow, while loop-specific keywords define workflow meaning.
 
-### Current strengths deliberately being kept
+### Strengths being kept
 
-The routed design intentionally preserves the best parts of the current runtime:
+The design intentionally keeps:
 
 - bounded iterations with explicit stop points
 - small inspectable state files
@@ -341,13 +315,13 @@ The point of routing is to add explicit workflow structure without losing the cu
 
 Recommended implementation order:
 
-1. lock the persisted contracts first: split session state, execution state, response log, and response cursor
+1. lock the persisted contracts first: session lifecycle status, execution state, response log, and response cursor
 2. enforce strict iteration output parsing and built-in keyword validation
-3. load routed loop definitions and persist `activeUnitId`, `lastSelectedKeyword`, `lastRoutingOutcome`, and `phase` atomically
+3. load routed loop definitions and persist `status`, `activeUnitId`, `lastSelectedKeyword`, and `lastRoutingOutcome` as one logical update
 4. implement `[ASK_USER]` stop-and-resume using the existing response log and cursor
 5. add normal `respond` auto-resume on top of that same storage contract
 6. add loop-specific transitions and definition validation
-7. add single-writer protection, workflow tests, and cleanup of legacy inference paths
+7. add single-writer protection, workflow tests, and cleanup of inference paths
 
 This order keeps the current strengths in place while changing only one control-plane concern at a time.
 
@@ -361,8 +335,8 @@ Keep:
 
 - goal
 - loop id
+- lifecycle status
 - active loop unit id
-- phase
 - compact working summary
 - decisions
 - open questions
@@ -376,11 +350,13 @@ Do not use memory as a prose workflow inference layer.
 
 Routing must come from:
 
+- lifecycle status
 - active unit id
-- selected keyword
+- last selected keyword
+- last routing outcome
 - built-in keyword behavior
 - transition mapping for loop-specific keywords
-- explicit phase state
+- response cursor when user input is involved
 
 ---
 
@@ -394,7 +370,6 @@ Routing must come from:
   "sessionId": "session-001",
   "loopId": "example-loop",
   "status": "active",
-  "isComplete": false,
   "createdAtUtc": "2025-01-01T00:00:00Z",
   "updatedAtUtc": "2025-01-01T00:00:00Z"
 }
@@ -406,7 +381,6 @@ Routing must come from:
 {
   "schemaVersion": 1,
   "activeUnitId": "example_unit",
-  "phase": "active",
   "lastSelectedKeyword": "[CONTINUE]",
   "lastRoutingOutcome": "self-loop",
   "workingSummary": "One requirement is still unclear.",
@@ -424,6 +398,7 @@ Rules:
 - persisted state must be forward-migratable
 - missing required fields cause deterministic load failure
 - the engine must not silently invent missing routing fields during resume
+- session state owns lifecycle status
 - loop execution state stores response-consumption metadata, not response text
 - response text itself lives in the append-only response log
 
@@ -463,7 +438,7 @@ Built-in keywords use built-in engine behavior.
 
 `nextUnit` is for loop-specific routing.
 
-Current design:
+Design rules:
 
 - use `nextUnit` for routing to another unit
 - use `[ASK_USER]` when the loop must stop and wait for user input
@@ -508,8 +483,9 @@ must succeed or fail as one atomic update.
 
 If any step after provider output parsing fails, do not partially commit:
 
+- lifecycle status
 - next active unit
-- phase
+- last routing outcome
 - summary
 - decisions
 - questions
@@ -532,9 +508,9 @@ After every successful iteration:
 
 1. accept keyword
 2. resolve built-in behavior or transition
-3. update loop state
+3. update lifecycle status and loop state
 4. set next active unit id
-5. persist updated execution state
+5. persist updated session state and execution state
 6. persist logs, prompt, raw output
 7. end invocation
 
@@ -550,11 +526,14 @@ After every successful iteration:
 - active loop unit id
 - last selected keyword
 - last routing outcome
-- phase
 - workingSummary
 - decisions
 - openQuestions
 - blockers
+
+### Overwrite in session state
+
+- lifecycle status
 
 ### Clear or filter
 
@@ -581,7 +560,7 @@ After every successful iteration:
 Default behavior:
 
 - store the response
-- in routed normal mode, immediately run the loop again
+- in normal mode, immediately run the loop again
 - include all pending stored responses in the prompt
 - after a successful resumed loop run, advance the response cursor to the newest consumed entry
 
@@ -647,6 +626,8 @@ Malformed JSON, missing required fields, invalid field types, or invalid keyword
 #### `[CONTINUE]`
 - successful iteration
 - remain on current unit unless explicitly transitioned by non-built-in routing
+- set session status to `active`
+- set last routing outcome to `self-loop`
 - run normal state update
 
 #### `[ASK_USER]`
@@ -655,13 +636,14 @@ Malformed JSON, missing required fields, invalid field types, or invalid keyword
 - stop loop execution
 - remain on current unit
 - do not move to a next unit
-- routing outcome becomes `ask-user`
+- set session status to `blocked`
+- set last routing outcome to `ask-user`
 
 #### `[ERROR]`
 - successful structured execution failure
 - persist summary and blockers when provided
-- set phase to `error`
 - set session status to `blocked`
+- set last routing outcome to `error`
 - persist debugging information
 - alert user
 - stop process
@@ -669,14 +651,14 @@ Malformed JSON, missing required fields, invalid field types, or invalid keyword
 #### `[FAIL]`
 - successful structured routing failure
 - persist summary when provided
-- set phase to `failed`
 - set session status to `failed`
+- set last routing outcome to `fail`
 - stop invocation
 
 #### `[DONE]`
 - successful structured completion
-- set phase to `done`
-- mark session complete
+- set session status to `completed`
+- set last routing outcome to `done`
 - retain `activeUnitId` as the last executed unit
 - stop invocation
 
@@ -739,11 +721,6 @@ Flow:
 - directly change routing by itself
 - replace previously stored response text when store-only mode is used
 
-Current runtime note:
-
-- today's `respond` implements the storage half of this contract only
-- the operator still runs `loop` explicitly to consume the stored response
-
 ---
 
 ## Single-Writer Session Rule
@@ -786,7 +763,7 @@ Rules:
 
 ---
 
-## Future JSON Structure
+## JSON Structure
 
 ```json
 {
@@ -852,11 +829,12 @@ Each iteration log should include:
 
 - invocation id
 - loop id
+- lifecycle status after routing
 - active loop unit id
 - selected keyword
+- last routing outcome after routing
 - whether execution stayed or transitioned
 - next active loop unit id
-- phase after routing
 - summary
 - done reason if any
 - parse or validation outcome
@@ -885,6 +863,7 @@ This gives the system:
 - small persisted state
 - deterministic resume behavior
 - clean `respond` integration
+- one lifecycle field instead of overlapping lifecycle enums
 - lower prompt cost
 - simpler loop authoring
 - less engine complexity

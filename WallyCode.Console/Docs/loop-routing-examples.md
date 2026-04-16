@@ -12,15 +12,6 @@ Related documents:
 
 ---
 
-## Status Note
-
-These examples describe the target routed engine behavior.
-
-Current runtime note:
-
-- `respond` stores text only
-- the operator runs `loop` later to consume the pending response
-
 ## Requirements Collection Example
 
 Example active unit:
@@ -35,20 +26,25 @@ Example self-loop result:
 
 - selected keyword: `[CONTINUE]`
 - remain on `collect_requirements`
+- session status: `active`
+- last routing outcome: `self-loop`
 
 Example transition result:
 
 - selected keyword: `[REQUIREMENTS_READY]`
 - move from `collect_requirements` to `produce_tasks`
+- session status: `active`
+- last routing outcome: `transition`
 
 Example ask-user result:
 
 - selected keyword: `[ASK_USER]`
 - remain on `collect_requirements`
 - stop the loop
+- session status: `blocked`
+- last routing outcome: `ask-user`
 - user answers with `respond`
-- in routed normal mode, `respond` triggers the loop to run again on `collect_requirements`
-- in the current runtime, a later explicit `loop` run resumes from the stored response
+- in normal mode, `respond` triggers the loop to run again on `collect_requirements`
 
 Example store-only respond result:
 
