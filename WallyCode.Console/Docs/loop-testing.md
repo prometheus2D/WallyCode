@@ -18,6 +18,8 @@ This document focuses on workflow-level testing of the routing engine.
 
 The goal is to verify that routed loop behavior is deterministic when provider output is controlled.
 
+These tests verify the contracts defined in `loop-routing.md`.
+
 ---
 
 ## Testing Scope
@@ -97,6 +99,7 @@ Each workflow test should define:
 - the expected lifecycle status after each step
 - the expected active unit after each step
 - the expected last routing outcome after each step
+- when prompt assertions matter, the expected active-unit data, structured state, and pending responses included in the prompt
 - when relevant, the expected lock acquisition or stale-lock takeover result
 - the expected persisted summary, decisions, questions, blockers, and stored response state
 - the expected completion or stop condition

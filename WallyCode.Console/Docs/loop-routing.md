@@ -39,13 +39,13 @@ A named workflow entry point with:
 - loop units
 
 ### Loop Unit
-The current mode of work.
+The active mode of work.
 
 Only one loop unit is active at a time.
 
 A loop unit may use only the keywords listed in its `allowedKeywords`.
 
-Built-in standard keywords are still subject to this rule.
+Built-in standard keywords are subject to this rule.
 
 If a built-in keyword is not listed for the active unit, it is not valid for that unit.
 
@@ -77,7 +77,7 @@ Built-in standard keywords use built-in engine behavior and are not overridden b
 ### Built-In Keyword
 A standard keyword with fixed engine behavior.
 
-Current built-in standard keywords:
+Built-in standard keywords:
 
 - `[CONTINUE]`
 - `[ASK_USER]`
@@ -104,7 +104,7 @@ The routing destination configured in the loop definition for a loop-specific ke
 Default self-loop keyword.
 
 - iteration succeeds
-- remain on current unit unless an explicit non-built-in transition overrides it
+- remain on the same unit
 - persist normal state updates
 
 ### `[ASK_USER]`
@@ -178,6 +178,14 @@ Explicit completion signal.
 - `error`
 - `fail`
 
+### Valid `status` and `lastRoutingOutcome` pairs
+
+- `active` pairs with `self-loop` or `transition`
+- `blocked` pairs with `ask-user` or `error`
+- `completed` pairs with `done`
+- `failed` pairs with `fail`
+- invocation validation failures leave the existing canonical pair unchanged
+
 ---
 
 ## Design Rationale
@@ -219,7 +227,7 @@ Keep in session state:
 - provider and model choice
 - source path
 - iteration counter
-- selected loop or template id
+- selected loop id
 - lifecycle status
 
 Keep in loop execution state:
@@ -282,6 +290,11 @@ Example response log:
 }
 ```
 
+Cursor example:
+
+- if `lastProcessedUserResponseId = 3`, the next pending response id is `4`
+- a response whose `id` matches `lastProcessedUserResponseId` has already been consumed
+
 ### Whether built-ins are truly rigid
 
 Yes, in the sense that the engine owns their semantics.
@@ -298,9 +311,9 @@ Units still control access through `allowedKeywords`.
 
 That boundary is intentional: built-ins define engine control flow, while loop-specific keywords define workflow meaning.
 
-### Strengths being kept
+### Design priorities
 
-The design intentionally keeps:
+The routing design prioritizes:
 
 - bounded iterations with explicit stop points
 - small inspectable state files
@@ -308,22 +321,6 @@ The design intentionally keeps:
 - provider-agnostic execution
 - explicit human-in-the-loop response handling
 - deterministic resume based on persisted state instead of prompt-only inference
-
-The point of routing is to add explicit workflow structure without losing the current system's operator control and debuggability.
-
-### Implementation order implied by this design
-
-Recommended implementation order:
-
-1. lock the persisted contracts first: session lifecycle status, execution state, response log, and response cursor
-2. enforce strict iteration output parsing and built-in keyword validation
-3. load routed loop definitions and persist `status`, `activeUnitId`, `lastSelectedKeyword`, and `lastRoutingOutcome` as one logical update
-4. implement `[ASK_USER]` stop-and-resume using the existing response log and cursor
-5. add normal `respond` auto-resume on top of that same storage contract
-6. add loop-specific transitions and definition validation
-7. add single-writer protection, workflow tests, and cleanup of inference paths
-
-This order keeps the current strengths in place while changing only one control-plane concern at a time.
 
 ---
 
@@ -369,6 +366,11 @@ Routing must come from:
   "schemaVersion": 1,
   "sessionId": "session-001",
   "loopId": "example-loop",
+  "goal": "Clarify export requirements and route into task generation.",
+  "providerName": "github-copilot",
+  "model": "gpt-5",
+  "sourcePath": "C:\\repo\\sample-app",
+  "iterationCount": 3,
   "status": "active",
   "createdAtUtc": "2025-01-01T00:00:00Z",
   "updatedAtUtc": "2025-01-01T00:00:00Z"
@@ -398,10 +400,10 @@ Rules:
 - persisted state must be forward-migratable
 - missing required fields cause deterministic load failure
 - the engine must not silently invent missing routing fields during resume
-- resuming requires the current loop definition to contain the persisted `loopId`
-- resuming requires the current loop definition to contain the persisted `activeUnitId`
+- resuming requires the loaded loop definition to contain the persisted `loopId`
+- resuming requires the loaded loop definition to contain the persisted `activeUnitId`
 - if either is missing, resume fails deterministically
-- editing a loop definition during an active session is unsupported in MVP
+- editing a loop definition during an active session is unsupported
 - session state owns lifecycle status
 - loop execution state stores response-consumption metadata, not response text
 - response text itself lives in the append-only response log
@@ -559,18 +561,23 @@ After every successful iteration:
 
 `respond` provides the user's answer.
 
-Default behavior:
+`respond` supports two modes.
+
+Normal mode:
 
 - store the response
-- in normal mode, immediately run the loop again
-- include all pending stored responses in the prompt
+- require session status `blocked`
+- immediately run the loop again
+- include all pending stored responses in the resumed prompt
 - after a successful resumed loop run, advance the response cursor to the newest consumed entry
 
-Optional niche behavior:
+Store-only mode:
 
-- support a hardcoded store-only mode that records additional response text without immediately running the loop
-- store-only mode appends additional response entries rather than replacing prior text
-- both modes share the same append-only response log
+- store the response
+- preserve canonical loop state until a later `loop` invocation
+- append additional response entries rather than replacing prior text
+
+Both modes share the same append-only response log.
 
 ---
 
@@ -631,7 +638,7 @@ Malformed JSON, missing required fields, invalid field types, or invalid keyword
 
 #### `[CONTINUE]`
 - successful iteration
-- remain on current unit unless explicitly transitioned by non-built-in routing
+- remain on the same unit
 - set session status to `active`
 - set last routing outcome to `self-loop`
 - run normal state update
@@ -689,13 +696,20 @@ Each iteration prompt should include:
 - recorded blockers
 - pending responses from `respond`, when present
 
-Do not include large derived workflow documents unless they add unique value not already present in structured state.
+Prompt inputs should come from the active unit definition plus structured persisted state.
+
+Do not include large derived workflow documents when the same information is already present in structured state.
 
 ---
 
 ## User Response Flow
 
 The routing engine must support explicit user interaction through `respond`.
+
+`respond` has two explicit modes:
+
+- normal mode stores the response and resumes the session immediately
+- store-only mode stores the response and leaves canonical state unchanged until a later `loop` run
 
 Flow:
 
@@ -721,7 +735,6 @@ Flow:
 - allow the loop to continue after `[ASK_USER]`
 - allow retry after `[ERROR]` when the operator can resolve the blocker with more information
 - in store-only mode, also be usable when the operator wants to provide more information before a later `loop` run
-- support a niche store-only mode for adding more response text without immediately running the loop
 - append new response entries instead of rewriting prior ones
 
 `respond` should not:
@@ -779,6 +792,7 @@ Rules:
 - a unit may use a built-in keyword only if it appears in that unit's `allowedKeywords`
 - built-in keyword behavior is defined by the engine
 - loop authors cannot override built-in keyword behavior
+- built-in keywords never use `destinationUnitId` or unit-defined transition logic
 - `[ASK_USER]` always stops the loop and waits for `respond`
 - `[ASK_USER]` never routes to a next unit
 

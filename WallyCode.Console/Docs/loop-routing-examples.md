@@ -51,6 +51,8 @@ Example store-only respond result:
 - user runs `respond` in store-only mode
 - response text is recorded
 - later store-only responses add more response text instead of replacing prior text
+- session status remains `blocked`
+- active unit remains `collect_requirements`
 - the loop does not start yet
 - a later `loop` run uses the stored response context
 

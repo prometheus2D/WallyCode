@@ -24,8 +24,8 @@ Execute tasks until completion.
 - execute a batch of work
 - review results
 - ask for clarification when needed
-- normal `respond` can provide clarification and trigger the loop to continue
-- store-only `respond` mode may be used when extra user input should be recorded before a later loop run
+- `respond` supports normal mode to provide clarification and resume the loop immediately
+- `respond` supports store-only mode when extra user input should be recorded before a later loop run
 - continue until more execution is not needed or the loop is done
 
 ---
