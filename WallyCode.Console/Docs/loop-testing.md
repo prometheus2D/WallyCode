@@ -48,7 +48,7 @@ The provider in tests should be able to:
 - simulate `[ASK_USER]`, `[ERROR]`, `[FAIL]`, and `[DONE]`
 - simulate invalid keyword output
 - simulate malformed JSON output
-- optionally inspect the prompt passed into each step so tests can verify that the workflow resumed with the correct state
+- optionally inspect the prompt passed into each step so tests can verify that the engine injected the correct normalized prompt input payload and rendered it correctly
 
 ---
 
@@ -99,9 +99,9 @@ Each workflow test should define:
 - the expected lifecycle status after each step
 - the expected active unit after each step
 - the expected last routing outcome after each step
-- when prompt assertions matter, the expected active-unit data, structured state, and pending responses included in the prompt
+- when prompt assertions matter, the expected `loopId`, `goal`, `status`, `lastRoutingOutcome`, `activeUnit`, `workingSummary`, `decisions`, `openQuestions`, `blockers`, and `pendingResponses` included in the normalized prompt input payload
 - when relevant, the expected lock acquisition or stale-lock takeover result
-- the expected persisted summary, decisions, questions, blockers, and stored response state
+- the expected persisted `workingSummary`, `decisions`, `openQuestions`, `blockers`, and stored response state
 - the expected completion or stop condition
 
 ---

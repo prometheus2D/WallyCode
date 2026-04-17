@@ -178,13 +178,19 @@ Explicit completion signal.
 - `error`
 - `fail`
 
-### Valid `status` and `lastRoutingOutcome` pairs
+### Lifecycle derivation
 
-- `active` pairs with `self-loop` or `transition`
-- `blocked` pairs with `ask-user` or `error`
-- `completed` pairs with `done`
-- `failed` pairs with `fail`
-- invocation validation failures leave the existing canonical pair unchanged
+Each logical unit chooses its routing result by returning one valid `selectedKeyword` for that unit.
+
+After keyword validation and transition resolution, the engine normalizes that result into canonical lifecycle fields:
+
+- a resolved self-loop sets `status = active` and `lastRoutingOutcome = self-loop`
+- a resolved transition sets `status = active` and `lastRoutingOutcome = transition`
+- `[ASK_USER]` sets `status = blocked` and `lastRoutingOutcome = ask-user`
+- `[ERROR]` sets `status = blocked` and `lastRoutingOutcome = error`
+- `[DONE]` sets `status = completed` and `lastRoutingOutcome = done`
+- `[FAIL]` sets `status = failed` and `lastRoutingOutcome = fail`
+- invocation validation failures leave the existing canonical values unchanged
 
 ---
 
@@ -209,7 +215,7 @@ Keep these roles separate:
 
 This separation matters because the same unit may remain active after `[CONTINUE]`, `[ASK_USER]`, `[ERROR]`, or `[DONE]`, but the system should not need a second lifecycle enum just to explain that difference.
 
-Use these mappings:
+After the logical unit chooses a keyword and routing is resolved, the engine normalizes to these canonical meanings:
 
 - waiting for user is represented as `status = blocked` plus `lastRoutingOutcome = ask-user`
 - an execution problem is represented as `status = blocked` plus `lastRoutingOutcome = error`
@@ -410,6 +416,67 @@ Rules:
 
 ---
 
+## Canonical Runtime Surface
+
+The routed loop runtime has four canonical persisted surfaces:
+
+- loop definition
+- session state
+- loop execution state
+- response log
+
+The engine reads those surfaces, validates them, and derives a normalized prompt input payload for the active unit.
+
+The model does not inspect persisted files directly.
+
+### Prompt input payload
+
+The prompt input payload is the reasoning-facing runtime contract.
+
+```json
+{
+  "loopId": "example-loop",
+  "goal": "Clarify export requirements and route into task generation.",
+  "status": "blocked",
+  "lastRoutingOutcome": "ask-user",
+  "activeUnit": {
+    "id": "collect_requirements",
+    "title": "Collect Requirements",
+    "purpose": "Resolve missing specification details.",
+    "instructions": "Choose exactly one keyword.",
+    "allowedKeywords": [
+      "[CONTINUE]",
+      "[ASK_USER]",
+      "[REQUIREMENTS_READY]",
+      "[ERROR]",
+      "[FAIL]",
+      "[DONE]"
+    ]
+  },
+  "workingSummary": "One export-format question remains.",
+  "decisions": ["Desktop first"],
+  "openQuestions": ["Should exports support csv and pdf?"],
+  "blockers": [],
+  "pendingResponses": [
+    {
+      "id": 4,
+      "timestampUtc": "2025-01-01T00:00:00Z",
+      "text": "Exports should support csv and pdf."
+    }
+  ]
+}
+```
+
+Rules:
+
+- the engine constructs the prompt input payload programmatically from persisted state and the active unit definition
+- the rendered prompt may be markdown or plain text, but it must represent this normalized payload
+- not every persisted field is a prompt input; reasoning inputs are limited to the fields needed by the active unit
+- fields such as `sessionId`, `providerName`, `model`, `sourcePath`, timestamps, lock metadata, and response cursor remain runtime metadata unless a loop explicitly requires them
+- human-readable mirrors such as `memory/user-responses.md` are observability artifacts, not prompt inputs
+
+---
+
 ## Routing Rule
 
 **Run the active unit again unless the selected keyword explicitly moves to another unit, asks the user for input and stops, or ends the loop.**
@@ -438,19 +505,17 @@ Rules:
 - `[ASK_USER]` => persist, stop, wait for `respond`, remain on same unit
 - `[DONE]` => end the loop
 
-### Built-In Keywords vs `destinationUnitId`
+### Transition Resolution Details
 
-Built-in keywords use built-in engine behavior.
+The provider returns only `selectedKeyword` as the routing signal.
 
-`destinationUnitId` is for loop-specific routing.
+The engine resolves any transition from the active unit definition.
 
 Design rules:
 
-- the provider returns only `selectedKeyword` as the routing signal
-- the engine resolves `destinationUnitId` from the loop definition
-- use `destinationUnitId` for routing to another unit
+- the model does not emit `destinationUnitId`
+- the engine resolves `destinationUnitId` from the loop definition when a loop-specific keyword has a matching transition
 - use `[ASK_USER]` when the loop must stop and wait for user input
-- `[ASK_USER]` must never set `destinationUnitId`
 - loop authors must not override built-in keyword behavior
 
 Examples:
@@ -462,7 +527,7 @@ Examples:
 ```
 
 - remain on same unit
-- persist returned questions and summary normally
+- persist returned `summary` and `questions`, then normalize them into `workingSummary` and `openQuestions`
 - stop and wait for `respond`
 
 If `selectedKeyword` is `[SOME_ROUTING_KEYWORD]` and the loop definition maps that keyword to `another_unit`:
@@ -490,9 +555,9 @@ If any step after provider output parsing fails, do not partially commit:
 - next active unit
 - last routing outcome
 - last selected keyword
-- summary
+- workingSummary
 - decisions
-- questions
+- openQuestions
 - blockers
 - latest response consumption state
 
@@ -556,6 +621,15 @@ After every successful iteration:
 - remove empty strings
 - deduplicate exact duplicates
 - preserve returned ordering
+
+### Output-to-state normalization
+
+- output `selectedKeyword` becomes persisted `lastSelectedKeyword`
+- output `summary` becomes persisted `workingSummary`
+- output `questions` becomes persisted `openQuestions`
+- output `decisions` becomes persisted `decisions`
+- output `blockers` becomes persisted `blockers`
+- resolved routing sets persisted `status`, `lastRoutingOutcome`, and `activeUnitId`
 
 ### Response handling
 
@@ -629,7 +703,7 @@ Malformed JSON, missing required fields, invalid field types, or invalid keyword
 
 - are invocation validation failures, not persisted routing outcomes
 - leave canonical loop state unchanged
-- do not change lifecycle status, `activeUnitId`, `lastSelectedKeyword`, `lastRoutingOutcome`, summary, decisions, questions, blockers, or response cursor
+- do not change lifecycle status, `activeUnitId`, `lastSelectedKeyword`, `lastRoutingOutcome`, `workingSummary`, `decisions`, `openQuestions`, `blockers`, or response cursor
 - do not consume the stored response
 - still log and persist raw output and validation failure details
 - end current invocation in failure
@@ -679,24 +753,29 @@ Malformed JSON, missing required fields, invalid field types, or invalid keyword
 
 ## Prompt Contents
 
-Each iteration prompt should include:
+Each iteration prompt is the rendered form of the normalized prompt input payload.
+
+That rendered prompt should include:
 
 - shared loop instructions
-- active unit id and title
-- active unit purpose
-- active unit instructions
-- allowed keywords
-- explicit instruction to choose exactly one keyword
-- goal
-- lifecycle status
-- last routing outcome
-- compact working summary
-- recorded decisions
-- recorded open questions
-- recorded blockers
-- pending responses from `respond`, when present
+- `loopId`
+- `goal`
+- `status`
+- `lastRoutingOutcome`
+- `activeUnit.id`
+- `activeUnit.title`
+- `activeUnit.purpose`
+- `activeUnit.instructions`
+- `activeUnit.allowedKeywords`
+- `workingSummary`
+- `decisions`
+- `openQuestions`
+- `blockers`
+- `pendingResponses`
 
-Prompt inputs should come from the active unit definition plus structured persisted state.
+The engine loads session state, loop execution state, the active unit definition, and pending responses, then injects that normalized payload into the prompt.
+
+The LLM does not read `session.json`, execution-state files, or response-log files directly.
 
 Do not include large derived workflow documents when the same information is already present in structured state.
 
@@ -792,7 +871,6 @@ Rules:
 - a unit may use a built-in keyword only if it appears in that unit's `allowedKeywords`
 - built-in keyword behavior is defined by the engine
 - loop authors cannot override built-in keyword behavior
-- built-in keywords never use `destinationUnitId` or unit-defined transition logic
 - `[ASK_USER]` always stops the loop and waits for `respond`
 - `[ASK_USER]` never routes to a next unit
 
