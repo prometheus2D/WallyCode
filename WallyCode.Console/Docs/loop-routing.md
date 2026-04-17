@@ -91,10 +91,10 @@ Built-in keywords:
 - use engine-defined behavior
 - cannot be redefined by a loop author
 
-### `nextUnit`
-The routing destination after a successful iteration.
+### `destinationUnitId`
+The routing destination configured in the loop definition for a loop-specific keyword.
 
-`nextUnit` is used only for loop-specific routing keywords or explicit non-built-in transitions.
+`destinationUnitId` is definition data, not iteration output.
 
 ---
 
@@ -177,7 +177,6 @@ Explicit completion signal.
 - `done`
 - `error`
 - `fail`
-- `invalid-output`
 
 ---
 
@@ -207,7 +206,8 @@ Use these mappings:
 - waiting for user is represented as `status = blocked` plus `lastRoutingOutcome = ask-user`
 - an execution problem is represented as `status = blocked` plus `lastRoutingOutcome = error`
 - completion is represented as `status = completed` plus `lastRoutingOutcome = done`
-- terminal failure is represented as `status = failed` plus `lastRoutingOutcome = fail` or `invalid-output`
+- terminal failure is represented as `status = failed` plus `lastRoutingOutcome = fail`
+- invalid output is a validation failure that leaves canonical state unchanged and is recorded only in diagnostics
 
 ### Why state is split
 
@@ -289,7 +289,7 @@ Yes, in the sense that the engine owns their semantics.
 Rigid means:
 
 - loop authors cannot redefine `[CONTINUE]`, `[ASK_USER]`, `[DONE]`, `[ERROR]`, or `[FAIL]`
-- loop authors cannot attach custom `nextUnit` behavior to those built-ins
+- loop authors cannot attach custom `destinationUnitId` behavior to those built-ins
 - the engine, not the loop definition, decides what those keywords do
 
 Rigid does not mean every unit must expose every built-in.
@@ -398,6 +398,10 @@ Rules:
 - persisted state must be forward-migratable
 - missing required fields cause deterministic load failure
 - the engine must not silently invent missing routing fields during resume
+- resuming requires the current loop definition to contain the persisted `loopId`
+- resuming requires the current loop definition to contain the persisted `activeUnitId`
+- if either is missing, resume fails deterministically
+- editing a loop definition during an active session is unsupported in MVP
 - session state owns lifecycle status
 - loop execution state stores response-consumption metadata, not response text
 - response text itself lives in the append-only response log
@@ -428,28 +432,30 @@ Resolution order:
 Rules:
 
 - no explicit transition => remain on current unit
-- `nextUnit` => move after successful iteration
+- a resolved definition transition with `destinationUnitId` => move after successful iteration
 - `[ASK_USER]` => persist, stop, wait for `respond`, remain on same unit
 - `[DONE]` => end the loop
 
-### Built-In Keywords vs `nextUnit`
+### Built-In Keywords vs `destinationUnitId`
 
 Built-in keywords use built-in engine behavior.
 
-`nextUnit` is for loop-specific routing.
+`destinationUnitId` is for loop-specific routing.
 
 Design rules:
 
-- use `nextUnit` for routing to another unit
+- the provider returns only `selectedKeyword` as the routing signal
+- the engine resolves `destinationUnitId` from the loop definition
+- use `destinationUnitId` for routing to another unit
 - use `[ASK_USER]` when the loop must stop and wait for user input
-- `[ASK_USER]` must never set `nextUnit`
+- `[ASK_USER]` must never set `destinationUnitId`
 - loop authors must not override built-in keyword behavior
 
 Examples:
 
 ```json
 {
-  "keyword": "[ASK_USER]"
+  "selectedKeyword": "[ASK_USER]"
 }
 ```
 
@@ -457,12 +463,7 @@ Examples:
 - persist returned questions and summary normally
 - stop and wait for `respond`
 
-```json
-{
-  "keyword": "[SOME_ROUTING_KEYWORD]",
-  "nextUnit": "another_unit"
-}
-```
+If `selectedKeyword` is `[SOME_ROUTING_KEYWORD]` and the loop definition maps that keyword to `another_unit`:
 
 - no ask-user behavior
 - next active unit becomes `another_unit`
@@ -486,6 +487,7 @@ If any step after provider output parsing fails, do not partially commit:
 - lifecycle status
 - next active unit
 - last routing outcome
+- last selected keyword
 - summary
 - decisions
 - questions
@@ -592,6 +594,7 @@ Each iteration must return strict JSON.
 Rules:
 
 - `selectedKeyword` is required and authoritative
+- routing destinations never come from provider output
 - `summary` is recommended because it gives the next run compact context
 - omitted arrays normalize to `[]`
 - omitted strings normalize to `""`
@@ -610,13 +613,16 @@ If provider output includes extra fields not defined by the contract:
 
 - fields needed by the engine contract must be parsed and used
 - fields not needed by the engine contract should be ignored in v1
+- reserved routing-control fields such as `destinationUnitId` must be rejected because routing destinations come from the loop definition, not the model output
 - unknown fields must not affect routing unless the contract is explicitly expanded to support them
 
 ### Invalid output handling
 
 Malformed JSON, missing required fields, invalid field types, or invalid keywords:
 
+- are invocation validation failures, not persisted routing outcomes
 - leave canonical loop state unchanged
+- do not change lifecycle status, `activeUnitId`, `lastSelectedKeyword`, `lastRoutingOutcome`, summary, decisions, questions, blockers, or response cursor
 - do not consume the stored response
 - still log and persist raw output and validation failure details
 - end current invocation in failure
@@ -675,9 +681,12 @@ Each iteration prompt should include:
 - allowed keywords
 - explicit instruction to choose exactly one keyword
 - goal
+- lifecycle status
+- last routing outcome
 - compact working summary
 - recorded decisions
 - recorded open questions
+- recorded blockers
 - pending responses from `respond`, when present
 
 Do not include large derived workflow documents unless they add unique value not already present in structured state.
@@ -695,7 +704,7 @@ Flow:
 3. invocation stops
 4. user later runs `respond`
 5. `respond` appends the user's response to the session response log
-6. in routed normal mode, `respond` immediately starts the next loop run
+6. in normal mode, `respond` immediately starts the next loop run
 7. in store-only mode, `respond` stops after storing the response and a later `loop` run consumes it
 8. the next loop run resumes the same active unit
 9. the next run includes all pending stored responses in the prompt
@@ -708,10 +717,10 @@ Flow:
 - store a user response for the current session
 - preserve existing loop state until the resumed loop run updates it
 - preserve current active unit until the resumed loop run updates it
-- generally be used to respond to an `[ASK_USER]` situation
-- also be usable when the operator wants to provide more information
+- in normal mode, require session status `blocked`
 - allow the loop to continue after `[ASK_USER]`
-- potentially be used to retry progress after `error` or `fail`
+- allow retry after `[ERROR]` when the operator can resolve the blocker with more information
+- in store-only mode, also be usable when the operator wants to provide more information before a later `loop` run
 - support a niche store-only mode for adding more response text without immediately running the loop
 - append new response entries instead of rewriting prior ones
 
@@ -719,6 +728,7 @@ Flow:
 
 - directly answer open questions by itself
 - directly change routing by itself
+- reopen a `completed` or `failed` session
 - replace previously stored response text when store-only mode is used
 
 ---
@@ -740,6 +750,17 @@ Required behavior:
 - reject a second writer while another writer is active
 - fail fast with a clear message rather than allowing interleaved writes
 - never allow two providers or commands to race on the same session state
+
+### Lock contract
+
+- the canonical session lock file is `session.lock.json` adjacent to `session.json`
+- the lock file contains `lockId`, `ownerCommand`, `acquiredAtUtc`, `renewedAtUtc`, and `expiresAtUtc`
+- a writer acquires the lock by atomically creating the lock file, or atomically replacing it only after `expiresAtUtc` has passed
+- an active writer must renew `renewedAtUtc` and `expiresAtUtc` while it still owns the session
+- a second writer that sees an unexpired lock must fail without mutating canonical state
+- a stale lock may be replaced after expiry and is treated as abandoned
+- normal-mode `respond` keeps the same lock across both the response append and the resumed loop run
+- the writer releases the lock after the final canonical state write for that command path
 
 ---
 
@@ -789,7 +810,7 @@ Rules:
       "transitions": [
         {
           "keyword": "[SOME_ROUTING_KEYWORD]",
-          "nextUnit": "another_unit"
+          "destinationUnitId": "another_unit"
         }
       ]
     },
@@ -819,7 +840,7 @@ Validation rules:
 - transition keywords within a unit must be unique
 - every transition keyword must appear in that unit's `allowedKeywords`
 - built-in keywords must not appear in `transitions`
-- every `nextUnit` must be an existing unit id
+- every `destinationUnitId` must be an existing unit id
 
 ---
 

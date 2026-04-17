@@ -64,10 +64,11 @@ The following should be treated as required workflow scenarios:
 - done workflow where the session is marked complete and retains the last `activeUnitId`
 - error workflow where blockers and summary persist and the user is alerted
 - fail workflow where summary persists and execution stops
-- invalid-output workflow where malformed JSON or an invalid keyword causes immediate failure
+- invalid-output workflow where malformed JSON, an invalid keyword, or a provider-supplied `destinationUnitId` causes immediate invocation failure without changing canonical state
 - persistence-failure workflow where canonical state remains unchanged
 - resume-failure workflow where persisted state references a missing unit or invalid schema
 - single-writer workflow where a second writer is rejected while the first writer is active
+- stale-lock recovery workflow where an expired lock is safely replaced by a new writer
 
 ---
 
@@ -79,7 +80,7 @@ The following should also be covered by tests:
 - duplicate transition keywords in a unit are rejected
 - a transition keyword not present in `allowedKeywords` is rejected
 - a built-in keyword appearing in `transitions` is rejected
-- an invalid `nextUnit` target is rejected
+- an invalid `destinationUnitId` target is rejected
 - a unit cannot use a built-in keyword unless it appears in that unit's `allowedKeywords`
 
 ---
@@ -96,6 +97,7 @@ Each workflow test should define:
 - the expected lifecycle status after each step
 - the expected active unit after each step
 - the expected last routing outcome after each step
+- when relevant, the expected lock acquisition or stale-lock takeover result
 - the expected persisted summary, decisions, questions, blockers, and stored response state
 - the expected completion or stop condition
 

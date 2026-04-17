@@ -73,4 +73,4 @@ The engine only cares about:
 - selected keyword
 - built-in keyword behavior
 - matching transition for loop-specific keywords
-- optional `nextUnit`
+- definition `destinationUnitId` when a loop-specific keyword transitions
