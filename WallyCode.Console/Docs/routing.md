@@ -427,11 +427,8 @@ The routing runtime uses these persisted files:
 - routing definition
 - session state
 - response log
-- session lock during writes
 
 The routing definition, session state, and response log define the workflow state.
-
-The session lock only prevents overlapping writes.
 
 Prompts, raw outputs, logs, and human-readable mirrors are extra files for debugging and audit.
 
@@ -481,7 +478,7 @@ Rules:
 - the engine constructs the prompt input payload programmatically from session state, the active unit definition, and pending responses
 - the rendered prompt may be markdown or plain text, but it must represent this normalized payload
 - not every persisted field is a prompt input; reasoning inputs are limited to the fields needed by the active unit
-- fields such as `sessionId`, `providerName`, `model`, `sourcePath`, timestamps, lock metadata, and response cursor remain persisted runtime metadata unless a logical unit explicitly requires them
+- fields such as `sessionId`, `providerName`, `model`, `sourcePath`, timestamps, and response cursor remain persisted runtime metadata unless a logical unit explicitly requires them
 - observability artifacts are not prompt inputs
 
 ---
@@ -829,16 +826,9 @@ Required behavior:
 - fail fast with a clear message rather than allowing interleaved writes
 - never allow two writes to race on the same session state
 
-### Lock contract
+How the runtime enforces this rule is outside the routing model.
 
-- the session lock file is `session.lock.json` adjacent to `session.json`
-- the lock file contains `lockId`, `ownerOperation`, `acquiredAtUtc`, `renewedAtUtc`, and `expiresAtUtc`
-- a writer acquires the lock by atomically creating the lock file, or atomically replacing it only after `expiresAtUtc` has passed
-- an active writer must renew `renewedAtUtc` and `expiresAtUtc` while it still owns the session
-- a second writer that sees an unexpired lock must fail without changing session state
-- a stale lock may be replaced after expiry and is treated as abandoned
-- `respond` keeps the same lock across both the response append and the resumed routed run
-- the writer releases the lock after the final session state write for that operation path
+The routing design only requires the public behavior: one write operation at a time for a given session.
 
 ---
 

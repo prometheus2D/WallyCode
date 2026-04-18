@@ -33,7 +33,7 @@ Tests should be organized into:
 - definition validation tests that reject invalid routing definitions without invoking a provider
 - step tests that execute exactly one provider-backed step from a known persisted state and assert the resulting parse, normalization, routing decision, and persisted state change
 - logical-unit workflow tests that execute one logical unit across multiple invocations and assert repeat, ask-user, blocked, failed, or done behavior one step at a time
-- full routed workflow tests that move across logical units, response submission, persistence, resume, and locking behavior
+- full routed workflow tests that move across logical units, response submission, persistence, resume, and single-writer behavior
 
 Across provider-backed tests, assertions should be made one invocation at a time so failures identify the exact step that regressed.
 
@@ -116,7 +116,7 @@ The following should be treated as required deterministic tests using the concre
 - error workflow where the engine applies normal successful state normalization, sets the session to `blocked`, and alerts the user
 - error-retry-with-response workflow where a blocked `[ERROR]` session receives extra operator context through `respond` before the next routed run
 - fail workflow where the engine applies normal successful state normalization and execution stops as `failed`
-- invalid-output workflow where malformed JSON or an invalid keyword causes immediate invocation failure without changing canonical state
+- invalid-output workflow where malformed JSON or an invalid keyword causes immediate invocation failure without changing session state
 
 ---
 
@@ -127,10 +127,9 @@ The following should be treated as required routed workflow scenarios and should
 - transition workflow where a keyword moves execution to another logical unit
 - response-submission workflow where a user response is stored, the same unit resumes, and the response cursor advances after success
 - state-replacement workflow where omitted or empty structured fields clear prior working state and only returned values persist for the next logical unit
-- persistence-failure workflow where canonical state remains unchanged
+- persistence-failure workflow where session state remains unchanged
 - resume-failure workflow where persisted state references a missing logical unit or invalid schema
-- single-writer workflow where a second writer is rejected while the first writer is active
-- stale-lock recovery workflow where an expired lock is safely replaced by a new writer
+- single-writer workflow where overlapping writes to the same session are rejected
 
 ---
 
@@ -162,7 +161,7 @@ Each provider-backed test should define:
 - the expected last selected keyword after each step
 - when relevant, the expected provider call count and confirmation that all scripted invocations were consumed
 - when prompt assertions matter, the expected `definitionName`, `goal`, `status`, `lastSelectedKeyword`, `activeUnit`, `workingSummary`, `decisions`, `openQuestions`, `blockers`, and `pendingResponses` included in the normalized prompt input payload
-- when relevant, the expected lock acquisition or stale-lock takeover result
+- when relevant, the expected rejection of overlapping writes
 - the expected persisted `workingSummary`, `decisions`, `openQuestions`, `blockers`, and stored response state, including fields intentionally cleared by omission or empty values
 - the expected completion or stop condition
 
