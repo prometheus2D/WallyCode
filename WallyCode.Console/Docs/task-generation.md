@@ -23,6 +23,7 @@ Turn the current requirement state into a concrete ordered task list.
 - analyze the current requirement state
 - use built-in `[ASK_USER]` only when user clarification is needed
 - `respond` provides that clarification and resumes the same logical unit immediately
+- if the logical unit returns `[ERROR]`, default recovery is to fix the execution problem and start another routed run; use `respond` first only when extra operator context is needed before that retry
 - produce or refine a task list
 - route forward when the task list is ready for the next linked logical unit
 

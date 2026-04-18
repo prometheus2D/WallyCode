@@ -53,6 +53,8 @@ Example error result:
 - apply normal successful state normalization
 - stop the current session
 - session status: `blocked`
+- default recovery is to fix the execution problem and start another routed run
+- `respond` may be used before that retry only when the operator wants to attach extra context to the blocked session
 
 Example fail result:
 

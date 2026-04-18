@@ -62,6 +62,7 @@ The following should be treated as required workflow scenarios:
 - response-submission workflow where a user response is stored, the same unit resumes, and the response cursor advances after success
 - done workflow where the session is marked complete and retains the last `activeUnitName`
 - error workflow where the engine applies normal successful state normalization, sets the session to `blocked`, and alerts the user
+- error-retry-with-response workflow where a blocked `[ERROR]` session receives extra operator context through `respond` before the next routed run
 - fail workflow where the engine applies normal successful state normalization and execution stops as `failed`
 - state-replacement workflow where omitted or empty structured fields clear prior working state and only returned values persist for the next logical unit
 - invalid-output workflow where malformed JSON or an invalid keyword causes immediate invocation failure without changing canonical state

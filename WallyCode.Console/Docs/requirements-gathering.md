@@ -24,6 +24,7 @@ Collect missing requirements from the user until the specification is clear enou
 - `[ASK_USER]` stops the session when user input is needed
 - the user answers with `respond`
 - `respond` stores the response and resumes the same logical unit immediately
+- if the logical unit returns `[ERROR]`, default recovery is to fix the execution problem and start another routed run; use `respond` first only when extra operator context is needed before that retry
 - when satisfied, it routes forward to the next linked logical unit or ends
 
 ---

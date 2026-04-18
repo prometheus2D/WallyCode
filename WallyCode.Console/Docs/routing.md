@@ -74,7 +74,11 @@ Examples:
 Definition-specific keywords may also exist.
 
 ### Transition
-The definition-owned mapping from a definition-specific keyword to the next unit `name`.
+A unit-local mapping from a definition-specific keyword to the next unit `name`.
+
+Each logical unit declares only its own outgoing transitions.
+
+Those unit-local transition mappings live inside the routed definition.
 
 Definition-specific keywords do not have implicit routing behavior.
 
@@ -100,9 +104,9 @@ Built-in keywords:
 - cannot be redefined by a definition author
 
 ### `transitions`
-Definition data that maps each definition-specific keyword directly to the next unit `name`.
+Unit definition data that maps each definition-specific keyword directly to the next unit `name`.
 
-Transition targets come from the routed definition, not iteration output.
+Transition targets come from the active unit's declared `transitions`, not iteration output.
 
 Use the unit `name` as the canonical routing target.
 

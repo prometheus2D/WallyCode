@@ -25,6 +25,7 @@ Execute tasks until completion.
 - review the results of that batch
 - ask for clarification when needed
 - `respond` provides clarification and resumes the same logical unit immediately
+- if the logical unit returns `[ERROR]`, default recovery is to fix the execution problem and start another routed run; use `respond` first only when extra operator context is needed before that retry
 - continue until more execution is not needed or the session is complete
 
 ---
