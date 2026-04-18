@@ -1,35 +1,36 @@
-﻿# WallyCode Loop Routing Design
+﻿# WallyCode Routing Design
 
 ## Purpose
 
-This document defines the generic loop routing engine.
+This document defines the generic routing engine.
 
-A loop is a named entry point into a JSON-defined set of loop units.
+The system is authored as logical units linked by keywords.
+
+The persisted field name `definitionName` identifies the routing definition.
 
 Runtime model:
 
-- the user selects a loop
-- the loop starts at its configured start unit
-- the engine runs the active unit
-- the active unit repeats by default
-- a returned keyword may keep the same unit active, ask the user for input and stop, move to another unit, or end the loop
+- the session starts at its configured start unit
+- the engine runs the active logical unit
+- the active logical unit repeats by default
+- a returned keyword may keep the same logical unit active, ask the user for input and stop, move to another logical unit, or end the session
 
 This document covers engine semantics only.
 
 Companion documents:
 
-- `loop-routing-examples.md`
-- `loop-testing.md`
-- `loop-type-requirements-gathering.md`
-- `loop-type-task-generating.md`
-- `loop-type-task-executing.md`
+- `routing-examples.md`
+- `routing-testing.md`
+- `requirements-gathering.md`
+- `task-generation.md`
+- `task-execution.md`
 
 ---
 
 ## Core Model
 
-### Loop
-A named workflow entry point with:
+### Routed Definition
+The named set of linked logical units with:
 
 - `name`
 - `description`
@@ -37,16 +38,18 @@ A named workflow entry point with:
 - `sharedInstructions`
 - `units`
 
-The loop `name` is its canonical identity.
+The definition `name` is its canonical identity.
 
-### Loop Unit
+The persisted field `definitionName` refers to this definition identity.
+
+### Logical Unit
 The active mode of work.
 
-Only one loop unit is active at a time.
+Only one logical unit is active at a time.
 
 A unit's `name` is its canonical identity.
 
-A loop unit may use only the keywords listed in its `allowedKeywords`.
+A logical unit may use only the keywords listed in its `allowedKeywords`.
 
 Built-in standard keywords are subject to this rule.
 
@@ -68,16 +71,16 @@ Examples:
 - `[ERROR]`
 - `[FAIL]`
 
-Loop-specific keywords may also exist.
+Definition-specific keywords may also exist.
 
 ### Transition
-The definition-owned mapping from a loop-specific keyword to the next unit `name`.
+The definition-owned mapping from a definition-specific keyword to the next unit `name`.
 
-Loop-specific keywords do not have implicit routing behavior.
+Definition-specific keywords do not have implicit routing behavior.
 
-If a loop-specific keyword is valid for a unit, that unit must define a transition target for it.
+If a definition-specific keyword is valid for a unit, that unit must define a transition target for it.
 
-Built-in standard keywords use built-in engine behavior and are not overridden by loop-defined transition logic.
+Built-in standard keywords use built-in engine behavior and are not overridden by definition transition logic.
 
 ### Built-In Keyword
 A standard keyword with fixed engine behavior.
@@ -94,12 +97,12 @@ Built-in keywords:
 
 - must still appear in a unit's `allowedKeywords` to be valid there
 - use engine-defined behavior
-- cannot be redefined by a loop author
+- cannot be redefined by a definition author
 
 ### `transitions`
-Definition data that maps each loop-specific keyword directly to the next unit `name`.
+Definition data that maps each definition-specific keyword directly to the next unit `name`.
 
-Transition targets come from the loop definition, not iteration output.
+Transition targets come from the routed definition, not iteration output.
 
 Use the unit `name` as the canonical routing target.
 
@@ -108,7 +111,7 @@ Use the unit `name` as the canonical routing target.
 ## Standard Keywords
 
 ### `[CONTINUE]`
-Default self-loop keyword.
+Default same-unit repeat keyword.
 
 - iteration succeeds
 - remain on the same unit
@@ -118,10 +121,10 @@ Built-in user-input keyword.
 
 - iteration succeeds
 - remain on current unit
-- stop the loop so the user can answer with `respond`
+- stop the current session so the user can answer with `respond`
 - do not move to a next unit
 
-`[ASK_USER]` is a built-in keyword, not a loop-defined routing keyword.
+`[ASK_USER]` is a built-in keyword, not a definition-defined routing keyword.
 
 ### `[ERROR]`
 Concrete execution failure.
@@ -146,7 +149,7 @@ Examples:
 
 - no valid keyword fits
 - model cannot choose confidently
-- prompt or loop definition is insufficient
+- prompt or routed definition is insufficient
 
 Handling:
 
@@ -157,7 +160,7 @@ Handling:
 ### `[DONE]`
 Explicit completion signal.
 
-- mark the loop complete
+- mark the session complete
 - stop invocation
 - retain `activeUnitName` as the last executed unit for auditability and simpler diagnostics
 
@@ -167,7 +170,11 @@ If an iteration returns valid structured output, the engine applies the same sta
 
 `selectedKeyword` controls lifecycle and routing.
 
-`summary`, `questions`, `decisions`, and `blockers` update persisted working state when provided.
+`summary`, `questions`, `decisions`, and `blockers` overwrite persisted working state on every successful iteration.
+
+If one of those fields is omitted or returned empty, the persisted value is cleared.
+
+A successful iteration must return any working-state value the next logical unit still needs.
 
 Validation failures are the only case that leave working state unchanged.
 
@@ -188,7 +195,7 @@ Each logical unit chooses its routing result by returning one valid `selectedKey
 
 After keyword validation and transition resolution, the engine normalizes session status as follows:
 
-- `[CONTINUE]` or a resolved loop-specific transition sets `status = active`
+- `[CONTINUE]` or a resolved definition-specific transition sets `status = active`
 - `[ASK_USER]` or `[ERROR]` sets `status = blocked`
 - `[DONE]` sets `status = completed`
 - `[FAIL]` sets `status = failed`
@@ -235,7 +242,7 @@ Keep in session state:
 - provider and model choice
 - source path
 - iteration counter
-- selected loop name
+- definition identity (`definitionName`)
 - lifecycle status
 - active unit name
 - last selected keyword
@@ -261,7 +268,7 @@ The design keeps one operator path after `[ASK_USER]`:
 
 If the operator wants to wait, they can wait before calling `respond`.
 
-The command does not need a storage-only mode.
+The design does not need a storage-only response mode.
 
 ### Exact stored-response contract
 
@@ -271,12 +278,12 @@ The stored-response contract should be explicit and small.
 - response text may be mirrored in `memory/user-responses.md` as an observability artifact
 - each response entry is append-only and contains `id`, `timestampUtc`, and `text`
 - pending responses are the entries whose `id` is greater than `lastProcessedUserResponseId`
-- pending responses are supplied to the next loop prompt in ascending id order
+- pending responses are supplied to the next routed prompt in ascending id order
 - after a successful canonical state update, `lastProcessedUserResponseId` advances to the newest consumed entry
 - a failed iteration must not advance that cursor
 - response text is never rewritten in place; additional operator input always appends a new entry
 
-`respond` uses this storage contract and immediately starts the next loop step.
+`respond` uses this storage contract and immediately starts the next routed run.
 
 Example response log:
 
@@ -303,15 +310,15 @@ Yes, in the sense that the engine owns their semantics.
 
 Rigid means:
 
-- loop authors cannot redefine `[CONTINUE]`, `[ASK_USER]`, `[DONE]`, `[ERROR]`, or `[FAIL]`
-- loop authors cannot attach custom transition-target behavior to those built-ins
-- the engine, not the loop definition, decides what those keywords do
+- definition authors cannot redefine `[CONTINUE]`, `[ASK_USER]`, `[DONE]`, `[ERROR]`, or `[FAIL]`
+- definition authors cannot attach custom transition-target behavior to those built-ins
+- the engine, not the routing definition, decides what those keywords do
 
 Rigid does not mean every unit must expose every built-in.
 
 Units still control access through `allowedKeywords`.
 
-That boundary is intentional: built-ins define engine control flow, while loop-specific keywords define workflow meaning.
+That boundary is intentional: built-ins define engine control flow, while definition-specific keywords define workflow meaning.
 
 ### Design priorities
 
@@ -321,7 +328,7 @@ The routing design prioritizes:
 - small inspectable state files
 - append-only prompts, raw outputs, and logs for auditability
 - provider-agnostic execution
-- explicit human-in-the-loop response handling
+- explicit operator response handling
 - deterministic resume based on persisted state instead of prompt-only inference
 
 ---
@@ -333,7 +340,7 @@ Canonical state stores the persisted facts needed for deterministic resume.
 Keep in canonical state:
 
 - goal
-- loop name
+- definition identity (`definitionName`)
 - lifecycle status
 - active unit name
 - last selected keyword
@@ -351,7 +358,7 @@ Routing must come from:
 - active unit name
 - last selected keyword
 - built-in keyword behavior
-- transition mapping for loop-specific keywords
+- transition mapping for definition-specific keywords
 - response cursor when user input is involved
 
 ## Observability Artifacts
@@ -375,7 +382,7 @@ Artifacts must not drive routing.
 {
   "schemaVersion": 1,
   "sessionId": "session-001",
-  "loopName": "example-loop",
+  "definitionName": "example-definition",
   "goal": "Clarify export requirements and route into task generation.",
   "providerName": "github-copilot",
   "model": "gpt-5",
@@ -400,10 +407,10 @@ Rules:
 - persisted state must be forward-migratable
 - missing required fields cause deterministic load failure
 - the engine must not silently invent missing routing fields during resume
-- resuming requires the loaded loop definition `name` to match persisted `loopName`
-- resuming requires the loaded loop definition to contain the persisted `activeUnitName`
+- resuming requires the loaded routing definition `name` to match persisted `definitionName`
+- resuming requires the loaded routing definition to contain the persisted `activeUnitName`
 - if either is missing, resume fails deterministically
-- editing a loop definition during an active session is unsupported
+- editing a routing definition during an active session is unsupported
 - session state stores response-consumption metadata, not response text
 - response text itself lives in the append-only response log
 
@@ -411,9 +418,9 @@ Rules:
 
 ## Canonical Runtime Surface
 
-The routed loop runtime has three canonical persisted surfaces:
+The routing runtime has three canonical persisted surfaces:
 
-- loop definition
+- routing definition
 - session state
 - response log
 
@@ -429,7 +436,7 @@ The prompt input payload is the reasoning-facing runtime contract.
 
 ```json
 {
-  "loopName": "example-loop",
+  "definitionName": "example-definition",
   "goal": "Clarify export requirements and route into task generation.",
   "status": "blocked",
   "lastSelectedKeyword": "[ASK_USER]",
@@ -465,16 +472,16 @@ Rules:
 - the engine constructs the prompt input payload programmatically from session state, the active unit definition, and pending responses
 - the rendered prompt may be markdown or plain text, but it must represent this normalized payload
 - not every persisted field is a prompt input; reasoning inputs are limited to the fields needed by the active unit
-- fields such as `sessionId`, `providerName`, `model`, `sourcePath`, timestamps, lock metadata, and response cursor remain runtime metadata unless a loop explicitly requires them
+- fields such as `sessionId`, `providerName`, `model`, `sourcePath`, timestamps, lock metadata, and response cursor remain persisted runtime metadata unless a logical unit explicitly requires them
 - observability artifacts are not prompt inputs
 
 ---
 
 ## Routing Rule
 
-**Run the active unit again unless the selected keyword explicitly moves to another unit, asks the user for input and stops, or ends the loop.**
+**Run the active logical unit again unless the selected keyword explicitly moves to another logical unit, asks the user for input and stops, or ends the session.**
 
-`[CONTINUE]` is the standard self-loop keyword.
+`[CONTINUE]` is the standard same-unit repeat keyword.
 
 `[ASK_USER]` is the standard built-in stop-and-wait-for-response keyword.
 
@@ -493,10 +500,10 @@ Resolution order:
 
 Rules:
 
-- a loop-specific keyword must have an explicit transition target in the active unit definition
-- a resolved definition transition target => move after successful iteration
-- `[ASK_USER]` => persist, stop, wait for `respond`, remain on same unit
-- `[DONE]` => end the loop
+- a definition-specific keyword must have an explicit transition target in the active unit definition
+- a resolved definition transition target moves to that target after successful iteration
+- `[ASK_USER]` persists normalized state, stops, waits for `respond`, and remains on the same unit
+- `[DONE]` ends the session after normal successful state normalization
 
 ### Transition Resolution Details
 
@@ -507,10 +514,10 @@ The engine resolves any transition from the active unit definition.
 Design rules:
 
 - the model does not emit a transition target
-- the engine resolves the target unit `name` from the loop definition when a loop-specific keyword has a matching transition
-- use `[CONTINUE]` for an intentional self-loop
-- use `[ASK_USER]` when the loop must stop and wait for user input
-- loop authors must not override built-in keyword behavior
+- the engine resolves the target unit `name` from the routing definition when a definition-specific keyword has a matching transition
+- use `[CONTINUE]` for an intentional same-unit repeat
+- use `[ASK_USER]` when the current session must stop and wait for user input
+- definition authors must not override built-in keyword behavior
 
 Examples:
 
@@ -524,7 +531,7 @@ Examples:
 - persist returned `summary` and `questions`, then normalize them into `workingSummary` and `openQuestions`
 - stop and wait for `respond`
 
-If `selectedKeyword` is `[SOME_ROUTING_KEYWORD]` and the loop definition maps that keyword to `another_unit`:
+If `selectedKeyword` is `[SOME_ROUTING_KEYWORD]` and the routing definition maps that keyword to `another_unit`:
 
 - no ask-user behavior
 - next active unit becomes `another_unit`
@@ -533,7 +540,7 @@ If `selectedKeyword` is `[SOME_ROUTING_KEYWORD]` and the loop definition maps th
 
 ## Atomic Iteration Semantics
 
-One loop invocation is one logical transaction.
+One routed invocation is one logical transaction.
 
 Required rule:
 
@@ -579,12 +586,14 @@ After every successful iteration:
 ### Carry forward
 
 - goal
-- loop name
+- definition identity (`definitionName`)
+- provider and model choice
+- source path
 
 ### Overwrite
 
 - lifecycle status
-- active loop unit name
+- active logical unit name
 - last selected keyword
 - workingSummary
 - decisions
@@ -593,25 +602,29 @@ After every successful iteration:
 
 ### Clear or filter
 
-- resolved open questions
-- temporary unit-local notes
-- stale blockers
-- consumed response data after a resumed loop run uses it successfully
+- any omitted or empty working-state field is cleared on a successful iteration
+- resolved open questions disappear unless they are returned again
+- stale blockers disappear unless they are returned again
+- temporary unit-local notes do not carry forward unless they are returned as canonical working state
+- consumed response data disappears from pending state after a resumed routed run uses it successfully
 
 ### State cleanup rules
 
-- `workingSummary`: replace with latest non-empty summary when provided
-- `decisions`: replace with latest cleaned decision list
-- `openQuestions`: replace with latest unresolved question set
-- `blockers`: replace with latest unresolved blocker set
+- `workingSummary`: persist the normalized `summary`; omitted or empty => `""`
+- `decisions`: persist the normalized `decisions`; omitted => `[]`
+- `openQuestions`: persist the normalized `questions`; omitted => `[]`
+- `blockers`: persist the normalized `blockers`; omitted => `[]`
 - trim whitespace
 - remove empty strings
 - deduplicate exact duplicates
 - preserve returned ordering
+- do not implicitly carry forward stale working-state data; a successful iteration must return anything the next logical unit still needs
 
 ### Output-to-state normalization
 
 - any successful structured iteration applies the same normalization rules regardless of `selectedKeyword`
+- normalized output replaces prior persisted working state for `workingSummary`, `decisions`, `openQuestions`, and `blockers`
+- any omitted or empty working-state field clears the prior persisted value
 - output `selectedKeyword` becomes persisted `lastSelectedKeyword`
 - output `summary` becomes persisted `workingSummary`
 - output `questions` becomes persisted `openQuestions`
@@ -621,14 +634,14 @@ After every successful iteration:
 
 ### Response handling
 
-`respond` stores the user's answer and immediately resumes the loop.
+`respond` stores the user's answer and immediately resumes the routed session.
 
 - store the response
 - require session status `blocked`
-- immediately run the loop again
+- immediately run the routed session again
 - include all pending stored responses in the resumed prompt
-- after a successful resumed loop run, advance `lastProcessedUserResponseId` to the newest consumed entry
-- if the resumed loop run fails, do not advance the response cursor
+- after a successful resumed routed run, advance `lastProcessedUserResponseId` to the newest consumed entry
+- if the resumed routed run fails, do not advance the response cursor
 - append a new response entry instead of rewriting prior response text
 
 ---
@@ -652,9 +665,10 @@ Rules:
 - `selectedKeyword` is required and authoritative
 - routing destinations never come from provider output
 - `summary` is recommended because it gives the next run compact context
-- omitted arrays normalize to `[]`
-- omitted strings normalize to `""`
+- omitted arrays normalize to `[]` and clear the prior persisted array
+- omitted strings normalize to `""` and clear the prior persisted string
 - `null` is invalid for v1 fields
+- a successful iteration must return any working-state value the next logical unit still needs
 - exactly one `selectedKeyword`
 - keyword must match the active unit's `allowedKeywords`
 - built-in keywords use built-in engine behavior
@@ -669,7 +683,7 @@ If provider output includes extra fields not defined by the contract:
 
 - fields needed by the engine contract must be parsed and used
 - fields not needed by the engine contract should be ignored in v1
-- reserved routing-control fields that attempt to specify a transition target must be rejected because transition targets come from the loop definition, not the model output
+- reserved routing-control fields that attempt to specify a transition target must be rejected because transition targets come from the routing definition, not the model output
 - unknown fields must not affect routing unless the contract is explicitly expanded to support them
 
 ### Invalid output handling
@@ -677,7 +691,7 @@ If provider output includes extra fields not defined by the contract:
 Malformed JSON, missing required fields, invalid field types, or invalid keywords:
 
 - are invocation validation failures, not persisted routing outcomes
-- leave canonical loop state unchanged
+- leave canonical session state unchanged
 - do not change lifecycle status, `activeUnitName`, `lastSelectedKeyword`, `workingSummary`, `decisions`, `openQuestions`, `blockers`, or response cursor
 - do not consume the stored response
 - still log and persist raw output and validation failure details
@@ -693,14 +707,16 @@ Malformed JSON, missing required fields, invalid field types, or invalid keyword
 
 #### `[ASK_USER]`
 - successful iteration
-- stop loop execution
+- stop current session execution
 - remain on current unit
 - do not move to a next unit
 - set session status to `blocked`
+- apply normal state normalization
 
 #### `[ERROR]`
 - successful structured execution failure
 - set session status to `blocked`
+- apply normal state normalization
 - persist debugging information
 - alert user
 - stop invocation
@@ -708,6 +724,7 @@ Malformed JSON, missing required fields, invalid field types, or invalid keyword
 #### `[FAIL]`
 - successful structured routing failure
 - set session status to `failed`
+- apply normal state normalization
 - stop invocation
 
 #### `[DONE]`
@@ -725,8 +742,8 @@ Each iteration prompt is the rendered form of the normalized prompt input payloa
 
 That rendered prompt should include:
 
-- shared loop instructions
-- `loopName`
+- shared definition instructions
+- `definitionName`
 - `goal`
 - `status`
 - `lastSelectedKeyword`
@@ -761,9 +778,9 @@ Flow:
 3. invocation stops
 4. user later runs `respond`
 5. `respond` appends the user's response to the session response log
-6. `respond` immediately starts the next loop run
-7. the next loop run resumes the same active unit
-8. the next run includes all pending stored responses in the prompt
+6. `respond` immediately starts the next routed run
+7. the next routed run resumes the same active unit
+8. the next routed run includes all pending stored responses in the prompt
 9. after a successful run, the response cursor advances
 
 ### `respond` rules
@@ -771,11 +788,11 @@ Flow:
 `respond` should:
 
 - store a user response for the current session
-- preserve existing loop state until the resumed loop run updates it
-- preserve current active unit until the resumed loop run updates it
+- preserve existing session state until the resumed routed run updates it
+- preserve current active unit until the resumed routed run updates it
 - require session status `blocked`
 - after `[ASK_USER]`, use `respond` as the expected recovery path
-- after `[ERROR]`, default to fixing the execution problem and running `loop` again; use `respond` only when the operator wants to attach extra context before that retry
+- after `[ERROR]`, default to fixing the execution problem and starting another routed run; use `respond` only when the operator wants to attach extra context before that retry
 - append new response entries instead of rewriting prior ones
 
 `respond` should not:
@@ -792,9 +809,9 @@ Each session may be touched by only one writer or provider at a time.
 
 Mutating operations include:
 
-- `loop`
+- session execution
 - `respond`
-- any future command that writes canonical session state
+- any future action that writes canonical session state
 - any provider-backed execution that writes session state
 
 Required behavior:
@@ -807,13 +824,13 @@ Required behavior:
 ### Lock contract
 
 - the canonical session lock file is `session.lock.json` adjacent to `session.json`
-- the lock file contains `lockId`, `ownerCommand`, `acquiredAtUtc`, `renewedAtUtc`, and `expiresAtUtc`
+- the lock file contains `lockId`, `ownerOperation`, `acquiredAtUtc`, `renewedAtUtc`, and `expiresAtUtc`
 - a writer acquires the lock by atomically creating the lock file, or atomically replacing it only after `expiresAtUtc` has passed
 - an active writer must renew `renewedAtUtc` and `expiresAtUtc` while it still owns the session
 - a second writer that sees an unexpired lock must fail without mutating canonical state
 - a stale lock may be replaced after expiry and is treated as abandoned
-- `respond` keeps the same lock across both the response append and the resumed loop run
-- the writer releases the lock after the final canonical state write for that command path
+- `respond` keeps the same lock across both the response append and the resumed routed run
+- the writer releases the lock after the final canonical state write for that operation path
 
 ---
 
@@ -831,8 +848,8 @@ Rules:
 
 - a unit may use a built-in keyword only if it appears in that unit's `allowedKeywords`
 - built-in keyword behavior is defined by the engine
-- loop authors cannot override built-in keyword behavior
-- `[ASK_USER]` always stops the loop and waits for `respond`
+- definition authors cannot override built-in keyword behavior
+- `[ASK_USER]` always stops the current session and waits for `respond`
 - `[ASK_USER]` never routes to a next unit
 
 ---
@@ -841,8 +858,8 @@ Rules:
 
 ```json
 {
-  "name": "example-loop",
-  "description": "Example routed loop definition.",
+  "name": "example-definition",
+  "description": "Example routing definition.",
   "startUnitName": "example_unit",
   "sharedInstructions": "Stay concrete.",
   "units": [
@@ -879,14 +896,14 @@ Rules:
 
 Validation rules:
 
-- loop `name` must be non-empty
+- definition `name` must be non-empty
 - `startUnitName` must exist in `units`
-- unit `name` values must be unique within a loop
+- unit `name` values must be unique within a routed definition
 - each unit must have at least one allowed keyword
 - allowed keywords within a unit must be unique
 - transition keys within a unit must be unique
 - every transition key must appear in that unit's `allowedKeywords`
-- every loop-specific keyword in `allowedKeywords` must appear in `transitions`
+- every definition-specific keyword in `allowedKeywords` must appear in `transitions`
 - built-in keywords must not appear in `transitions`
 - every transition target unit name must be an existing unit name
 
@@ -897,11 +914,11 @@ Validation rules:
 Each iteration log should include:
 
 - invocation id
-- loop name
+- definition name
 - lifecycle status after routing
-- active loop unit name before routing
+- active logical unit name before routing
 - selected keyword
-- next active loop unit name
+- next active logical unit name
 - summary
 - parse or validation outcome
 
@@ -912,7 +929,7 @@ Each iteration log should include:
 The runtime should still enforce practical safeguards:
 
 - max iterations per invocation
-- max repeated self-loops without meaningful state change
+- max repeated same-unit runs without meaningful state change
 - operator-visible warnings when the same unit keeps returning low-value `[CONTINUE]` results
 
 These safeguards do not change the routing model.
@@ -921,7 +938,7 @@ These safeguards do not change the routing model.
 
 ## Final Direction
 
-**A loop is a named starting point into a set of loop units. One loop unit is active at a time. That loop unit repeats by default. The model returns one keyword. That keyword either keeps execution on the same unit, asks the user for input and stops, moves to another unit, or ends the loop. Built-in keywords are engine-defined, but each unit still controls access to them through `allowedKeywords`.**
+**The system is a linked set of logical units. One logical unit is active at a time. That logical unit repeats by default. The model returns one keyword. That keyword either keeps execution on the same logical unit, asks the user for input and stops, moves to another logical unit, or ends the session. Built-in keywords are engine-defined, but each logical unit still controls access to them through `allowedKeywords`.**
 
 This gives the system:
 
@@ -931,6 +948,6 @@ This gives the system:
 - clean `respond` integration
 - a single lifecycle status
 - lower prompt cost
-- simpler loop authoring
+- simpler logical-unit authoring
 - less engine complexity
 - deterministic workflow testing with mocked provider output

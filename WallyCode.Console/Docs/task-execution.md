@@ -1,14 +1,14 @@
-# WallyCode Loop Type: Task Executing
+# WallyCode Logical Units: Task Execution
 
-This document describes the task-executing loop type.
+This document describes the logical units commonly used during task execution.
 
 Related documents:
 
-- `loop-routing.md`
-- `loop-routing-examples.md`
-- `loop-testing.md`
-- `loop-type-requirements-gathering.md`
-- `loop-type-task-generating.md`
+- `routing.md`
+- `routing-examples.md`
+- `routing-testing.md`
+- `requirements-gathering.md`
+- `task-generation.md`
 
 ---
 
@@ -24,12 +24,12 @@ Execute tasks until completion.
 - execute a batch of work
 - review results
 - ask for clarification when needed
-- `respond` provides clarification and resumes the loop immediately
-- continue until more execution is not needed or the loop is done
+- `respond` provides clarification and resumes the same logical unit immediately
+- continue until more execution is not needed or the session is complete
 
 ---
 
-## Suggested Units
+## Suggested Logical Units
 
 - `review_task_queue`: assess pending work and decide whether to execute, ask for clarification, or stop
 - `execute_task_batch`: complete a bounded batch of work

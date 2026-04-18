@@ -36,23 +36,38 @@ prompt "Summarize this repository in one short paragraph." --source C:\src\my-re
 
 That is the fastest way to get started.
 
-## Simple Loop Start
+## Design Docs
+
+The current CLI still uses the `loop` command name.
+
+The future-state design documents under `WallyCode.Console/Docs/` intentionally use `routing`, `definition`, `logical unit`, `session`, and `run` terminology instead of modeling the system as loops.
+
+Core design docs:
+
+- `WallyCode.Console/Docs/routing.md`
+- `WallyCode.Console/Docs/routing-examples.md`
+- `WallyCode.Console/Docs/routing-testing.md`
+- `WallyCode.Console/Docs/requirements-gathering.md`
+- `WallyCode.Console/Docs/task-generation.md`
+- `WallyCode.Console/Docs/task-execution.md`
+
+## Current CLI Stateful Runs
 
 Use `loop` when you want WallyCode to keep state between iterations.
 
-Start a loop:
+Start a session:
 
 ```text
 loop "Analyze this repo, do one bounded chunk of work, update memory, and stop when the goal is complete."
 ```
 
-Continue the active loop:
+Continue the active session:
 
 ```text
 loop
 ```
 
-Add user input for the next iteration:
+Add user input for the next run:
 
 ```text
 respond "Use the simpler approach"
@@ -77,7 +92,7 @@ Example prompt-first workflow:
 1. Create or open a repo for the sample.
 2. Run a prompt that asks Copilot to build the first version.
 3. Review the output.
-4. If you want iterative progress, switch to `loop`.
+4. If you want iterative progress, switch to the current `loop` command.
 
 One-shot prompt example:
 
@@ -85,13 +100,13 @@ One-shot prompt example:
 prompt "Create a simple browser-based tic-tac-toe game in this repo. Keep it minimal: HTML, CSS, and JavaScript only. Add clear file-by-file steps and then implement the code."
 ```
 
-Iterative loop example:
+Iterative example using the current `loop` command:
 
 ```text
 loop "Build a simple browser-based tic-tac-toe game in this repo. Do one small bounded chunk per iteration, keep the implementation minimal, and stop when the game is complete."
 ```
 
-Then continue as needed:
+Then continue the session as needed:
 
 ```text
 loop
@@ -144,7 +159,7 @@ Current providers:
 
 If you do nothing, WallyCode uses `gh-copilot-claude`.
 
-You can also override provider or model for a single prompt or new loop session:
+You can also override provider or model for a single prompt or for a new session started with `loop`:
 
 ```text
 prompt "Summarize this repository" --provider gh-copilot-gpt5
@@ -157,6 +172,6 @@ WallyCode stores project settings in `wallycode.json`.
 
 `source` is the folder WallyCode and the provider operate against.
 
-`memory-root` is the folder where WallyCode stores loop memory, prompts, raw output, logs, and session state.
+`memory-root` is the folder where WallyCode stores session memory, prompts, raw output, logs, and session state.
 
 Runtime files are written under `.wallycode/` by default, or under the folder passed to `--memory-root`.
