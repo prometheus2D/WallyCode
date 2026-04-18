@@ -16,7 +16,19 @@ Build:
 dotnet build WallyCode.sln
 ```
 
-Start a new loop against the current folder:
+Start with `ask` when you want a direct answer with no file changes:
+
+```text
+loop "Summarize this repository in one short paragraph." --definition ask
+```
+
+Move to `act` when you want direct execution in the repo plus a normal response:
+
+```text
+loop "Implement a minimal health-check endpoint." --definition act
+```
+
+Use `loop` with the default routed workflow when the task needs iteration, memory, and staged progress:
 
 ```text
 loop "Build a simple browser-based tic-tac-toe game in this repo."
@@ -40,7 +52,16 @@ Answer the loop when it asks you something:
 respond "Use the simpler approach."
 ```
 
-That is the full basic workflow.
+Later, configure providers and default models for smoother day-to-day use:
+
+```text
+provider
+provider --models
+provider gh-copilot-gpt5 --set
+provider gh-copilot-gpt5 --model gpt-5
+```
+
+That is the natural progression: `ask` for direct answers, `act` for direct repo changes, `loop` for multi-step routed work, and provider configuration once you know which model setup you want as your default.
 
 ## Loop Command
 
@@ -79,7 +100,7 @@ prompt "Summarize this repository in one short paragraph."
 prompt "Summarize this repository." --source C:\src\my-repo
 ```
 
-If you want the same kind of direct interaction expressed through the routing-definition system, use `loop --definition ask` or `loop --definition act` when those workflows are appropriate.
+If you want the same kind of direct interaction expressed through the routing-definition system, start with `loop --definition ask`, move to `loop --definition act` when file changes are needed, and use the default `loop` workflow when the task needs iteration.
 
 Interactive shell that keeps `--source` and `--memory-root` defaults for every command run inside it:
 
@@ -91,10 +112,9 @@ shell --source C:\src\my-repo --memory-root C:\temp\wallycode-session
 Inside the shell:
 
 ```text
-prompt "Summarize this repository"
-loop "Work on issue 123"
 loop --definition ask "Explain the architecture of this repo."
 loop --definition act "Implement a minimal health-check endpoint."
+loop "Work on issue 123"
 loop
 respond "Use the simpler approach"
 exit
