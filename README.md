@@ -27,6 +27,24 @@ Use `loop` with the default routed workflow when the task needs iteration, memor
 loop "Build a simple browser-based tic-tac-toe game in this repo."
 ```
 
+## Tutorials
+
+Readme-style walkthroughs live in [WallyCode.Console/Tutorials](WallyCode.Console/Tutorials).
+
+- [WallyCode.Console/Tutorials/README.md](WallyCode.Console/Tutorials/README.md) - tutorial index and usage notes.
+- [WallyCode.Console/Tutorials/book-story.md](WallyCode.Console/Tutorials/book-story.md) - use `act` style workflows to build and revise a story in markdown files.
+- [WallyCode.Console/Tutorials/repo-review.md](WallyCode.Console/Tutorials/repo-review.md) - use `ask` style workflows to review a repository without changing files.
+- [WallyCode.Console/Tutorials/tic-tac-toe.md](WallyCode.Console/Tutorials/tic-tac-toe.md) - use the routed loop to build a small game step by step.
+
+The `tutorial` command is intended to list these guides and print one by name:
+
+```text
+tutorial --list
+tutorial repo-review
+tutorial book-story
+tutorial tic-tac-toe
+```
+
 Continue the active loop:
 
 ```text
@@ -149,6 +167,49 @@ loop "Build the export feature." --model gpt-5
 
 `source` is the folder the provider operates against. `memory-root` is where WallyCode stores session data.
 
+## Working Against Another Repo
+
+The easiest way to have one `wallycode` executable operate on another repo or folder is to pass `--source`.
+
+```text
+wallycode loop --definition ask "Summarize this repository." --source C:\src\repo-a
+wallycode loop --definition act "Implement a minimal health-check endpoint." --source C:\src\repo-a
+wallycode loop "Build tic-tac-toe." --source D:\projects\demo-app
+```
+
+Use `--memory-root` only when you want the runtime workspace somewhere other than the source repo's default `.wallycode` folder.
+
+```text
+wallycode loop "Work on issue 123" --source C:\src\repo-a --memory-root C:\temp\repo-a-session
+```
+
+Meaning:
+- `--source` selects the repo or folder WallyCode operates on
+- `--memory-root` selects where session state, logs, prompts, and raw output are stored
+- neither option changes where the executable itself is installed
+
+Typical remote-workspace flow:
+
+```text
+wallycode provider --source C:\src\my-repo
+wallycode loop --definition ask "Summarize this repository in one short paragraph." --source C:\src\my-repo
+wallycode loop --definition act "Add a README section for local development." --source C:\src\my-repo
+wallycode loop "Build tic-tac-toe." --source C:\src\my-repo
+```
+
+## Remote Workspaces
+
+The executable location and the workspace WallyCode operates on are separate concerns.
+
+- Install `wallycode` wherever it is convenient to run.
+- Use `--source` to point at the repo or folder you want to work on.
+- `wallycode.json` stays in the source workspace.
+- `.wallycode/` stays in the source workspace by default unless `--memory-root` is provided.
+
+That model already allows one installed executable to work against different repos. The setup work that remains is making installation and self-copy simple enough that a published build can be moved around with minimal friction.
+
 ## Design Docs
 
 Background on the routing model lives under [WallyCode.Console/Docs](WallyCode.Console/Docs).
+
+- [WallyCode.Console/Docs/setup-and-remote-workspaces.md](WallyCode.Console/Docs/setup-and-remote-workspaces.md) - proposed setup flow, self-copy behavior, and remote workspace model.

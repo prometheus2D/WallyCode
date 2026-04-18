@@ -5,79 +5,101 @@ namespace WallyCode.ConsoleApp.Commands;
 internal sealed class TutorialCommandHandler
 {
     private readonly AppLogger _logger;
+    private readonly string _tutorialsPath;
 
-    public TutorialCommandHandler(AppLogger logger)
+    public TutorialCommandHandler(AppLogger logger, string? tutorialsPath = null)
     {
         _logger = logger;
+        _tutorialsPath = string.IsNullOrWhiteSpace(tutorialsPath)
+            ? TutorialCatalog.GetDefaultPath()
+            : Path.GetFullPath(tutorialsPath);
     }
 
-    public Task<int> ExecuteAsync(CancellationToken cancellationToken)
+    public Task<int> ExecuteAsync(TutorialCommandOptions options, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
+        var tutorials = TutorialCatalog.Load(_tutorialsPath);
+
         _logger.Section("WallyCode Tutorial");
-        _logger.Info("WallyCode has two main modes: prompt for one-shot work, and loop for iterative work with memory.");
-        Console.WriteLine();
 
-        WriteStep("1. Start with a one-shot prompt", [
-            "prompt \"Summarize this repository in one short paragraph.\"",
-            "prompt \"Create a simple browser-based tic-tac-toe game in this repo.\""
-        ]);
+        if (options.List)
+        {
+            WriteTutorialList(tutorials);
+            return Task.FromResult(0);
+        }
 
-        WriteStep("2. Point WallyCode at a different repo with --source", [
-            "prompt \"Summarize this repository in one short paragraph.\" --source C:\\src\\my-repo"
-        ]);
+        if (!string.IsNullOrWhiteSpace(options.Name))
+        {
+            return Task.FromResult(ShowTutorial(tutorials, options.Name.Trim()));
+        }
 
-        WriteStep("3. Use loop when you want state across iterations", [
-            "loop \"Build a simple browser-based tic-tac-toe game in this repo. Do one small bounded chunk per iteration and stop when complete.\"",
-            "loop",
-            "respond \"Keep the UI minimal and readable.\""
-        ]);
-
-        WriteStep("4. Use --memory-root when you want loop state somewhere else", [
-            "loop \"Work on issue 123\" --source C:\\src\\my-repo --memory-root C:\\temp\\wallycode-session"
-        ]);
-
-        WriteStep("5. Use shell when you want to stay in an interactive session", [
-            "shell --source C:\\src\\my-repo --memory-root C:\\temp\\wallycode-session",
-            "prompt \"Summarize this repository\"",
-            "loop \"Work on issue 123\"",
-            "loop",
-            "exit"
-        ]);
-
-        WriteStep("6. Providers are secondary configuration", [
-            "provider",
-            "provider --models",
-            "provider gh-copilot-gpt5 --set",
-            "provider --model gpt-5"
-        ]);
-
-        Console.WriteLine("Mental model:");
-        Console.WriteLine("- source = where the provider operates and where files can be changed");
-        Console.WriteLine("- memory-root = where WallyCode stores loop memory, prompts, raw output, logs, and session state");
-        Console.WriteLine("- prompt = one-shot");
-        Console.WriteLine("- loop = iterative work with memory");
-        Console.WriteLine("- shell = interactive wrapper around the same commands");
-        Console.WriteLine();
-        Console.WriteLine("Recommended path:");
-        Console.WriteLine("1. Try prompt.");
-        Console.WriteLine("2. Move to loop when the task needs iteration.");
-        Console.WriteLine("3. Use shell when you want repeated commands in one session.");
-
+        WriteOverview(tutorials);
         return Task.FromResult(0);
     }
 
-    private static void WriteStep(string title, IReadOnlyList<string> commands)
+    private void WriteOverview(IReadOnlyList<TutorialDocument> tutorials)
     {
-        Console.WriteLine(title);
+        _logger.Info("Tutorials are markdown guides you can list and open from the CLI.");
+        Console.WriteLine($"Tutorial folder: {_tutorialsPath}");
         Console.WriteLine();
+        Console.WriteLine("Recommended path:");
+        Console.WriteLine("1. Start with ask for direct answers.");
+        Console.WriteLine("2. Move to act when you want direct repo changes.");
+        Console.WriteLine("3. Use loop when the task needs iteration and memory.");
+        Console.WriteLine("4. Use provider commands once you know your preferred model setup.");
+        Console.WriteLine();
+        Console.WriteLine("Commands:");
+        Console.WriteLine("tutorial --list");
 
-        foreach (var command in commands)
+        foreach (var tutorial in tutorials)
         {
-            Console.WriteLine(command);
+            Console.WriteLine($"tutorial {tutorial.Name}");
         }
 
         Console.WriteLine();
+        WriteTutorialList(tutorials);
+    }
+
+    private void WriteTutorialList(IReadOnlyList<TutorialDocument> tutorials)
+    {
+        Console.WriteLine("Available tutorials:");
+        Console.WriteLine();
+
+        if (tutorials.Count == 0)
+        {
+            Console.WriteLine("  (none found)");
+            Console.WriteLine();
+            Console.WriteLine($"Looked in: {_tutorialsPath}");
+            Console.WriteLine();
+            return;
+        }
+
+        foreach (var tutorial in tutorials)
+        {
+            Console.WriteLine($"  {tutorial.Name} - {tutorial.Summary}");
+        }
+
+        Console.WriteLine();
+        Console.WriteLine("Use 'tutorial <name>' to display one.");
+        Console.WriteLine();
+    }
+
+    private int ShowTutorial(IReadOnlyList<TutorialDocument> tutorials, string name)
+    {
+        var tutorial = tutorials.FirstOrDefault(candidate =>
+            string.Equals(candidate.Name, name, StringComparison.OrdinalIgnoreCase));
+
+        if (tutorial is null)
+        {
+            _logger.Error($"Tutorial '{name}' was not found. Use 'tutorial --list' to see available tutorials.");
+            Console.WriteLine();
+            WriteTutorialList(tutorials);
+            return 1;
+        }
+
+        Console.WriteLine(tutorial.Content.TrimEnd());
+        Console.WriteLine();
+        return 0;
     }
 }

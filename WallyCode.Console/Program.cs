@@ -43,7 +43,7 @@ internal static class Program
 				(ProviderCommandOptions options) => new ProviderCommandHandler(providerRegistry, logger).ExecuteAsync(options, cancellationToken),
 				(RespondCommandOptions options) => new RespondCommandHandler(logger).ExecuteAsync(options, cancellationToken),
 				(ShellCommandOptions options) => new ShellCommandHandler(options).ExecuteAsync(cancellationToken),
-				(TutorialCommandOptions options) => new TutorialCommandHandler(logger).ExecuteAsync(cancellationToken),
+				(TutorialCommandOptions options) => new TutorialCommandHandler(logger).ExecuteAsync(options, cancellationToken),
 				errors => Task.FromResult(errors.All(e =>
 					e.Tag == ErrorType.HelpRequestedError
 					|| e.Tag == ErrorType.HelpVerbRequestedError
