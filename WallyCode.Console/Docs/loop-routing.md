@@ -31,17 +31,20 @@ Companion documents:
 ### Loop
 A named workflow entry point with:
 
-- `id`
 - `name`
 - `description`
-- `startUnit`
+- `startUnitName`
 - `sharedInstructions`
 - `units`
+
+The loop `name` is its canonical identity.
 
 ### Loop Unit
 The active mode of work.
 
 Only one loop unit is active at a time.
+
+A unit's `name` is its canonical identity.
 
 A loop unit may use only the keywords listed in its `allowedKeywords`.
 
@@ -68,9 +71,11 @@ Examples:
 Loop-specific keywords may also exist.
 
 ### Transition
-The routing rule for a selected loop-specific keyword.
+The definition-owned mapping from a loop-specific keyword to the next unit `name`.
 
-If no explicit transition exists, execution stays on the current unit.
+Loop-specific keywords do not have implicit routing behavior.
+
+If a loop-specific keyword is valid for a unit, that unit must define a transition target for it.
 
 Built-in standard keywords use built-in engine behavior and are not overridden by loop-defined transition logic.
 
@@ -91,10 +96,12 @@ Built-in keywords:
 - use engine-defined behavior
 - cannot be redefined by a loop author
 
-### `destinationUnitId`
-The routing destination configured in the loop definition for a loop-specific keyword.
+### `transitions`
+Definition data that maps each loop-specific keyword directly to the next unit `name`.
 
-`destinationUnitId` is definition data, not iteration output.
+Transition targets come from the loop definition, not iteration output.
+
+Use the unit `name` as the canonical routing target.
 
 ---
 
@@ -105,7 +112,6 @@ Default self-loop keyword.
 
 - iteration succeeds
 - remain on the same unit
-- persist summary, decisions, open questions, and blockers when provided
 
 ### `[ASK_USER]`
 Built-in user-input keyword.
@@ -114,7 +120,6 @@ Built-in user-input keyword.
 - remain on current unit
 - stop the loop so the user can answer with `respond`
 - do not move to a next unit
-- persist summary, decisions, open questions, and blockers when provided
 
 `[ASK_USER]` is a built-in keyword, not a loop-defined routing keyword.
 
@@ -130,7 +135,6 @@ Examples:
 
 Handling:
 
-- persist summary and blockers when provided
 - persist debugging information
 - alert the user
 - stop the current invocation
@@ -146,7 +150,6 @@ Examples:
 
 Handling:
 
-- persist summary when provided
 - log clearly
 - stop the current invocation
 - do not guess a transition
@@ -156,7 +159,17 @@ Explicit completion signal.
 
 - mark the loop complete
 - stop invocation
-- retain `activeUnitId` as the last executed unit for auditability and simpler diagnostics
+- retain `activeUnitName` as the last executed unit for auditability and simpler diagnostics
+
+### Successful structured iteration
+
+If an iteration returns valid structured output, the engine applies the same state normalization rules regardless of `selectedKeyword`.
+
+`selectedKeyword` controls lifecycle and routing.
+
+`summary`, `questions`, `decisions`, and `blockers` update persisted working state when provided.
+
+Validation failures are the only case that leave working state unchanged.
 
 ---
 
@@ -198,7 +211,7 @@ After keyword validation and transition resolution, the engine normalizes that r
 
 ### Why lifecycle is `status` plus `lastRoutingOutcome`
 
-`activeUnitId` answers where work resumes.
+`activeUnitName` answers where work resumes.
 
 `status` answers whether the session can continue right now.
 
@@ -208,7 +221,7 @@ A second lifecycle field adds overlap without adding enough information to justi
 
 Keep these roles separate:
 
-- `activeUnitId`: where the next routed step resumes
+- `activeUnitName`: where the next routed step resumes
 - `status`: coarse lifecycle of the session
 - `lastRoutingOutcome`: what the last iteration decided
 - `lastProcessedUserResponseId`: which user responses have already been consumed
@@ -233,12 +246,12 @@ Keep in session state:
 - provider and model choice
 - source path
 - iteration counter
-- selected loop id
+- selected loop name
 - lifecycle status
 
 Keep in loop execution state:
 
-- active unit id
+- active unit name
 - last selected keyword
 - last routing outcome
 - working summary
@@ -308,7 +321,7 @@ Yes, in the sense that the engine owns their semantics.
 Rigid means:
 
 - loop authors cannot redefine `[CONTINUE]`, `[ASK_USER]`, `[DONE]`, `[ERROR]`, or `[FAIL]`
-- loop authors cannot attach custom `destinationUnitId` behavior to those built-ins
+- loop authors cannot attach custom transition-target behavior to those built-ins
 - the engine, not the loop definition, decides what those keywords do
 
 Rigid does not mean every unit must expose every built-in.
@@ -337,9 +350,9 @@ Memory stores persisted facts needed for deterministic resume.
 Keep:
 
 - goal
-- loop id
+- loop name
 - lifecycle status
-- active loop unit id
+- active loop unit name
 - compact working summary
 - decisions
 - open questions
@@ -354,7 +367,7 @@ Do not use memory as a prose workflow inference layer.
 Routing must come from:
 
 - lifecycle status
-- active unit id
+- active unit name
 - last selected keyword
 - last routing outcome
 - built-in keyword behavior
@@ -371,7 +384,7 @@ Routing must come from:
 {
   "schemaVersion": 1,
   "sessionId": "session-001",
-  "loopId": "example-loop",
+  "loopName": "example-loop",
   "goal": "Clarify export requirements and route into task generation.",
   "providerName": "github-copilot",
   "model": "gpt-5",
@@ -388,7 +401,7 @@ Routing must come from:
 ```json
 {
   "schemaVersion": 1,
-  "activeUnitId": "example_unit",
+  "activeUnitName": "example_unit",
   "lastSelectedKeyword": "[CONTINUE]",
   "lastRoutingOutcome": "self-loop",
   "workingSummary": "One requirement is still unclear.",
@@ -406,8 +419,8 @@ Rules:
 - persisted state must be forward-migratable
 - missing required fields cause deterministic load failure
 - the engine must not silently invent missing routing fields during resume
-- resuming requires the loaded loop definition to contain the persisted `loopId`
-- resuming requires the loaded loop definition to contain the persisted `activeUnitId`
+- resuming requires the loaded loop definition `name` to match persisted `loopName`
+- resuming requires the loaded loop definition to contain the persisted `activeUnitName`
 - if either is missing, resume fails deterministically
 - editing a loop definition during an active session is unsupported
 - session state owns lifecycle status
@@ -435,13 +448,12 @@ The prompt input payload is the reasoning-facing runtime contract.
 
 ```json
 {
-  "loopId": "example-loop",
+  "loopName": "example-loop",
   "goal": "Clarify export requirements and route into task generation.",
   "status": "blocked",
   "lastRoutingOutcome": "ask-user",
   "activeUnit": {
-    "id": "collect_requirements",
-    "title": "Collect Requirements",
+    "name": "collect_requirements",
     "purpose": "Resolve missing specification details.",
     "instructions": "Choose exactly one keyword.",
     "allowedKeywords": [
@@ -494,14 +506,14 @@ Resolution order:
 1. accept the selected keyword
 2. validate it against the active unit
 3. apply built-in keyword behavior when the keyword is built in
-4. otherwise resolve an explicit transition if present
+4. otherwise resolve the explicit transition target
 5. determine the next active unit
 6. normalize and persist state
 
 Rules:
 
-- no explicit transition => remain on current unit
-- a resolved definition transition with `destinationUnitId` => move after successful iteration
+- a loop-specific keyword must have an explicit transition target in the active unit definition
+- a resolved definition transition target => move after successful iteration
 - `[ASK_USER]` => persist, stop, wait for `respond`, remain on same unit
 - `[DONE]` => end the loop
 
@@ -513,8 +525,9 @@ The engine resolves any transition from the active unit definition.
 
 Design rules:
 
-- the model does not emit `destinationUnitId`
-- the engine resolves `destinationUnitId` from the loop definition when a loop-specific keyword has a matching transition
+- the model does not emit a transition target
+- the engine resolves the target unit `name` from the loop definition when a loop-specific keyword has a matching transition
+- use `[CONTINUE]` for an intentional self-loop
 - use `[ASK_USER]` when the loop must stop and wait for user input
 - loop authors must not override built-in keyword behavior
 
@@ -578,7 +591,7 @@ After every successful iteration:
 1. accept keyword
 2. resolve built-in behavior or transition
 3. update lifecycle status and loop state
-4. set next active unit id
+4. set next active unit name
 5. persist updated session state and execution state
 6. persist logs, prompt, raw output
 7. end invocation
@@ -586,12 +599,12 @@ After every successful iteration:
 ### Carry forward
 
 - goal
-- loop id
+- loop name
 - logs, prompts, raw outputs
 
 ### Overwrite
 
-- active loop unit id
+- active loop unit name
 - last selected keyword
 - last routing outcome
 - workingSummary
@@ -623,12 +636,13 @@ After every successful iteration:
 
 ### Output-to-state normalization
 
+- any successful structured iteration applies the same normalization rules regardless of `selectedKeyword`
 - output `selectedKeyword` becomes persisted `lastSelectedKeyword`
-- output `summary` becomes persisted `workingSummary` when that keyword outcome persists summary
-- output `questions` becomes persisted `openQuestions` when that keyword outcome persists questions
-- output `decisions` becomes persisted `decisions` when that keyword outcome persists decisions
-- output `blockers` becomes persisted `blockers` when that keyword outcome persists blockers
-- resolved routing sets persisted `status`, `lastRoutingOutcome`, and `activeUnitId`
+- output `summary` becomes persisted `workingSummary`
+- output `questions` becomes persisted `openQuestions`
+- output `decisions` becomes persisted `decisions`
+- output `blockers` becomes persisted `blockers`
+- resolved routing sets persisted `status`, `lastRoutingOutcome`, and `activeUnitName`
 
 ### Response handling
 
@@ -690,7 +704,7 @@ If provider output includes extra fields not defined by the contract:
 
 - fields needed by the engine contract must be parsed and used
 - fields not needed by the engine contract should be ignored in v1
-- reserved routing-control fields such as `destinationUnitId` must be rejected because routing destinations come from the loop definition, not the model output
+- reserved routing-control fields that attempt to specify a transition target must be rejected because transition targets come from the loop definition, not the model output
 - unknown fields must not affect routing unless the contract is explicitly expanded to support them
 
 ### Invalid output handling
@@ -699,7 +713,7 @@ Malformed JSON, missing required fields, invalid field types, or invalid keyword
 
 - are invocation validation failures, not persisted routing outcomes
 - leave canonical loop state unchanged
-- do not change lifecycle status, `activeUnitId`, `lastSelectedKeyword`, `lastRoutingOutcome`, `workingSummary`, `decisions`, `openQuestions`, `blockers`, or response cursor
+- do not change lifecycle status, `activeUnitName`, `lastSelectedKeyword`, `lastRoutingOutcome`, `workingSummary`, `decisions`, `openQuestions`, `blockers`, or response cursor
 - do not consume the stored response
 - still log and persist raw output and validation failure details
 - end current invocation in failure
@@ -711,11 +725,10 @@ Malformed JSON, missing required fields, invalid field types, or invalid keyword
 - remain on the same unit
 - set session status to `active`
 - set last routing outcome to `self-loop`
-- run normal state update
+- apply normal state normalization
 
 #### `[ASK_USER]`
 - successful iteration
-- persist summary and questions when provided
 - stop loop execution
 - remain on current unit
 - do not move to a next unit
@@ -724,7 +737,6 @@ Malformed JSON, missing required fields, invalid field types, or invalid keyword
 
 #### `[ERROR]`
 - successful structured execution failure
-- persist summary and blockers when provided
 - set session status to `blocked`
 - set last routing outcome to `error`
 - persist debugging information
@@ -733,7 +745,6 @@ Malformed JSON, missing required fields, invalid field types, or invalid keyword
 
 #### `[FAIL]`
 - successful structured routing failure
-- persist summary when provided
 - set session status to `failed`
 - set last routing outcome to `fail`
 - stop invocation
@@ -742,7 +753,8 @@ Malformed JSON, missing required fields, invalid field types, or invalid keyword
 - successful structured completion
 - set session status to `completed`
 - set last routing outcome to `done`
-- retain `activeUnitId` as the last executed unit
+- retain `activeUnitName` as the last executed unit
+- apply normal state normalization
 - stop invocation
 
 ---
@@ -754,12 +766,11 @@ Each iteration prompt is the rendered form of the normalized prompt input payloa
 That rendered prompt should include:
 
 - shared loop instructions
-- `loopId`
+- `loopName`
 - `goal`
 - `status`
 - `lastRoutingOutcome`
-- `activeUnit.id`
-- `activeUnit.title`
+- `activeUnit.name`
 - `activeUnit.purpose`
 - `activeUnit.instructions`
 - `activeUnit.allowedKeywords`
@@ -807,8 +818,8 @@ Flow:
 - preserve existing loop state until the resumed loop run updates it
 - preserve current active unit until the resumed loop run updates it
 - in normal mode, require session status `blocked`
-- allow the loop to continue after `[ASK_USER]`
-- allow retry after `[ERROR]` when the operator can resolve the blocker with more information
+- after `[ASK_USER]`, use normal-mode `respond` as the expected recovery path
+- after `[ERROR]`, default to fixing the execution problem and running `loop` again; use `respond` only when the operator wants to attach extra context before that retry
 - in store-only mode, also be usable when the operator wants to provide more information before a later `loop` run
 - append new response entries instead of rewriting prior ones
 
@@ -876,15 +887,13 @@ Rules:
 
 ```json
 {
-  "id": "example-loop",
-  "name": "Example Loop",
+  "name": "example-loop",
   "description": "Example routed loop definition.",
-  "startUnit": "example_unit",
+  "startUnitName": "example_unit",
   "sharedInstructions": "Stay concrete.",
   "units": [
     {
-      "id": "example_unit",
-      "title": "Example Unit",
+      "name": "example_unit",
       "purpose": "Demonstrate generic routing.",
       "instructions": "Choose exactly one keyword.",
       "allowedKeywords": [
@@ -895,16 +904,12 @@ Rules:
         "[FAIL]",
         "[DONE]"
       ],
-      "transitions": [
-        {
-          "keyword": "[SOME_ROUTING_KEYWORD]",
-          "destinationUnitId": "another_unit"
-        }
-      ]
+      "transitions": {
+        "[SOME_ROUTING_KEYWORD]": "another_unit"
+      }
     },
     {
-      "id": "another_unit",
-      "title": "Another Unit",
+      "name": "another_unit",
       "purpose": "Demonstrate a transition target.",
       "instructions": "Choose exactly one keyword.",
       "allowedKeywords": [
@@ -920,15 +925,16 @@ Rules:
 
 Validation rules:
 
-- loop id must be non-empty
-- `startUnit` must exist in `units`
-- unit ids must be unique within a loop
+- loop `name` must be non-empty
+- `startUnitName` must exist in `units`
+- unit `name` values must be unique within a loop
 - each unit must have at least one allowed keyword
 - allowed keywords within a unit must be unique
-- transition keywords within a unit must be unique
-- every transition keyword must appear in that unit's `allowedKeywords`
+- transition keys within a unit must be unique
+- every transition key must appear in that unit's `allowedKeywords`
+- every loop-specific keyword in `allowedKeywords` must appear in `transitions`
 - built-in keywords must not appear in `transitions`
-- every `destinationUnitId` must be an existing unit id
+- every transition target unit name must be an existing unit name
 
 ---
 
@@ -937,13 +943,13 @@ Validation rules:
 Each iteration log should include:
 
 - invocation id
-- loop id
+- loop name
 - lifecycle status after routing
-- active loop unit id
+- active loop unit name
 - selected keyword
 - last routing outcome after routing
 - whether execution stayed or transitioned
-- next active loop unit id
+- next active loop unit name
 - summary
 - parse or validation outcome
 

@@ -89,8 +89,8 @@ The routing engine itself does not care whether a unit is named:
 
 The engine only cares about:
 
-- active unit id
+- active unit name
 - selected keyword
 - built-in keyword behavior
 - matching transition for loop-specific keywords
-- definition `destinationUnitId` when a loop-specific keyword transitions
+- definition transition target unit name when a loop-specific keyword transitions

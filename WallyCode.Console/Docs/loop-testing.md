@@ -63,10 +63,10 @@ The following should be treated as required workflow scenarios:
 - store-only respond workflow where `respond` stores a user response without immediately running the loop
 - additive store-only workflow where repeated store-only responses add to stored response context instead of replacing prior text
 - respond-and-continue workflow where the resumed run includes the stored response and then advances the response cursor after success
-- done workflow where the session is marked complete and retains the last `activeUnitId`
+- done workflow where the session is marked complete and retains the last `activeUnitName`
 - error workflow where blockers and summary persist and the user is alerted
 - fail workflow where summary persists and execution stops
-- invalid-output workflow where malformed JSON, an invalid keyword, or a provider-supplied `destinationUnitId` causes immediate invocation failure without changing canonical state
+- invalid-output workflow where malformed JSON or an invalid keyword causes immediate invocation failure without changing canonical state
 - persistence-failure workflow where canonical state remains unchanged
 - resume-failure workflow where persisted state references a missing unit or invalid schema
 - single-writer workflow where a second writer is rejected while the first writer is active
@@ -79,10 +79,11 @@ The following should be treated as required workflow scenarios:
 The following should also be covered by tests:
 
 - duplicate allowed keywords in a unit are rejected
-- duplicate transition keywords in a unit are rejected
-- a transition keyword not present in `allowedKeywords` is rejected
+- duplicate transition keys in a unit are rejected
+- a transition key not present in `allowedKeywords` is rejected
+- a loop-specific keyword in `allowedKeywords` that is missing from `transitions` is rejected
 - a built-in keyword appearing in `transitions` is rejected
-- an invalid `destinationUnitId` target is rejected
+- an invalid transition target unit name is rejected
 - a unit cannot use a built-in keyword unless it appears in that unit's `allowedKeywords`
 
 ---
@@ -99,7 +100,7 @@ Each workflow test should define:
 - the expected lifecycle status after each step
 - the expected active unit after each step
 - the expected last routing outcome after each step
-- when prompt assertions matter, the expected `loopId`, `goal`, `status`, `lastRoutingOutcome`, `activeUnit`, `workingSummary`, `decisions`, `openQuestions`, `blockers`, and `pendingResponses` included in the normalized prompt input payload
+- when prompt assertions matter, the expected `loopName`, `goal`, `status`, `lastRoutingOutcome`, `activeUnit`, `workingSummary`, `decisions`, `openQuestions`, `blockers`, and `pendingResponses` included in the normalized prompt input payload
 - when relevant, the expected lock acquisition or stale-lock takeover result
 - the expected persisted `workingSummary`, `decisions`, `openQuestions`, `blockers`, and stored response state
 - the expected completion or stop condition
