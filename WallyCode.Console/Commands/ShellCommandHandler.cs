@@ -125,13 +125,17 @@ internal sealed class ShellCommandHandler
     private static void ResetMemory(ShellCommandOptions options)
     {
         var projectRoot = ProjectSettings.ResolveProjectRoot(options.SourcePath);
-        var resolvedMemoryRoot = string.IsNullOrWhiteSpace(options.MemoryRoot)
-            ? null
+        var sessionRoot = string.IsNullOrWhiteSpace(options.MemoryRoot)
+            ? Path.Combine(projectRoot, ".wallycode")
             : Path.GetFullPath(options.MemoryRoot);
 
-        MemoryWorkspace.Reset(projectRoot, resolvedMemoryRoot);
-        Console.WriteLine($"Reset memory workspace at {resolvedMemoryRoot ?? Path.Combine(projectRoot, ".wallycode")}");
-        Console.WriteLine("A new loop session will be created the next time you run loop <goal>.");
+        if (Directory.Exists(sessionRoot))
+        {
+            Directory.Delete(sessionRoot, recursive: true);
+        }
+
+        Console.WriteLine($"Reset session at {sessionRoot}");
+        Console.WriteLine("A new session will be created the next time you run loop <goal>.");
     }
 
     private static string[] SplitArguments(string commandLine)

@@ -1,4 +1,5 @@
 using WallyCode.ConsoleApp.Project;
+using WallyCode.ConsoleApp.Routing;
 using WallyCode.ConsoleApp.Runtime;
 
 namespace WallyCode.ConsoleApp.Commands;
@@ -12,23 +13,35 @@ internal sealed class RespondCommandHandler
         _logger = logger;
     }
 
-    public Task<int> ExecuteAsync(RespondCommandOptions commandOptions, CancellationToken cancellationToken)
+    public Task<int> ExecuteAsync(RespondCommandOptions options, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        var projectRoot = ProjectSettings.ResolveProjectRoot(commandOptions.SourcePath);
-        var workspace = MemoryWorkspace.Open(projectRoot, commandOptions.MemoryRoot);
-        var session = workspace.TryLoadSession()
-            ?? throw new InvalidOperationException("No active loop session was found for the selected workspace.");
+        if (string.IsNullOrWhiteSpace(options.Response))
+        {
+            throw new InvalidOperationException("A non-empty response is required.");
+        }
 
-        workspace.AppendUserResponse(commandOptions.Response);
+        var projectRoot = ProjectSettings.ResolveProjectRoot(options.SourcePath);
+        var sessionRoot = string.IsNullOrWhiteSpace(options.MemoryRoot)
+            ? Path.Combine(projectRoot, ".wallycode")
+            : Path.GetFullPath(options.MemoryRoot);
+
+        if (!RoutedSession.Exists(sessionRoot))
+        {
+            throw new InvalidOperationException($"No active session at {sessionRoot}.");
+        }
+
+        var session = RoutedSession.Load(sessionRoot);
+        session.PendingResponses.Add(options.Response.Trim());
+        if (session.Status == SessionStatus.Blocked)
+        {
+            session.Status = SessionStatus.Active;
+        }
+        session.Save(sessionRoot);
 
         _logger.Section("WallyCode Respond");
-        _logger.Info($"Initialized source: {projectRoot}");
-        _logger.Info($"Initialized memory root: {workspace.RootPath}");
-        _logger.Info($"Session file: {workspace.SessionStateFilePath}");
-        _logger.Info($"Memory root: {workspace.RootPath}");
-        _logger.Success("User response saved for the next loop iteration.");
+        _logger.Success("Response saved for the next loop iteration.");
         return Task.FromResult(0);
     }
 }

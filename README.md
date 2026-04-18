@@ -51,6 +51,55 @@ Core design docs:
 - `WallyCode.Console/Docs/task-generation.md`
 - `WallyCode.Console/Docs/task-execution.md`
 
+## Routed Sessions
+
+`route` runs the routing engine against a routing definition.
+
+Start a new routed session using the default `requirements` definition:
+
+```text
+route "Clarify export requirements for the reporting tool."
+```
+
+Use a different shipped definition:
+
+```text
+route "Build the export feature." --definition full-pipeline
+```
+
+Continue the active routed session:
+
+```text
+route
+```
+
+Run several iterations in one invocation:
+
+```text
+route --steps 3
+```
+
+Answer an `[ASK_USER]` stop and immediately resume:
+
+```text
+route-respond "Exports should support csv and pdf."
+```
+
+Store a response without resuming:
+
+```text
+route-respond "Waiting on more info." --no-resume
+```
+
+Routed sessions are stored by default under `.wallycode/route/`. Override with `--memory-root`.
+
+Shipped routing definitions live under `WallyCode.Console/Routing/Definitions/`:
+
+- `requirements` - collect_requirements -> produce_tasks
+- `tasks` - produce_tasks -> execute_tasks
+- `execute` - execute_tasks only
+- `full-pipeline` - collect_requirements -> produce_tasks -> execute_tasks
+
 ## Current CLI Stateful Runs
 
 Use `loop` when you want WallyCode to keep state between iterations.

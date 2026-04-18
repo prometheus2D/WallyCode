@@ -1,0 +1,17 @@
+{
+  "name": "requirements",
+  "startUnitName": "collect_requirements",
+  "units": [
+    {
+      "name": "collect_requirements",
+      "instructions": "Resolve missing specification details. Use [REQUIREMENTS_READY] when requirements are clear, [ASK_USER] for clarification, [CONTINUE] to keep refining, [DONE] if the goal is already complete, [FAIL] if you cannot proceed.",
+      "allowedKeywords": ["[CONTINUE]", "[ASK_USER]", "[REQUIREMENTS_READY]", "[DONE]", "[FAIL]"],
+      "transitions": { "[REQUIREMENTS_READY]": "produce_tasks" }
+    },
+    {
+      "name": "produce_tasks",
+      "instructions": "Turn requirements into a concrete ordered task list. Use [DONE] when the list is ready, [CONTINUE] to keep refining, [ASK_USER] for clarification, [FAIL] if you cannot proceed.",
+      "allowedKeywords": ["[CONTINUE]", "[ASK_USER]", "[DONE]", "[FAIL]"]
+    }
+  ]
+}

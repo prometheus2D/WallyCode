@@ -1,13 +1,14 @@
-using WallyCode.ConsoleApp.App;
 using WallyCode.ConsoleApp.Copilot;
-using WallyCode.ConsoleApp.Loop;
 using WallyCode.ConsoleApp.Project;
+using WallyCode.ConsoleApp.Routing;
 using WallyCode.ConsoleApp.Runtime;
 
 namespace WallyCode.ConsoleApp.Commands;
 
 internal sealed class LoopCommandHandler
 {
+    private const string DefaultDefinitionName = "requirements";
+
     private readonly ProviderRegistry _providerRegistry;
     private readonly AppLogger _logger;
 
@@ -17,144 +18,89 @@ internal sealed class LoopCommandHandler
         _logger = logger;
     }
 
-    public async Task<int> ExecuteAsync(LoopCommandOptions commandOptions, CancellationToken cancellationToken)
+    public async Task<int> ExecuteAsync(LoopCommandOptions options, CancellationToken cancellationToken)
     {
-        if (commandOptions.Steps <= 0)
+        if (options.Steps <= 0)
         {
-            throw new InvalidOperationException("The step count must be greater than zero.");
+            throw new InvalidOperationException("Steps must be greater than zero.");
         }
 
-        var projectRoot = ProjectSettings.ResolveProjectRoot(commandOptions.SourcePath);
-        var goal = commandOptions.Goal?.Trim();
-        var resolvedMemoryRoot = string.IsNullOrWhiteSpace(commandOptions.MemoryRoot)
-            ? null
-            : Path.GetFullPath(commandOptions.MemoryRoot);
-        var workspace = MemoryWorkspace.Open(projectRoot, resolvedMemoryRoot);
-        var session = workspace.TryLoadSession();
+        var projectRoot = ProjectSettings.ResolveProjectRoot(options.SourcePath);
+        var sessionRoot = string.IsNullOrWhiteSpace(options.MemoryRoot)
+            ? Path.Combine(projectRoot, ".wallycode")
+            : Path.GetFullPath(options.MemoryRoot);
+        Directory.CreateDirectory(sessionRoot);
+
+        _logger.Section("WallyCode Loop");
+
+        RoutedSession session;
+        RoutingDefinition definition;
         ILlmProvider provider;
-        AppOptions options;
-        string startupMessage;
 
-        if (session is null)
+        if (RoutedSession.Exists(sessionRoot))
         {
-            if (string.IsNullOrWhiteSpace(goal))
+            session = RoutedSession.Load(sessionRoot);
+            var definitionName = options.Definition?.Trim() ?? session.DefinitionName;
+            if (definitionName != session.DefinitionName)
             {
-                throw new InvalidOperationException("No active loop session was found. Start one with: loop <goal>");
+                throw new InvalidOperationException(
+                    $"Active session uses definition '{session.DefinitionName}'. Use --memory-root for a different one.");
             }
-
-            var settings = ProjectSettings.Load(projectRoot);
-            var providerName = string.IsNullOrWhiteSpace(commandOptions.Provider)
-                ? settings.Provider
-                : commandOptions.Provider.Trim();
-            var template = LoopTemplateRegistry.Load(commandOptions.Template);
-
-            provider = _providerRegistry.Get(providerName);
-            options = new AppOptions
-            {
-                Goal = goal,
-                ProviderName = provider.Name,
-                Model = string.IsNullOrWhiteSpace(commandOptions.Model)
-                    ? (string.IsNullOrWhiteSpace(settings.Model) ? provider.DefaultModel : settings.Model)
-                    : commandOptions.Model.Trim(),
-                SourcePath = projectRoot,
-                MaxIterations = commandOptions.Steps,
-                LoopTemplateId = template.TemplateId
-            };
-
-            session = workspace.StartNewSession(options, template);
-            startupMessage = $"Starting a new loop session with template '{template.TemplateId}'.";
+            definition = RoutingDefinition.LoadByName(definitionName);
+            provider = _providerRegistry.Get(session.ProviderName);
+            _logger.Info($"Resuming session at iteration {session.IterationCount}.");
         }
         else
         {
-            ValidateExistingSession(commandOptions, goal, projectRoot, workspace, session);
-            provider = _providerRegistry.Get(session.ProviderName);
-            options = new AppOptions
+            if (string.IsNullOrWhiteSpace(options.Goal))
             {
-                Goal = session.Goal,
-                ProviderName = session.ProviderName,
-                Model = session.Model,
-                SourcePath = session.SourcePath,
-                MaxIterations = commandOptions.Steps,
-                LoopTemplateId = session.LoopTemplateId
-            };
-            startupMessage = string.IsNullOrWhiteSpace(goal)
-                ? $"Resuming active loop session at iteration {session.NextIteration}."
-                : $"Resuming existing loop session at iteration {session.NextIteration}.";
-        }
-
-        _logger.LogFilePath = workspace.SessionLogFilePath;
-        _logger.Section("WallyCode Loop");
-        _logger.Info($"Initialized source: {options.SourcePath}");
-        _logger.Info($"Initialized memory root: {workspace.RootPath}");
-        _logger.Info($"Session file: {workspace.SessionStateFilePath}");
-        _logger.Info(startupMessage);
-        _logger.Info($"Provider: {provider.Name}");
-        _logger.Info($"Model: {options.Model ?? provider.DefaultModel}");
-        _logger.Info($"Goal: {options.Goal}");
-        _logger.Info($"Loop template: {options.LoopTemplateId}");
-        _logger.Info($"Memory root: {workspace.RootPath}");
-        _logger.Info($"Project root: {options.SourcePath}");
-
-        if (session.IsDone)
-        {
-            _logger.Success("The active loop session is already complete.");
-
-            if (!string.IsNullOrWhiteSpace(session.DoneReason))
-            {
-                _logger.Info($"Done reason: {session.DoneReason}");
+                throw new InvalidOperationException("No active session. Start one with: loop <goal> [--definition <name>]");
             }
 
+            var settings = ProjectSettings.Load(projectRoot);
+            var providerName = string.IsNullOrWhiteSpace(options.Provider) ? settings.Provider : options.Provider!.Trim();
+            provider = _providerRegistry.Get(providerName);
+            var model = string.IsNullOrWhiteSpace(options.Model)
+                ? (string.IsNullOrWhiteSpace(settings.Model) ? provider.DefaultModel : settings.Model)
+                : options.Model!.Trim();
+
+            definition = RoutingDefinition.LoadByName(options.Definition?.Trim() ?? DefaultDefinitionName);
+            session = RoutedSession.Start(definition, options.Goal!, provider.Name, model, projectRoot);
+            session.Save(sessionRoot);
+            _logger.Info($"Started session on definition '{definition.Name}'.");
+        }
+
+        _logger.Info($"Definition: {definition.Name}");
+        _logger.Info($"Active unit: {session.ActiveUnitName}");
+        _logger.Info($"Status: {session.Status}");
+        _logger.Info($"Session root: {sessionRoot}");
+
+        if (session.Status is SessionStatus.Completed or SessionStatus.Failed)
+        {
+            _logger.Success($"Session is already {session.Status}.");
+            return 0;
+        }
+        if (session.Status == SessionStatus.Blocked)
+        {
+            _logger.Warning("Session is blocked. Use 'respond' to provide input.");
             return 0;
         }
 
         await provider.EnsureReadyAsync(cancellationToken);
 
-        var runner = new LoopRunner(provider, _logger);
-        await runner.RunAsync(options, workspace, session, cancellationToken);
+        var runner = new RoutedRunner(provider, definition, sessionRoot);
+        var results = await runner.RunAsync(options.Steps, cancellationToken);
 
-        _logger.Success("Run complete.");
+        foreach (var r in results)
+        {
+            _logger.Section($"Iteration {r.IterationNumber}");
+            _logger.Info($"Selected keyword: {r.SelectedKeyword}");
+            if (!string.IsNullOrWhiteSpace(r.Summary)) _logger.Info($"Summary: {r.Summary}");
+            _logger.Info($"Next unit: {r.ActiveUnitName}");
+            _logger.Info($"Status: {r.Status}");
+        }
+
+        _logger.Success($"Run complete after {results.Count} iteration(s).");
         return 0;
-    }
-
-    private static void ValidateExistingSession(
-        LoopCommandOptions commandOptions,
-        string? requestedGoal,
-        string projectRoot,
-        MemoryWorkspace workspace,
-        LoopSessionState session)
-    {
-        if (!string.IsNullOrWhiteSpace(requestedGoal)
-            && !string.Equals(requestedGoal, session.Goal, StringComparison.Ordinal))
-        {
-            throw new InvalidOperationException(
-                $"An active loop session already exists at {workspace.RootPath} for a different goal. Run loop with no goal to continue it, or choose a different --memory-root.");
-        }
-
-        if (!string.Equals(projectRoot, session.SourcePath, StringComparison.OrdinalIgnoreCase))
-        {
-            throw new InvalidOperationException(
-                $"The active loop session was started for {session.SourcePath}. Use the same --source path or choose a different --memory-root.");
-        }
-
-        if (!string.IsNullOrWhiteSpace(commandOptions.Provider)
-            && !string.Equals(commandOptions.Provider.Trim(), session.ProviderName, StringComparison.OrdinalIgnoreCase))
-        {
-            throw new InvalidOperationException(
-                $"The active loop session is using provider {session.ProviderName}. Continue it without changing the provider, or start a different session with another --memory-root.");
-        }
-
-        if (!string.IsNullOrWhiteSpace(commandOptions.Model)
-            && !string.Equals(commandOptions.Model.Trim(), session.Model, StringComparison.OrdinalIgnoreCase))
-        {
-            throw new InvalidOperationException(
-                $"The active loop session is using model {session.Model}. Continue it without changing the model, or start a different session with another --memory-root.");
-        }
-
-        if (!string.IsNullOrWhiteSpace(commandOptions.Template)
-            && !string.Equals(commandOptions.Template.Trim(), session.LoopTemplateId, StringComparison.OrdinalIgnoreCase))
-        {
-            throw new InvalidOperationException(
-                $"The active loop session is using template {session.LoopTemplateId}. Continue it without changing the template, or start a different session with another --memory-root.");
-        }
     }
 }

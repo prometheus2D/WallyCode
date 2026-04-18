@@ -1,0 +1,23 @@
+{
+  "name": "full-pipeline",
+  "startUnitName": "collect_requirements",
+  "units": [
+    {
+      "name": "collect_requirements",
+      "instructions": "Resolve missing specification details. Route forward with [REQUIREMENTS_READY] when clear.",
+      "allowedKeywords": ["[CONTINUE]", "[ASK_USER]", "[REQUIREMENTS_READY]", "[FAIL]"],
+      "transitions": { "[REQUIREMENTS_READY]": "produce_tasks" }
+    },
+    {
+      "name": "produce_tasks",
+      "instructions": "Turn requirements into an ordered task list. Route forward with [TASKS_READY] when ready.",
+      "allowedKeywords": ["[CONTINUE]", "[ASK_USER]", "[TASKS_READY]", "[FAIL]"],
+      "transitions": { "[TASKS_READY]": "execute_tasks" }
+    },
+    {
+      "name": "execute_tasks",
+      "instructions": "Execute the tasks. Use [DONE] when complete.",
+      "allowedKeywords": ["[CONTINUE]", "[ASK_USER]", "[DONE]", "[FAIL]"]
+    }
+  ]
+}
