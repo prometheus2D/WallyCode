@@ -1,6 +1,6 @@
 # WallyCode
 
-WallyCode is a small .NET 8 console app for running GitHub Copilot CLI prompts against a repo.
+WallyCode is a .NET 8 CLI for one-shot repo prompts and stateful repo work through GitHub Copilot CLI.
 
 ## Requirements
 
@@ -8,69 +8,52 @@ WallyCode is a small .NET 8 console app for running GitHub Copilot CLI prompts a
 - GitHub CLI installed and authenticated
 - a runnable `copilot` CLI
 
-## Quick Start
+## Use It Now
 
-Build:
+Build once:
 
 ```powershell
 dotnet build WallyCode.sln
 ```
 
-Show the built-in walkthrough:
+Fastest first command:
 
-```text
-tutorial
+```powershell
+dotnet run --project WallyCode.Console -- prompt "Summarize this repository in one paragraph."
 ```
 
-Run a prompt in the current repo:
+Examples below are shown as plain commands. If the executable is not on your `PATH`, prefix them with:
 
-```text
-prompt "Summarize this repository in one short paragraph."
+```powershell
+dotnet run --project WallyCode.Console --
 ```
 
-Run a prompt against a different folder:
+## Basic Commands
+
+One-shot prompt:
 
 ```text
-prompt "Summarize this repository in one short paragraph." --source C:\src\my-repo
+prompt "Summarize this repository in one paragraph."
+prompt "Summarize this repository in one paragraph." --source C:\src\my-repo
 ```
 
-That is the fastest way to get started.
-
-## Design Docs
-
-The current CLI still uses the `loop` command name.
-
-The future-state design documents under `WallyCode.Console/Docs/` intentionally use `routing`, `definition`, `logical unit`, `session`, and `run` terminology instead of modeling the system as loops.
-
-Core design docs:
-
-- `WallyCode.Console/Docs/routing.md`
-- `WallyCode.Console/Docs/routing-examples.md`
-- `WallyCode.Console/Docs/routing-testing.md`
-- `WallyCode.Console/Docs/requirements-gathering.md`
-- `WallyCode.Console/Docs/task-generation.md`
-- `WallyCode.Console/Docs/task-execution.md`
-
-## Current CLI Stateful Runs
-
-Use `loop` when you want WallyCode to keep state between iterations.
-
-Start a session:
+Start a stateful run:
 
 ```text
-loop "Analyze this repo, do one bounded chunk of work, update memory, and stop when the goal is complete."
+loop "Analyze this repo, do one bounded chunk of work, and stop when the goal is complete."
 ```
 
-Continue the active session:
+Continue the current run:
 
 ```text
 loop
 ```
 
-Add user input for the next run:
+Add input for the next iteration:
 
 ```text
 respond "Use the simpler approach"
+loop
 ```
 
 Run multiple iterations in one invocation:
@@ -79,99 +62,62 @@ Run multiple iterations in one invocation:
 loop --steps 3
 ```
 
-Use a separate memory folder for an isolated session:
+Use a separate workspace for an isolated run:
 
 ```text
 loop "Work on issue 123" --memory-root .\.wallycode-issue-123
 ```
 
-## Simple Tutorial: Tic-Tac-Toe
-
-Example prompt-first workflow:
-
-1. Create or open a repo for the sample.
-2. Run a prompt that asks Copilot to build the first version.
-3. Review the output.
-4. If you want iterative progress, switch to the current `loop` command.
-
-One-shot prompt example:
-
-```text
-prompt "Create a simple browser-based tic-tac-toe game in this repo. Keep it minimal: HTML, CSS, and JavaScript only. Add clear file-by-file steps and then implement the code."
-```
-
-Iterative example using the current `loop` command:
-
-```text
-loop "Build a simple browser-based tic-tac-toe game in this repo. Do one small bounded chunk per iteration, keep the implementation minimal, and stop when the game is complete."
-```
-
-Then continue the session as needed:
-
-```text
-loop
-respond "Now polish the UI a little, but keep it simple."
-```
-
-## Shell
-
-Start interactive mode:
+Interactive shell:
 
 ```text
 shell
-```
-
-Start a shell with a specific source and memory root:
-
-```text
 shell --source C:\src\my-repo --memory-root C:\temp\wallycode-session
 ```
 
-When you start the shell this way, commands entered inside it inherit those defaults unless you override them explicitly.
+## Quick Setup
 
-Inside the shell, run the same commands directly:
-
-```text
-prompt "Summarize this repository"
-loop "Work on issue 123"
-loop
-respond "Use the simpler approach"
-exit
-```
-
-## Providers and Models
-
-WallyCode saves a default provider and optional model in `wallycode.json` at the project root.
-
-Useful commands:
+List providers and readiness:
 
 ```text
 provider
-provider --models
-provider gh-copilot-gpt5 --set
-provider --model gpt-5
 ```
 
 Current providers:
 
-- `gh-copilot-claude` default
+- `gh-copilot-claude`
 - `gh-copilot-gpt5`
 
-If you do nothing, WallyCode uses `gh-copilot-claude`.
+Set the default provider for the current project:
 
-You can also override provider or model for a single prompt or for a new session started with `loop`:
+```text
+provider gh-copilot-gpt5 --set
+```
+
+List models for a provider:
+
+```text
+provider gh-copilot-gpt5 --models
+```
+
+Set the default model for the current or selected provider:
+
+```text
+provider gh-copilot-gpt5 --model gpt-5
+```
+
+Override provider or model per command:
 
 ```text
 prompt "Summarize this repository" --provider gh-copilot-gpt5
 prompt "Summarize this repository" --model gpt-5
+loop "Work on issue 123" --provider gh-copilot-gpt5
+loop "Work on issue 123" --model gpt-5
 ```
 
-## Files Written
+## Defaults
 
-WallyCode stores project settings in `wallycode.json`.
-
-`source` is the folder WallyCode and the provider operate against.
-
-`memory-root` is the folder where WallyCode stores session memory, prompts, raw output, logs, and session state.
-
-Runtime files are written under `.wallycode/` by default, or under the folder passed to `--memory-root`.
+- Current directory is the source root unless you pass `--source`.
+- Project defaults live in `wallycode.json`.
+- Runtime data lives in `.wallycode/` unless you pass `--memory-root`.
+- `respond` appends user input for the next `loop`; it does not resume automatically.
