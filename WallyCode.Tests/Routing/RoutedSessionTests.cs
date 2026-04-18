@@ -40,4 +40,30 @@ public class RoutedSessionTests
         using var temp = TempWorkspace.Create();
         Assert.False(RoutedSession.Exists(temp.RootPath));
     }
+
+    [Fact]
+    public void LoadByName_returns_ask_definition_from_json()
+    {
+        var definition = RoutingDefinition.LoadByName("ask");
+
+        Assert.Equal("ask", definition.Name);
+        Assert.Equal("prompt", definition.StartUnitName);
+        Assert.Single(definition.Units);
+        Assert.Equal("prompt", definition.Units[0].Name);
+        Assert.Contains("Do not change files", definition.Units[0].Instructions);
+        Assert.Empty(definition.Units[0].AllowedKeywords);
+    }
+
+    [Fact]
+    public void LoadByName_returns_act_definition_from_json()
+    {
+        var definition = RoutingDefinition.LoadByName("act");
+
+        Assert.Equal("act", definition.Name);
+        Assert.Equal("prompt", definition.StartUnitName);
+        Assert.Single(definition.Units);
+        Assert.Equal("prompt", definition.Units[0].Name);
+        Assert.Contains("You may change files", definition.Units[0].Instructions);
+        Assert.Empty(definition.Units[0].AllowedKeywords);
+    }
 }

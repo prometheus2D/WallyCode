@@ -60,10 +60,6 @@ internal sealed class RoutingDefinition
             {
                 throw new InvalidOperationException($"Routing definition '{Name}' has duplicate unit '{unit.Name}'.");
             }
-            if (unit.AllowedKeywords.Count == 0)
-            {
-                throw new InvalidOperationException($"Unit '{unit.Name}' must declare at least one allowed keyword.");
-            }
             foreach (var transitionKey in unit.Transitions.Keys)
             {
                 if (!unit.AllowedKeywords.Contains(transitionKey))
@@ -80,11 +76,11 @@ internal sealed class RoutingDefinition
 
         foreach (var unit in Units)
         {
-            foreach (var (keyword, target) in unit.Transitions)
+            foreach (var (_, target) in unit.Transitions)
             {
                 if (!unitNames.Contains(target))
                 {
-                    throw new InvalidOperationException($"Unit '{unit.Name}' transition '{keyword}' targets unknown unit '{target}'.");
+                    throw new InvalidOperationException($"Unit '{unit.Name}' transition targets unknown unit '{target}'.");
                 }
             }
         }

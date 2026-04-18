@@ -1,0 +1,12 @@
+{
+  "name": "act",
+  "startUnitName": "prompt",
+  "units": [
+    {
+      "name": "prompt",
+      "instructions": "Handle the request directly. You may change files in the source workspace if needed, then provide a normal user-facing response.",
+      "allowedKeywords": [],
+      "transitions": {}
+    }
+  ]
+}

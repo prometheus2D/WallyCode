@@ -1,0 +1,12 @@
+{
+  "name": "ask",
+  "startUnitName": "prompt",
+  "units": [
+    {
+      "name": "prompt",
+      "instructions": "Handle the request directly as a normal LLM prompt response. Do not change files in the source workspace.",
+      "allowedKeywords": [],
+      "transitions": {}
+    }
+  ]
+}
