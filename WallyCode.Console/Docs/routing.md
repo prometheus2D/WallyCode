@@ -38,7 +38,7 @@ The named set of linked logical units with:
 - `sharedInstructions`
 - `units`
 
-The definition `name` is its canonical identity.
+The definition `name` is its identity.
 
 The persisted field `definitionName` refers to this definition identity.
 
@@ -47,7 +47,7 @@ The active mode of work.
 
 Only one logical unit is active at a time.
 
-A unit's `name` is its canonical identity.
+A unit's `name` is its identity.
 
 A logical unit may use only the keywords listed in its `allowedKeywords`.
 
@@ -108,7 +108,7 @@ Unit definition data that maps each definition-specific keyword directly to the 
 
 Transition targets come from the active unit's declared `transitions`, not iteration output.
 
-Use the unit `name` as the canonical routing target.
+Use the unit `name` as the routing target.
 
 ---
 
@@ -184,7 +184,7 @@ Validation failures are the only case that leave working state unchanged.
 
 ---
 
-## Canonical Values
+## Stored Values
 
 ### Lifecycle status
 
@@ -203,7 +203,7 @@ After keyword validation and transition resolution, the engine normalizes sessio
 - `[ASK_USER]` or `[ERROR]` sets `status = blocked`
 - `[DONE]` sets `status = completed`
 - `[FAIL]` sets `status = failed`
-- invocation validation failures leave the existing canonical values unchanged
+- invocation validation failures leave the existing stored values unchanged
 
 ---
 
@@ -234,11 +234,11 @@ After the logical unit chooses a keyword and routing is resolved:
 - completion is represented as `status = completed`
 - terminal failure is represented as `status = failed`
 - the last successful keyword explains how the session reached that status when the distinction matters
-- invalid output is a validation failure that leaves canonical state unchanged and is recorded only in diagnostics
+- invalid output is a validation failure that leaves session state unchanged and is recorded only in diagnostics
 
-### Why canonical state is one file
+### Why session state is one file
 
-All canonical mutable session data belongs in one state document.
+The runtime should resume from one session state file.
 
 Keep in session state:
 
@@ -259,7 +259,7 @@ Keep response text in the append-only response log.
 This is deliberate because it:
 
 - keeps resume validation small and deterministic
-- avoids coordinating two canonical state writes
+- avoids coordinating two session-state writes
 - reduces the chance of drift between separate state documents
 - keeps routing and working state together in the single file the runtime actually resumes from
 
@@ -278,12 +278,12 @@ The design does not need a storage-only response mode.
 
 The stored-response contract should be explicit and small.
 
-- canonical response storage is `responses.json`
+- response storage is `responses.json`
 - response text may be mirrored in `memory/user-responses.md` as an observability artifact
 - each response entry is append-only and contains `id`, `timestampUtc`, and `text`
 - pending responses are the entries whose `id` is greater than `lastProcessedUserResponseId`
 - pending responses are supplied to the next routed prompt in ascending id order
-- after a successful canonical state update, `lastProcessedUserResponseId` advances to the newest consumed entry
+- after a successful session state update, `lastProcessedUserResponseId` advances to the newest consumed entry
 - a failed iteration must not advance that cursor
 - response text is never rewritten in place; additional operator input always appends a new entry
 
@@ -337,11 +337,11 @@ The routing design prioritizes:
 
 ---
 
-## Canonical State Model
+## Session State Model
 
-Canonical state stores the persisted facts needed for deterministic resume.
+Session state stores the persisted facts needed to resume the session reliably.
 
-Keep in canonical state:
+Keep in session state:
 
 - goal
 - definition identity (`definitionName`)
@@ -354,7 +354,7 @@ Keep in canonical state:
 - blockers
 - response cursor for the last consumed user response
 
-Do not use canonical state as a prose workflow inference layer.
+Do not use session state as a prose workflow explanation layer.
 
 Routing must come from:
 
@@ -365,7 +365,7 @@ Routing must come from:
 - transition mapping for definition-specific keywords
 - response cursor when user input is involved
 
-## Observability Artifacts
+## Debugging Artifacts
 
 Artifacts may still be persisted for auditability:
 
@@ -374,7 +374,7 @@ Artifacts may still be persisted for auditability:
 - logs
 - human-readable mirrors such as `memory/user-responses.md`
 
-Artifacts must not drive routing.
+These files help with debugging and audit. They must not drive routing.
 
 ---
 
@@ -420,23 +420,28 @@ Rules:
 
 ---
 
-## Canonical Runtime Surface
+## Runtime Files
 
-The routing runtime has three canonical persisted surfaces:
+The routing runtime uses these persisted files:
 
 - routing definition
 - session state
 - response log
+- session lock during writes
 
-Observability artifacts such as prompts, raw outputs, logs, and human-readable mirrors are separate from the canonical runtime surface.
+The routing definition, session state, and response log define the workflow state.
 
-The engine reads the canonical surfaces, validates them, and derives a normalized prompt input payload for the active unit.
+The session lock only prevents overlapping writes.
+
+Prompts, raw outputs, logs, and human-readable mirrors are extra files for debugging and audit.
+
+The engine reads the routing definition, session state, and pending responses, then builds a normalized prompt input payload for the active unit.
 
 The model does not inspect persisted files directly.
 
 ### Prompt input payload
 
-The prompt input payload is the reasoning-facing runtime contract.
+The prompt input payload is the structured input the engine gives the active unit.
 
 ```json
 {
@@ -609,7 +614,7 @@ After every successful iteration:
 - any omitted or empty working-state field is cleared on a successful iteration
 - resolved open questions disappear unless they are returned again
 - stale blockers disappear unless they are returned again
-- temporary unit-local notes do not carry forward unless they are returned as canonical working state
+- temporary unit-local notes do not carry forward unless they are returned as working state
 - consumed response data disappears from pending state after a resumed routed run uses it successfully
 
 ### State cleanup rules
@@ -666,7 +671,7 @@ Each iteration must return strict JSON.
 
 Rules:
 
-- `selectedKeyword` is required and authoritative
+- `selectedKeyword` is required and controls routing
 - routing destinations never come from provider output
 - `summary` is recommended because it gives the next run compact context
 - omitted arrays normalize to `[]` and clear the prior persisted array
@@ -695,7 +700,7 @@ If provider output includes extra fields not defined by the contract:
 Malformed JSON, missing required fields, invalid field types, or invalid keywords:
 
 - are invocation validation failures, not persisted routing outcomes
-- leave canonical session state unchanged
+- leave session state unchanged
 - do not change lifecycle status, `activeUnitName`, `lastSelectedKeyword`, `workingSummary`, `decisions`, `openQuestions`, `blockers`, or response cursor
 - do not consume the stored response
 - still log and persist raw output and validation failure details
@@ -809,32 +814,31 @@ Flow:
 
 ## Single-Writer Session Rule
 
-Each session may be touched by only one writer or provider at a time.
+Each session may be touched by only one writer at a time.
 
 Mutating operations include:
 
 - session execution
 - `respond`
-- any future action that writes canonical session state
-- any provider-backed execution that writes session state
+- any future action that writes session state
 
 Required behavior:
 
 - prevent overlapping writes to the same session
 - reject a second writer while another writer is active
 - fail fast with a clear message rather than allowing interleaved writes
-- never allow two providers or commands to race on the same session state
+- never allow two writes to race on the same session state
 
 ### Lock contract
 
-- the canonical session lock file is `session.lock.json` adjacent to `session.json`
+- the session lock file is `session.lock.json` adjacent to `session.json`
 - the lock file contains `lockId`, `ownerOperation`, `acquiredAtUtc`, `renewedAtUtc`, and `expiresAtUtc`
 - a writer acquires the lock by atomically creating the lock file, or atomically replacing it only after `expiresAtUtc` has passed
 - an active writer must renew `renewedAtUtc` and `expiresAtUtc` while it still owns the session
-- a second writer that sees an unexpired lock must fail without mutating canonical state
+- a second writer that sees an unexpired lock must fail without changing session state
 - a stale lock may be replaced after expiry and is treated as abandoned
 - `respond` keeps the same lock across both the response append and the resumed routed run
-- the writer releases the lock after the final canonical state write for that operation path
+- the writer releases the lock after the final session state write for that operation path
 
 ---
 
@@ -947,7 +951,7 @@ These safeguards do not change the routing model.
 This gives the system:
 
 - explicit routing
-- one canonical session state file plus an append-only response log
+- one session state file plus an append-only response log
 - deterministic resume behavior
 - clean `respond` integration
 - a single lifecycle status
