@@ -21,8 +21,8 @@ Execute tasks until completion.
 ## Typical Behavior
 
 - review the task queue
-- execute a batch of work
-- review results
+- execute one bounded batch of work
+- review the results of that batch
 - ask for clarification when needed
 - `respond` provides clarification and resumes the same logical unit immediately
 - continue until more execution is not needed or the session is complete
@@ -31,9 +31,9 @@ Execute tasks until completion.
 
 ## Suggested Logical Units
 
-- `review_task_queue`: assess pending work and decide whether to execute, ask for clarification, or stop
-- `execute_task_batch`: complete a bounded batch of work
-- `review_results`: validate outcomes and decide whether more execution is needed
+This logical unit keeps task execution aligned with the routing model's same-unit repeat behavior.
+
+- `execute_tasks`: review the queue, complete one bounded batch of work, review the result, and decide whether to continue, ask for clarification, or stop
 
 ---
 
@@ -41,7 +41,8 @@ Execute tasks until completion.
 
 - `[CONTINUE]`
 - `[ASK_USER]`
-- `[MORE_EXECUTION_NEEDED]`
 - `[ERROR]`
 - `[FAIL]`
 - `[DONE]`
+
+Use `[CONTINUE]` to keep `execute_tasks` active while more bounded execution is still needed.

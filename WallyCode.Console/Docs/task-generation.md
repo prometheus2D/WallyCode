@@ -21,19 +21,18 @@ Turn the current requirement state into a concrete ordered task list.
 ## Typical Behavior
 
 - analyze the current requirement state
-- produce or refine a task list
 - use built-in `[ASK_USER]` only when user clarification is needed
 - `respond` provides that clarification and resumes the same logical unit immediately
+- produce or refine a task list
 - route forward when the task list is ready for the next linked logical unit
 
 ---
 
 ## Suggested Logical Units
 
-These are linked logical units inside the same routed definition.
+This logical unit keeps task generation aligned with the routing model's same-unit repeat behavior.
 
-- `analyze_requirements`: assess the current requirement state and decide whether more clarification is needed before task generation
-- `produce_tasks`: generate or refine the concrete ordered task list and route forward when it is ready
+- `produce_tasks`: assess whether the current requirement state is sufficient, ask for clarification when it is not, and generate or refine the concrete ordered task list when it is
 
 ---
 
@@ -45,3 +44,7 @@ These are linked logical units inside the same routed definition.
 - `[ERROR]`
 - `[FAIL]`
 - `[DONE]`
+
+Use `[CONTINUE]` to keep `produce_tasks` active while the task list is still being refined.
+
+Use `[TASKS_READY]` to route from `produce_tasks` to the next linked logical unit.

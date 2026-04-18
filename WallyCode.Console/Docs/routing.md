@@ -13,7 +13,7 @@ Runtime model:
 - the session starts at its configured start unit
 - the engine runs the active logical unit
 - the active logical unit repeats by default
-- a returned keyword may keep the same logical unit active, ask the user for input and stop, move to another logical unit, or end the session
+- a returned keyword may keep the same logical unit active, ask the user for input and stop, stop blocked on an execution error, fail the session, move to another logical unit, or complete the session
 
 This document covers engine semantics only.
 
@@ -168,11 +168,11 @@ Explicit completion signal.
 
 If an iteration returns valid structured output, the engine applies the same state normalization rules regardless of `selectedKeyword`.
 
-`selectedKeyword` controls lifecycle and routing.
+`selectedKeyword` controls lifecycle and routing and becomes persisted `lastSelectedKeyword`.
 
-`summary`, `questions`, `decisions`, and `blockers` overwrite persisted working state on every successful iteration.
+The output fields `summary`, `questions`, `decisions`, and `blockers` normalize into the persisted working-state fields `workingSummary`, `openQuestions`, `decisions`, and `blockers` on every successful iteration.
 
-If one of those fields is omitted or returned empty, the persisted value is cleared.
+If one of those output fields is omitted or returned empty, the persisted value is cleared.
 
 A successful iteration must return any working-state value the next logical unit still needs.
 
@@ -222,7 +222,7 @@ Keep these roles separate:
 - `lastSelectedKeyword`: what the last successful structured iteration decided
 - `lastProcessedUserResponseId`: which user responses have already been consumed
 
-This separation matters because the same unit may remain active after `[CONTINUE]`, `[ASK_USER]`, `[ERROR]`, or `[DONE]`, but the system should not need a second lifecycle field just to explain that difference.
+This separation matters because the same unit may remain active after `[CONTINUE]`, `[ASK_USER]`, `[ERROR]`, `[FAIL]`, or `[DONE]`, but the system should not need a second lifecycle field just to explain that difference.
 
 After the logical unit chooses a keyword and routing is resolved:
 
@@ -479,7 +479,7 @@ Rules:
 
 ## Routing Rule
 
-**Run the active logical unit again unless the selected keyword explicitly moves to another logical unit, asks the user for input and stops, or ends the session.**
+**Run the active logical unit again unless the selected keyword explicitly moves to another logical unit, asks the user for input and stops, reports an execution error and stops blocked, fails the session, or completes the session.**
 
 `[CONTINUE]` is the standard same-unit repeat keyword.
 
