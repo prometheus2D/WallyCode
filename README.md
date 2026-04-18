@@ -1,20 +1,13 @@
 # WallyCode
 
-WallyCode is a .NET 8 console app that drives GitHub Copilot CLI through a routing engine. You give it a goal, and it runs one or more iterations of work against a repo, moving through named units (collect requirements, produce tasks, execute tasks) until it finishes or needs your input.
+WallyCode is a routing-driven CLI for running GitHub Copilot workflows against a repo.
 
-## Requirements
-
-- .NET 8 SDK
-- GitHub CLI installed and authenticated
-- a runnable `copilot` CLI
+The core idea is simple:
+- use `ask` for direct answers with no file changes
+- use `act` for direct repo work with a normal response
+- use `loop` when the task needs iteration, memory, and staged progress
 
 ## Quick Start
-
-Build:
-
-```powershell
-dotnet build WallyCode.sln
-```
 
 Start with `ask` when you want a direct answer with no file changes:
 
@@ -63,7 +56,7 @@ provider gh-copilot-gpt5 --model gpt-5
 
 That is the natural progression: `ask` for direct answers, `act` for direct repo changes, `loop` for multi-step routed work, and provider configuration once you know which model setup you want as your default.
 
-## Loop Command
+## Routing Definitions
 
 `loop` runs the routing engine. The first call starts a session. Later calls continue it.
 
