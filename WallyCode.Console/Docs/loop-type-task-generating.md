@@ -23,8 +23,7 @@ Turn a requirement or definition document into a concrete ordered task list.
 - analyze the current requirement state
 - produce or refine a task list
 - use built-in `[ASK_USER]` only when user clarification is needed
-- `respond` supports normal mode to provide that clarification and resume the loop immediately
-- `respond` supports store-only mode when extra user input should be recorded before a later loop run
+- `respond` provides that clarification and resumes the loop immediately
 - route forward when the task list is ready
 
 ---

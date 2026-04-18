@@ -27,14 +27,12 @@ Example self-loop result:
 - selected keyword: `[CONTINUE]`
 - remain on `collect_requirements`
 - session status: `active`
-- last routing outcome: `self-loop`
 
 Example transition result:
 
 - selected keyword: `[REQUIREMENTS_READY]`
 - move from `collect_requirements` to `produce_tasks`
 - session status: `active`
-- last routing outcome: `transition`
 
 Example ask-user result:
 
@@ -42,19 +40,8 @@ Example ask-user result:
 - remain on `collect_requirements`
 - stop the loop
 - session status: `blocked`
-- last routing outcome: `ask-user`
 - user answers with `respond`
-- in normal mode, `respond` triggers the loop to run again on `collect_requirements`
-
-Example store-only respond result:
-
-- user runs `respond` in store-only mode
-- response text is recorded
-- later store-only responses add more response text instead of replacing prior text
-- session status remains unchanged
-- active unit remains `collect_requirements`
-- the loop does not start yet
-- a later `loop` run uses the stored response context
+- `respond` appends the response and immediately runs the loop again on `collect_requirements`
 
 Example error result:
 
@@ -62,7 +49,6 @@ Example error result:
 - remain on `collect_requirements`
 - stop the loop
 - session status: `blocked`
-- last routing outcome: `error`
 - persist summary and blockers when provided
 
 Example fail result:
@@ -71,7 +57,6 @@ Example fail result:
 - remain on `collect_requirements`
 - stop the loop
 - session status: `failed`
-- last routing outcome: `fail`
 - persist summary when provided
 
 ---

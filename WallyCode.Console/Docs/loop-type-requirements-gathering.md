@@ -23,8 +23,7 @@ Collect missing requirements from the user until the specification is clear enou
 - the active loop unit asks targeted questions
 - `[ASK_USER]` stops the loop when user input is needed
 - the user answers with `respond`
-- `respond` supports normal mode to store the response and resume the same unit immediately
-- `respond` supports store-only mode to add more response text before a later loop run
+- `respond` stores the response and resumes the same unit immediately
 - when satisfied, it routes forward or ends
 
 ---

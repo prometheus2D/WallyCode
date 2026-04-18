@@ -59,10 +59,7 @@ The following should be treated as required workflow scenarios:
 - self-loop workflow where the active unit returns `[CONTINUE]` and remains active
 - transition workflow where a keyword moves execution to another unit
 - ask-user workflow where the engine records questions and stops
-- normal-mode respond workflow where `respond` stores a user response and triggers the loop to run again
-- store-only respond workflow where `respond` stores a user response without immediately running the loop
-- additive store-only workflow where repeated store-only responses add to stored response context instead of replacing prior text
-- respond-and-continue workflow where the resumed run includes the stored response and then advances the response cursor after success
+- respond workflow where `respond` stores a user response, resumes the same unit, and then advances the response cursor after success
 - done workflow where the session is marked complete and retains the last `activeUnitName`
 - error workflow where blockers and summary persist and the user is alerted
 - fail workflow where summary persists and execution stops
@@ -96,11 +93,10 @@ Each workflow test should define:
 - the starting persisted state
 - the ordered mock provider outputs for each invocation
 - any user response provided between invocations
-- whether `respond` is normal mode or store-only mode
 - the expected lifecycle status after each step
 - the expected active unit after each step
-- the expected last routing outcome after each step
-- when prompt assertions matter, the expected `loopName`, `goal`, `status`, `lastRoutingOutcome`, `activeUnit`, `workingSummary`, `decisions`, `openQuestions`, `blockers`, and `pendingResponses` included in the normalized prompt input payload
+- the expected last selected keyword after each step
+- when prompt assertions matter, the expected `loopName`, `goal`, `status`, `lastSelectedKeyword`, `activeUnit`, `workingSummary`, `decisions`, `openQuestions`, `blockers`, and `pendingResponses` included in the normalized prompt input payload
 - when relevant, the expected lock acquisition or stale-lock takeover result
 - the expected persisted `workingSummary`, `decisions`, `openQuestions`, `blockers`, and stored response state
 - the expected completion or stop condition

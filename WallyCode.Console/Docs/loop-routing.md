@@ -182,63 +182,52 @@ Validation failures are the only case that leave working state unchanged.
 - `completed`
 - `failed`
 
-### Last routing outcome
-
-- `self-loop`
-- `transition`
-- `ask-user`
-- `done`
-- `error`
-- `fail`
-
 ### Lifecycle derivation
 
 Each logical unit chooses its routing result by returning one valid `selectedKeyword` for that unit.
 
-After keyword validation and transition resolution, the engine normalizes that result into canonical lifecycle fields:
+After keyword validation and transition resolution, the engine normalizes session status as follows:
 
-- a resolved self-loop sets `status = active` and `lastRoutingOutcome = self-loop`
-- a resolved transition sets `status = active` and `lastRoutingOutcome = transition`
-- `[ASK_USER]` sets `status = blocked` and `lastRoutingOutcome = ask-user`
-- `[ERROR]` sets `status = blocked` and `lastRoutingOutcome = error`
-- `[DONE]` sets `status = completed` and `lastRoutingOutcome = done`
-- `[FAIL]` sets `status = failed` and `lastRoutingOutcome = fail`
+- `[CONTINUE]` or a resolved loop-specific transition sets `status = active`
+- `[ASK_USER]` or `[ERROR]` sets `status = blocked`
+- `[DONE]` sets `status = completed`
+- `[FAIL]` sets `status = failed`
 - invocation validation failures leave the existing canonical values unchanged
 
 ---
 
 ## Design Rationale
 
-### Why lifecycle is `status` plus `lastRoutingOutcome`
+### Why lifecycle is just `status`
 
 `activeUnitName` answers where work resumes.
 
 `status` answers whether the session can continue right now.
 
-`lastRoutingOutcome` answers why the current state was reached.
+`lastSelectedKeyword` records what the last successful structured iteration chose.
 
-A second lifecycle field adds overlap without adding enough information to justify the extra state machine.
+That is enough.
 
 Keep these roles separate:
 
 - `activeUnitName`: where the next routed step resumes
 - `status`: coarse lifecycle of the session
-- `lastRoutingOutcome`: what the last iteration decided
+- `lastSelectedKeyword`: what the last successful structured iteration decided
 - `lastProcessedUserResponseId`: which user responses have already been consumed
 
-This separation matters because the same unit may remain active after `[CONTINUE]`, `[ASK_USER]`, `[ERROR]`, or `[DONE]`, but the system should not need a second lifecycle enum just to explain that difference.
+This separation matters because the same unit may remain active after `[CONTINUE]`, `[ASK_USER]`, `[ERROR]`, or `[DONE]`, but the system should not need a second lifecycle field just to explain that difference.
 
-After the logical unit chooses a keyword and routing is resolved, the engine normalizes to these canonical meanings:
+After the logical unit chooses a keyword and routing is resolved:
 
-- waiting for user is represented as `status = blocked` plus `lastRoutingOutcome = ask-user`
-- an execution problem is represented as `status = blocked` plus `lastRoutingOutcome = error`
-- completion is represented as `status = completed` plus `lastRoutingOutcome = done`
-- terminal failure is represented as `status = failed` plus `lastRoutingOutcome = fail`
+- waiting for user and execution problems are both represented as `status = blocked`
+- completion is represented as `status = completed`
+- terminal failure is represented as `status = failed`
+- the last successful keyword explains how the session reached that status when the distinction matters
 - invalid output is a validation failure that leaves canonical state unchanged and is recorded only in diagnostics
 
-### Why state is split
+### Why canonical state is one file
 
-Stable session metadata and mutable loop execution state change at different rates and have different failure semantics.
+All canonical mutable session data belongs in one state document.
 
 Keep in session state:
 
@@ -248,52 +237,46 @@ Keep in session state:
 - iteration counter
 - selected loop name
 - lifecycle status
-
-Keep in loop execution state:
-
 - active unit name
 - last selected keyword
-- last routing outcome
 - working summary
 - decisions, questions, blockers
 - response-consumption cursor
 
-The split is deliberate because it:
+Keep response text in the append-only response log.
 
-- lets routing behavior evolve without constantly reshaping session identity data
+This is deliberate because it:
+
 - keeps resume validation small and deterministic
-- reduces the blast radius of a bad iteration-state write
-- keeps lifecycle ownership in one place instead of duplicating it across session state and loop state
+- avoids coordinating two canonical state writes
+- reduces the chance of drift between separate state documents
+- keeps routing and working state together in the single file the runtime actually resumes from
 
-### Why `respond` has two modes
+### Why `respond` resumes immediately
 
-The design separates two operator intents:
+The design keeps one operator path after `[ASK_USER]`:
 
-- answer the current `[ASK_USER]` and continue now
-- add more context without spending a provider call yet
+- answer with `respond`
+- the engine stores the response and resumes immediately
 
-Normal mode exists for the common human-in-the-loop path.
+If the operator wants to wait, they can wait before calling `respond`.
 
-Store-only mode exists because operators sometimes want to stage multiple clarifications, capture context while reviewing files, or wait until they are ready to spend the next loop step.
-
-The modes change when the next loop invocation happens, not what gets stored.
+The command does not need a storage-only mode.
 
 ### Exact stored-response contract
 
 The stored-response contract should be explicit and small.
 
 - canonical response storage is `responses.json`
-- human-readable history is mirrored in `memory/user-responses.md`
+- response text may be mirrored in `memory/user-responses.md` as an observability artifact
 - each response entry is append-only and contains `id`, `timestampUtc`, and `text`
 - pending responses are the entries whose `id` is greater than `lastProcessedUserResponseId`
 - pending responses are supplied to the next loop prompt in ascending id order
-- after a successful canonical state update, `lastProcessedUserResponseId` and `lastProcessedUserResponseAt` advance to the newest consumed entry
+- after a successful canonical state update, `lastProcessedUserResponseId` advances to the newest consumed entry
 - a failed iteration must not advance that cursor
 - response text is never rewritten in place; additional operator input always appends a new entry
 
-Normal and store-only `respond` share the same storage contract.
-
-The only difference between the modes is whether `respond` also starts the next loop step immediately.
+`respond` uses this storage contract and immediately starts the next loop step.
 
 Example response log:
 
@@ -343,36 +326,44 @@ The routing design prioritizes:
 
 ---
 
-## Memory Model
+## Canonical State Model
 
-Memory stores persisted facts needed for deterministic resume.
+Canonical state stores the persisted facts needed for deterministic resume.
 
-Keep:
+Keep in canonical state:
 
 - goal
 - loop name
 - lifecycle status
-- active loop unit name
+- active unit name
+- last selected keyword
 - compact working summary
 - decisions
 - open questions
-- persisted user-response log
+- blockers
 - response cursor for the last consumed user response
-- prompts
-- raw outputs
-- logs
 
-Do not use memory as a prose workflow inference layer.
+Do not use canonical state as a prose workflow inference layer.
 
 Routing must come from:
 
 - lifecycle status
 - active unit name
 - last selected keyword
-- last routing outcome
 - built-in keyword behavior
 - transition mapping for loop-specific keywords
 - response cursor when user input is involved
+
+## Observability Artifacts
+
+Artifacts may still be persisted for auditability:
+
+- prompts
+- raw outputs
+- logs
+- human-readable mirrors such as `memory/user-responses.md`
+
+Artifacts must not drive routing.
 
 ---
 
@@ -390,26 +381,16 @@ Routing must come from:
   "model": "gpt-5",
   "sourcePath": "C:\\repo\\sample-app",
   "iterationCount": 3,
-  "status": "active",
-  "createdAtUtc": "2025-01-01T00:00:00Z",
-  "updatedAtUtc": "2025-01-01T00:00:00Z"
-}
-```
-
-### Loop execution state
-
-```json
-{
-  "schemaVersion": 1,
   "activeUnitName": "example_unit",
   "lastSelectedKeyword": "[CONTINUE]",
-  "lastRoutingOutcome": "self-loop",
+  "status": "active",
   "workingSummary": "One requirement is still unclear.",
   "decisions": ["Desktop first"],
   "openQuestions": ["One unresolved question remains."],
   "blockers": [],
   "lastProcessedUserResponseId": 3,
-  "lastProcessedUserResponseAt": "2025-01-01T00:00:00Z"
+  "createdAtUtc": "2025-01-01T00:00:00Z",
+  "updatedAtUtc": "2025-01-01T00:00:00Z"
 }
 ```
 
@@ -423,22 +404,22 @@ Rules:
 - resuming requires the loaded loop definition to contain the persisted `activeUnitName`
 - if either is missing, resume fails deterministically
 - editing a loop definition during an active session is unsupported
-- session state owns lifecycle status
-- loop execution state stores response-consumption metadata, not response text
+- session state stores response-consumption metadata, not response text
 - response text itself lives in the append-only response log
 
 ---
 
 ## Canonical Runtime Surface
 
-The routed loop runtime has four canonical persisted surfaces:
+The routed loop runtime has three canonical persisted surfaces:
 
 - loop definition
 - session state
-- loop execution state
 - response log
 
-The engine reads those surfaces, validates them, and derives a normalized prompt input payload for the active unit.
+Observability artifacts such as prompts, raw outputs, logs, and human-readable mirrors are separate from the canonical runtime surface.
+
+The engine reads the canonical surfaces, validates them, and derives a normalized prompt input payload for the active unit.
 
 The model does not inspect persisted files directly.
 
@@ -451,7 +432,7 @@ The prompt input payload is the reasoning-facing runtime contract.
   "loopName": "example-loop",
   "goal": "Clarify export requirements and route into task generation.",
   "status": "blocked",
-  "lastRoutingOutcome": "ask-user",
+  "lastSelectedKeyword": "[ASK_USER]",
   "activeUnit": {
     "name": "collect_requirements",
     "purpose": "Resolve missing specification details.",
@@ -481,11 +462,11 @@ The prompt input payload is the reasoning-facing runtime contract.
 
 Rules:
 
-- the engine constructs the prompt input payload programmatically from persisted state and the active unit definition
+- the engine constructs the prompt input payload programmatically from session state, the active unit definition, and pending responses
 - the rendered prompt may be markdown or plain text, but it must represent this normalized payload
 - not every persisted field is a prompt input; reasoning inputs are limited to the fields needed by the active unit
 - fields such as `sessionId`, `providerName`, `model`, `sourcePath`, timestamps, lock metadata, and response cursor remain runtime metadata unless a loop explicitly requires them
-- human-readable mirrors such as `memory/user-responses.md` are observability artifacts, not prompt inputs
+- observability artifacts are not prompt inputs
 
 ---
 
@@ -566,7 +547,6 @@ If any step after provider output parsing fails, do not partially commit:
 
 - lifecycle status
 - next active unit
-- last routing outcome
 - last selected keyword
 - workingSummary
 - decisions
@@ -590,9 +570,9 @@ After every successful iteration:
 
 1. accept keyword
 2. resolve built-in behavior or transition
-3. update lifecycle status and loop state
+3. update lifecycle status and working state
 4. set next active unit name
-5. persist updated session state and execution state
+5. persist updated session state
 6. persist logs, prompt, raw output
 7. end invocation
 
@@ -600,21 +580,16 @@ After every successful iteration:
 
 - goal
 - loop name
-- logs, prompts, raw outputs
 
 ### Overwrite
 
+- lifecycle status
 - active loop unit name
 - last selected keyword
-- last routing outcome
 - workingSummary
 - decisions
 - openQuestions
 - blockers
-
-### Overwrite in session state
-
-- lifecycle status
 
 ### Clear or filter
 
@@ -642,29 +617,19 @@ After every successful iteration:
 - output `questions` becomes persisted `openQuestions`
 - output `decisions` becomes persisted `decisions`
 - output `blockers` becomes persisted `blockers`
-- resolved routing sets persisted `status`, `lastRoutingOutcome`, and `activeUnitName`
+- resolved routing sets persisted `status` and `activeUnitName`
 
 ### Response handling
 
-`respond` provides the user's answer.
-
-`respond` supports two modes.
-
-Normal mode:
+`respond` stores the user's answer and immediately resumes the loop.
 
 - store the response
 - require session status `blocked`
 - immediately run the loop again
 - include all pending stored responses in the resumed prompt
-- after a successful resumed loop run, advance the response cursor to the newest consumed entry
-
-Store-only mode:
-
-- store the response
-- preserve canonical loop state until a later `loop` invocation
-- append additional response entries rather than replacing prior text
-
-Both modes share the same append-only response log.
+- after a successful resumed loop run, advance `lastProcessedUserResponseId` to the newest consumed entry
+- if the resumed loop run fails, do not advance the response cursor
+- append a new response entry instead of rewriting prior response text
 
 ---
 
@@ -713,7 +678,7 @@ Malformed JSON, missing required fields, invalid field types, or invalid keyword
 
 - are invocation validation failures, not persisted routing outcomes
 - leave canonical loop state unchanged
-- do not change lifecycle status, `activeUnitName`, `lastSelectedKeyword`, `lastRoutingOutcome`, `workingSummary`, `decisions`, `openQuestions`, `blockers`, or response cursor
+- do not change lifecycle status, `activeUnitName`, `lastSelectedKeyword`, `workingSummary`, `decisions`, `openQuestions`, `blockers`, or response cursor
 - do not consume the stored response
 - still log and persist raw output and validation failure details
 - end current invocation in failure
@@ -724,7 +689,6 @@ Malformed JSON, missing required fields, invalid field types, or invalid keyword
 - successful iteration
 - remain on the same unit
 - set session status to `active`
-- set last routing outcome to `self-loop`
 - apply normal state normalization
 
 #### `[ASK_USER]`
@@ -733,12 +697,10 @@ Malformed JSON, missing required fields, invalid field types, or invalid keyword
 - remain on current unit
 - do not move to a next unit
 - set session status to `blocked`
-- set last routing outcome to `ask-user`
 
 #### `[ERROR]`
 - successful structured execution failure
 - set session status to `blocked`
-- set last routing outcome to `error`
 - persist debugging information
 - alert user
 - stop invocation
@@ -746,13 +708,11 @@ Malformed JSON, missing required fields, invalid field types, or invalid keyword
 #### `[FAIL]`
 - successful structured routing failure
 - set session status to `failed`
-- set last routing outcome to `fail`
 - stop invocation
 
 #### `[DONE]`
 - successful structured completion
 - set session status to `completed`
-- set last routing outcome to `done`
 - retain `activeUnitName` as the last executed unit
 - apply normal state normalization
 - stop invocation
@@ -769,7 +729,7 @@ That rendered prompt should include:
 - `loopName`
 - `goal`
 - `status`
-- `lastRoutingOutcome`
+- `lastSelectedKeyword`
 - `activeUnit.name`
 - `activeUnit.purpose`
 - `activeUnit.instructions`
@@ -780,9 +740,9 @@ That rendered prompt should include:
 - `blockers`
 - `pendingResponses`
 
-The engine loads session state, loop execution state, the active unit definition, and pending responses, then injects that normalized payload into the prompt.
+The engine loads session state, the active unit definition, and pending responses, then injects that normalized payload into the prompt.
 
-The LLM does not read `session.json`, execution-state files, or response-log files directly.
+The LLM does not read `session.json` or response-log files directly.
 
 Do not include large derived workflow documents when the same information is already present in structured state.
 
@@ -792,10 +752,7 @@ Do not include large derived workflow documents when the same information is alr
 
 The routing engine must support explicit user interaction through `respond`.
 
-`respond` has two explicit modes:
-
-- normal mode stores the response and resumes the session immediately
-- store-only mode stores the response and leaves canonical state unchanged until a later `loop` run
+`respond` stores the response and resumes the session immediately.
 
 Flow:
 
@@ -804,11 +761,10 @@ Flow:
 3. invocation stops
 4. user later runs `respond`
 5. `respond` appends the user's response to the session response log
-6. in normal mode, `respond` immediately starts the next loop run
-7. in store-only mode, `respond` stops after storing the response and a later `loop` run consumes it
-8. the next loop run resumes the same active unit
-9. the next run includes all pending stored responses in the prompt
-10. after a successful run, the response cursor advances
+6. `respond` immediately starts the next loop run
+7. the next loop run resumes the same active unit
+8. the next run includes all pending stored responses in the prompt
+9. after a successful run, the response cursor advances
 
 ### `respond` rules
 
@@ -817,10 +773,9 @@ Flow:
 - store a user response for the current session
 - preserve existing loop state until the resumed loop run updates it
 - preserve current active unit until the resumed loop run updates it
-- in normal mode, require session status `blocked`
-- after `[ASK_USER]`, use normal-mode `respond` as the expected recovery path
+- require session status `blocked`
+- after `[ASK_USER]`, use `respond` as the expected recovery path
 - after `[ERROR]`, default to fixing the execution problem and running `loop` again; use `respond` only when the operator wants to attach extra context before that retry
-- in store-only mode, also be usable when the operator wants to provide more information before a later `loop` run
 - append new response entries instead of rewriting prior ones
 
 `respond` should not:
@@ -828,7 +783,6 @@ Flow:
 - directly answer open questions by itself
 - directly change routing by itself
 - reopen a `completed` or `failed` session
-- replace previously stored response text when store-only mode is used
 
 ---
 
@@ -841,7 +795,7 @@ Mutating operations include:
 - `loop`
 - `respond`
 - any future command that writes canonical session state
-- any provider-backed execution that writes loop state
+- any provider-backed execution that writes session state
 
 Required behavior:
 
@@ -858,7 +812,7 @@ Required behavior:
 - an active writer must renew `renewedAtUtc` and `expiresAtUtc` while it still owns the session
 - a second writer that sees an unexpired lock must fail without mutating canonical state
 - a stale lock may be replaced after expiry and is treated as abandoned
-- normal-mode `respond` keeps the same lock across both the response append and the resumed loop run
+- `respond` keeps the same lock across both the response append and the resumed loop run
 - the writer releases the lock after the final canonical state write for that command path
 
 ---
@@ -945,10 +899,8 @@ Each iteration log should include:
 - invocation id
 - loop name
 - lifecycle status after routing
-- active loop unit name
+- active loop unit name before routing
 - selected keyword
-- last routing outcome after routing
-- whether execution stayed or transitioned
 - next active loop unit name
 - summary
 - parse or validation outcome
@@ -974,10 +926,10 @@ These safeguards do not change the routing model.
 This gives the system:
 
 - explicit routing
-- small persisted state
+- one canonical session state file plus an append-only response log
 - deterministic resume behavior
 - clean `respond` integration
-- a single lifecycle status plus a separate last-routing outcome
+- a single lifecycle status
 - lower prompt cost
 - simpler loop authoring
 - less engine complexity
