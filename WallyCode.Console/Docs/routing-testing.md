@@ -97,6 +97,7 @@ The provider must be able to simulate:
 - simulate explicit transitions such as `[SOME_ROUTING_KEYWORD]`
 - simulate built-in override transitions such as `[CONTINUE]` or `[ASK_USER]` when the active unit maps them
 - simulate standard `[ASK_USER]`, `[ERROR]`, `[FAIL]`, and `[DONE]` behavior when no override is defined
+- simulate output that incorrectly attempts to set reserved session-setup or session-management fields
 - simulate invalid keyword output
 - simulate malformed JSON output
 - simulate provider execution exceptions or cancellations
@@ -118,7 +119,7 @@ The following should be treated as required deterministic tests using the concre
 - error-retry-with-response workflow where a blocked standard `[ERROR]` session receives extra operator context through `respond` before the next routed run
 - fail workflow where the engine applies normal successful state normalization and execution stops as `failed` when `[FAIL]` uses its standard behavior
 - built-in override workflow where a built-in keyword has an explicit transition target and routes instead of using its standard behavior
-- invalid-output workflow where malformed JSON or an invalid keyword causes immediate invocation failure without changing session state
+- invalid-output workflow where malformed JSON, an invalid keyword, or reserved session-management fields cause immediate invocation failure without changing session state
 
 ---
 
@@ -165,6 +166,7 @@ Each provider-backed test should define:
 - when relevant, the expected provider call count and confirmation that all scripted invocations were consumed
 - when prompt assertions matter, the expected `definitionName`, `goal`, `status`, `lastSelectedKeyword`, `activeUnit`, `workingSummary`, `decisions`, `openQuestions`, `blockers`, and `pendingResponses` included in the normalized prompt input payload
 - when relevant, the expected rejection of overlapping writes
+- when relevant, the expected rejection of provider output that tries to set session-setup or session-management fields directly
 - the expected persisted `workingSummary`, `decisions`, `openQuestions`, `blockers`, and stored response state, including fields intentionally cleared by omission or empty values
 - the expected completion or stop condition
 

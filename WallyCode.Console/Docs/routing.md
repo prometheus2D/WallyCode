@@ -246,17 +246,9 @@ The runtime should resume from one session state file.
 
 Keep in session state:
 
-- goal
-- provider and model choice
-- source path
-- iteration counter
-- definition identity (`definitionName`)
-- lifecycle status
-- active unit name
-- last selected keyword
-- working summary
-- decisions, questions, blockers
-- response-consumption cursor
+- session setup inputs: goal, definition identity (`definitionName`), provider and model choice, source path
+- engine-managed runtime fields: iteration counter, lifecycle status, active unit name, last selected keyword, response-consumption cursor
+- LLM-derived working state: working summary, decisions, questions, blockers
 
 Keep response text in the append-only response log.
 
@@ -361,6 +353,16 @@ Keep in session state:
 - response cursor for the last consumed user response
 - created timestamp
 - updated timestamp
+
+### Field ownership
+
+Session state is persisted in JSON, but not every persisted field comes from the same source.
+
+- session setup fields come from operator input or session-start configuration: `goal`, `definitionName`, `providerName`, `model`, `sourcePath`
+- engine-managed runtime fields come only from the runtime: `schemaVersion`, `sessionId`, `iterationCount`, `status`, `activeUnitName`, `lastSelectedKeyword`, `lastProcessedUserResponseId`, `createdAtUtc`, `updatedAtUtc`
+- LLM-derived working-state fields come only from normalized successful iteration output: `workingSummary`, `decisions`, `openQuestions`, `blockers`
+- the LLM does not write `session.json` directly
+- the LLM only returns `selectedKeyword`, `summary`, `questions`, `decisions`, and `blockers`; the engine maps those values into persisted state
 
 Do not use session state as a prose workflow explanation layer.
 
@@ -651,6 +653,8 @@ After every successful iteration:
 - output `decisions` becomes persisted `decisions`
 - output `blockers` becomes persisted `blockers`
 - resolved routing sets persisted `status` and `activeUnitName`
+- the runtime, not the LLM, owns `iterationCount`, `status`, `activeUnitName`, `lastSelectedKeyword`, timestamps, and response-cursor updates
+- the LLM only influences persisted state through `selectedKeyword`, `summary`, `questions`, `decisions`, and `blockers`
 
 ### Response handling
 
@@ -684,6 +688,7 @@ Rules:
 
 - `selectedKeyword` is required and controls routing
 - routing destinations never come from provider output
+- the model returns only `selectedKeyword`, `summary`, `questions`, `decisions`, and `blockers`
 - `summary` is recommended because it gives the next run compact context
 - omitted arrays normalize to `[]` and clear the prior persisted array
 - omitted strings normalize to `""` and clear the prior persisted string
@@ -692,6 +697,7 @@ Rules:
 - exactly one `selectedKeyword`
 - keyword must match the active unit's `allowedKeywords`
 - built-in keywords use standard engine behavior unless the active unit defines a transition override for that keyword
+- the model must not emit session-setup or session-management fields such as `goal`, `definitionName`, `providerName`, `model`, `sourcePath`, `status`, `activeUnitName`, `lastSelectedKeyword`, `iterationCount`, timestamps, or response cursor
 - output must be valid JSON
 - invalid keyword means immediate failure
 - no guessing
@@ -703,6 +709,7 @@ If provider output includes extra fields not defined by the contract:
 
 - fields needed by the engine contract must be parsed and used
 - fields not needed by the engine contract should be ignored in v1
+- reserved session-setup or session-management fields that attempt to set persisted metadata must be rejected because those fields are owned by the operator or runtime, not the model
 - reserved routing-control fields that attempt to specify a transition target must be rejected because transition targets come from the routing definition, not the model output
 - unknown fields must not affect routing unless the contract is explicitly expanded to support them
 
