@@ -31,8 +31,8 @@ Turn a requirement or definition document into a concrete ordered task list.
 
 ## Suggested Units
 
-- `analyze_requirements`
-- `produce_tasks`
+- `analyze_requirements`: assess the current requirement state and decide whether more clarification is needed before task generation
+- `produce_tasks`: generate or refine the concrete ordered task list and route forward when it is ready
 
 ---
 

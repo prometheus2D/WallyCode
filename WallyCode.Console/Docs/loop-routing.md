@@ -31,12 +31,12 @@ Companion documents:
 ### Loop
 A named workflow entry point with:
 
-- loop id
-- name
-- description
-- start unit id
-- shared instructions
-- loop units
+- `id`
+- `name`
+- `description`
+- `startUnit`
+- `sharedInstructions`
+- `units`
 
 ### Loop Unit
 The active mode of work.
@@ -105,7 +105,7 @@ Default self-loop keyword.
 
 - iteration succeeds
 - remain on the same unit
-- persist normal state updates
+- persist summary, decisions, open questions, and blockers when provided
 
 ### `[ASK_USER]`
 Built-in user-input keyword.
@@ -114,7 +114,7 @@ Built-in user-input keyword.
 - remain on current unit
 - stop the loop so the user can answer with `respond`
 - do not move to a next unit
-- preserve returned questions and normal state updates
+- persist summary, decisions, open questions, and blockers when provided
 
 `[ASK_USER]` is a built-in keyword, not a loop-defined routing keyword.
 
@@ -133,7 +133,7 @@ Handling:
 - persist summary and blockers when provided
 - persist debugging information
 - alert the user
-- stop the current process
+- stop the current invocation
 
 ### `[FAIL]`
 Routing or reasoning failure.
@@ -274,7 +274,7 @@ The stored-response contract should be explicit and small.
 - each response entry is append-only and contains `id`, `timestampUtc`, and `text`
 - pending responses are the entries whose `id` is greater than `lastProcessedUserResponseId`
 - pending responses are supplied to the next loop prompt in ascending id order
-- after a successful loop iteration, `lastProcessedUserResponseId` and `lastProcessedUserResponseAt` advance to the newest consumed entry
+- after a successful canonical state update, `lastProcessedUserResponseId` and `lastProcessedUserResponseAt` advance to the newest consumed entry
 - a failed iteration must not advance that cursor
 - response text is never rewritten in place; additional operator input always appends a new entry
 
@@ -586,8 +586,7 @@ After every successful iteration:
 ### Carry forward
 
 - goal
-- selected loop id
-- compact working summary
+- loop id
 - logs, prompts, raw outputs
 
 ### Overwrite
@@ -625,10 +624,10 @@ After every successful iteration:
 ### Output-to-state normalization
 
 - output `selectedKeyword` becomes persisted `lastSelectedKeyword`
-- output `summary` becomes persisted `workingSummary`
-- output `questions` becomes persisted `openQuestions`
-- output `decisions` becomes persisted `decisions`
-- output `blockers` becomes persisted `blockers`
+- output `summary` becomes persisted `workingSummary` when that keyword outcome persists summary
+- output `questions` becomes persisted `openQuestions` when that keyword outcome persists questions
+- output `decisions` becomes persisted `decisions` when that keyword outcome persists decisions
+- output `blockers` becomes persisted `blockers` when that keyword outcome persists blockers
 - resolved routing sets persisted `status`, `lastRoutingOutcome`, and `activeUnitId`
 
 ### Response handling
@@ -663,12 +662,9 @@ Each iteration must return strict JSON.
 {
   "selectedKeyword": "[ASK_USER]",
   "summary": "One export-format question remains before requirements are complete.",
-  "workLog": "Reviewed the current state and identified one remaining ambiguity.",
   "questions": ["Should exports support csv only, or csv plus pdf?"],
   "decisions": ["Desktop first", "Local storage is acceptable for v1"],
-  "assumptions": [],
-  "blockers": [],
-  "doneReason": ""
+  "blockers": []
 }
 ```
 
@@ -733,7 +729,7 @@ Malformed JSON, missing required fields, invalid field types, or invalid keyword
 - set last routing outcome to `error`
 - persist debugging information
 - alert user
-- stop process
+- stop invocation
 
 #### `[FAIL]`
 - successful structured routing failure
@@ -949,7 +945,6 @@ Each iteration log should include:
 - whether execution stayed or transitioned
 - next active loop unit id
 - summary
-- done reason if any
 - parse or validation outcome
 
 ---
@@ -976,7 +971,7 @@ This gives the system:
 - small persisted state
 - deterministic resume behavior
 - clean `respond` integration
-- one lifecycle field instead of overlapping lifecycle enums
+- a single lifecycle status plus a separate last-routing outcome
 - lower prompt cost
 - simpler loop authoring
 - less engine complexity

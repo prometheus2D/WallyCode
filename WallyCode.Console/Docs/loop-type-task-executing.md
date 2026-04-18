@@ -32,9 +32,9 @@ Execute tasks until completion.
 
 ## Suggested Units
 
-- `review_task_queue`
-- `execute_task_batch`
-- `review_results`
+- `review_task_queue`: assess pending work and decide whether to execute, ask for clarification, or stop
+- `execute_task_batch`: complete a bounded batch of work
+- `review_results`: validate outcomes and decide whether more execution is needed
 
 ---
 

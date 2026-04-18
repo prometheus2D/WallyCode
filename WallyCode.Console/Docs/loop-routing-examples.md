@@ -51,10 +51,28 @@ Example store-only respond result:
 - user runs `respond` in store-only mode
 - response text is recorded
 - later store-only responses add more response text instead of replacing prior text
-- session status remains `blocked`
+- session status remains unchanged
 - active unit remains `collect_requirements`
 - the loop does not start yet
 - a later `loop` run uses the stored response context
+
+Example error result:
+
+- selected keyword: `[ERROR]`
+- remain on `collect_requirements`
+- stop the loop
+- session status: `blocked`
+- last routing outcome: `error`
+- persist summary and blockers when provided
+
+Example fail result:
+
+- selected keyword: `[FAIL]`
+- remain on `collect_requirements`
+- stop the loop
+- session status: `failed`
+- last routing outcome: `fail`
+- persist summary when provided
 
 ---
 
