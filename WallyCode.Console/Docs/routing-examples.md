@@ -37,6 +37,15 @@ Example transition result:
 - stay inside the same routed definition
 - session status: `active`
 
+Example built-in override result:
+
+- selected keyword: `[CONTINUE]`
+- active unit declares transition `[CONTINUE] -> produce_tasks`
+- move from logical unit `collect_requirements` to logical unit `produce_tasks`
+- stay inside the same routed definition
+- session status: `active`
+- do not apply same-unit repeat behavior for this unit
+
 Example ask-user result:
 
 - selected keyword: `[ASK_USER]`
@@ -81,6 +90,6 @@ The engine only cares about:
 
 - active unit name
 - selected keyword
-- built-in keyword behavior
-- matching transition for definition-specific keywords
-- definition transition target unit name when a definition-specific keyword transitions
+- explicit transition override when the active unit defines one
+- standard built-in keyword behavior when no override is defined
+- definition transition target unit name when a keyword transitions

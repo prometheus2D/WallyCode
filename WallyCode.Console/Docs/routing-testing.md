@@ -95,7 +95,8 @@ The provider must be able to simulate:
 - return fixed JSON payloads in sequence across successive calls
 - simulate same-unit repeat results such as `[CONTINUE]`
 - simulate explicit transitions such as `[SOME_ROUTING_KEYWORD]`
-- simulate `[ASK_USER]`, `[ERROR]`, `[FAIL]`, and `[DONE]`
+- simulate built-in override transitions such as `[CONTINUE]` or `[ASK_USER]` when the active unit maps them
+- simulate standard `[ASK_USER]`, `[ERROR]`, `[FAIL]`, and `[DONE]` behavior when no override is defined
 - simulate invalid keyword output
 - simulate malformed JSON output
 - simulate provider execution exceptions or cancellations
@@ -110,12 +111,13 @@ The following should be treated as required deterministic tests using the concre
 
 - single-step success where exactly one provider call is executed and asserted in isolation
 - prompt-rendering step where a single invocation verifies the normalized prompt input payload and rendered prompt
-- same-unit repeat workflow where the active unit returns `[CONTINUE]` and remains active
-- ask-user workflow where the engine applies normal successful state normalization, records returned questions, and stops
-- done workflow where the session is marked complete and retains the last `activeUnitName`
-- error workflow where the engine applies normal successful state normalization, sets the session to `blocked`, and alerts the user
-- error-retry-with-response workflow where a blocked `[ERROR]` session receives extra operator context through `respond` before the next routed run
-- fail workflow where the engine applies normal successful state normalization and execution stops as `failed`
+- same-unit repeat workflow where the active unit returns `[CONTINUE]` with no override and remains active
+- ask-user workflow where the engine applies normal successful state normalization, records returned questions, and stops when `[ASK_USER]` uses its standard behavior
+- done workflow where the session is marked complete and retains the last `activeUnitName` when `[DONE]` uses its standard behavior
+- error workflow where the engine applies normal successful state normalization, sets the session to `blocked`, and alerts the user when `[ERROR]` uses its standard behavior
+- error-retry-with-response workflow where a blocked standard `[ERROR]` session receives extra operator context through `respond` before the next routed run
+- fail workflow where the engine applies normal successful state normalization and execution stops as `failed` when `[FAIL]` uses its standard behavior
+- built-in override workflow where a built-in keyword has an explicit transition target and routes instead of using its standard behavior
 - invalid-output workflow where malformed JSON or an invalid keyword causes immediate invocation failure without changing session state
 
 ---
@@ -125,6 +127,7 @@ The following should be treated as required deterministic tests using the concre
 The following should be treated as required routed workflow scenarios and should still be asserted one invocation at a time with the concrete mock provider:
 
 - transition workflow where a keyword moves execution to another logical unit
+- built-in-override transition workflow where a built-in keyword moves execution to another logical unit because the active unit maps it
 - response-submission workflow where a user response is stored, the same unit resumes, and the response cursor advances after success
 - state-replacement workflow where omitted or empty structured fields clear prior working state and only returned values persist for the next logical unit
 - persistence-failure workflow where session state remains unchanged
@@ -141,7 +144,7 @@ The following should also be covered by tests without invoking the provider:
 - duplicate transition keys in a unit are rejected
 - a transition key not present in `allowedKeywords` is rejected
 - a definition-specific keyword in `allowedKeywords` that is missing from `transitions` is rejected
-- a built-in keyword appearing in `transitions` is rejected
+- a built-in keyword in `transitions` is accepted as a unit-local override
 - an invalid transition target logical unit name is rejected
 - a unit cannot use a built-in keyword unless it appears in that unit's `allowedKeywords`
 

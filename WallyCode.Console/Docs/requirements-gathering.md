@@ -44,6 +44,10 @@ Collect missing requirements from the user until the specification is clear enou
 - `[FAIL]`
 - `[DONE]`
 
+Use `[CONTINUE]` to keep `collect_requirements` active while the specification is still being clarified.
+
+Use `[REQUIREMENTS_READY]` to route from `collect_requirements` to the next linked logical unit.
+
 ---
 
 ## Suggested Unit Shape

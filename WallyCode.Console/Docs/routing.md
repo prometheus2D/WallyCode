@@ -74,7 +74,7 @@ Examples:
 Definition-specific keywords may also exist.
 
 ### Transition
-A unit-local mapping from a definition-specific keyword to the next unit `name`.
+A unit-local mapping from a keyword to the next unit `name`.
 
 Each logical unit declares only its own outgoing transitions.
 
@@ -84,10 +84,10 @@ Definition-specific keywords do not have implicit routing behavior.
 
 If a definition-specific keyword is valid for a unit, that unit must define a transition target for it.
 
-Built-in standard keywords use built-in engine behavior and are not overridden by definition transition logic.
+Built-in standard keywords use their standard behavior unless the active unit defines a transition for that keyword.
 
 ### Built-In Keyword
-A standard keyword with fixed engine behavior.
+A standard keyword with engine-defined default behavior.
 
 Built-in standard keywords:
 
@@ -100,19 +100,23 @@ Built-in standard keywords:
 Built-in keywords:
 
 - must still appear in a unit's `allowedKeywords` to be valid there
-- use engine-defined behavior
-- cannot be redefined by a definition author
+- use engine-defined default behavior when no transition override is declared
+- may be overridden for a specific unit by declaring a transition target for that keyword in that unit's `transitions`
 
 ### `transitions`
-Unit definition data that maps each definition-specific keyword directly to the next unit `name`.
+Unit definition data that maps an allowed keyword directly to the next unit `name`.
 
 Transition targets come from the active unit's declared `transitions`, not iteration output.
+
+A built-in keyword in `transitions` overrides its standard behavior for that unit.
 
 Use the unit `name` as the routing target.
 
 ---
 
 ## Standard Keywords
+
+These are the standard built-in behaviors. They apply only when the active unit does not define a transition override for the selected built-in keyword.
 
 ### `[CONTINUE]`
 Default same-unit repeat keyword.
@@ -128,7 +132,7 @@ Built-in user-input keyword.
 - stop the current session so the user can answer with `respond`
 - do not move to a next unit
 
-`[ASK_USER]` is a built-in keyword, not a definition-defined routing keyword.
+`[ASK_USER]` is a built-in keyword with standard behavior, not a definition-specific keyword.
 
 ### `[ERROR]`
 Concrete execution failure.
@@ -178,7 +182,7 @@ The output fields `summary`, `questions`, `decisions`, and `blockers` normalize 
 
 If one of those output fields is omitted or returned empty, the persisted value is cleared.
 
-A successful iteration must return any working-state value the next logical unit still needs.
+This applies to same-unit repeats and transitions. Omission or empty output intentionally clears prior working state, so any value the same or next logical unit still needs must be returned again.
 
 Validation failures are the only case that leave working state unchanged.
 
@@ -199,10 +203,10 @@ Each logical unit chooses its routing result by returning one valid `selectedKey
 
 After keyword validation and transition resolution, the engine normalizes session status as follows:
 
-- `[CONTINUE]` or a resolved definition-specific transition sets `status = active`
-- `[ASK_USER]` or `[ERROR]` sets `status = blocked`
-- `[DONE]` sets `status = completed`
-- `[FAIL]` sets `status = failed`
+- `[CONTINUE]` without transition override, or any keyword with a resolved explicit transition target, sets `status = active`
+- `[ASK_USER]` or `[ERROR]` without transition override sets `status = blocked`
+- `[DONE]` without transition override sets `status = completed`
+- `[FAIL]` without transition override sets `status = failed`
 - invocation validation failures leave the existing stored values unchanged
 
 ---
@@ -226,13 +230,13 @@ Keep these roles separate:
 - `lastSelectedKeyword`: what the last successful structured iteration decided
 - `lastProcessedUserResponseId`: which user responses have already been consumed
 
-This separation matters because the same unit may remain active after `[CONTINUE]`, `[ASK_USER]`, `[ERROR]`, `[FAIL]`, or `[DONE]`, but the system should not need a second lifecycle field just to explain that difference.
+This separation matters because standard built-in behavior may leave the same unit active, while a unit-local transition override may move to another unit, but the system should not need a second lifecycle field just to explain that difference.
 
 After the logical unit chooses a keyword and routing is resolved:
 
-- waiting for user and execution problems are both represented as `status = blocked`
-- completion is represented as `status = completed`
-- terminal failure is represented as `status = failed`
+- standard `[ASK_USER]` and `[ERROR]` behavior are both represented as `status = blocked`
+- standard `[DONE]` behavior is represented as `status = completed`
+- standard `[FAIL]` behavior is represented as `status = failed`
 - the last successful keyword explains how the session reached that status when the distinction matters
 - invalid output is a validation failure that leaves session state unchanged and is recorded only in diagnostics
 
@@ -265,7 +269,7 @@ This is deliberate because it:
 
 ### Why `respond` resumes immediately
 
-The design keeps one operator path after `[ASK_USER]`:
+The design keeps one operator path after standard `[ASK_USER]` behavior:
 
 - answer with `respond`
 - the engine stores the response and resumes immediately
@@ -310,19 +314,16 @@ Cursor example:
 
 ### Whether built-ins are truly rigid
 
-Yes, in the sense that the engine owns their semantics.
+Not completely. They are standard by default, but a unit can override them with an explicit transition.
 
-Rigid means:
+Standard by default means:
 
-- definition authors cannot redefine `[CONTINUE]`, `[ASK_USER]`, `[DONE]`, `[ERROR]`, or `[FAIL]`
-- definition authors cannot attach custom transition-target behavior to those built-ins
-- the engine, not the routing definition, decides what those keywords do
+- the engine defines the default behavior for `[CONTINUE]`, `[ASK_USER]`, `[DONE]`, `[ERROR]`, and `[FAIL]`
+- a unit may use a built-in keyword only if it appears in that unit's `allowedKeywords`
+- if the active unit does not define a transition for that built-in keyword, the standard behavior is used
+- if the active unit defines a transition for that built-in keyword, that explicit transition overrides the standard behavior for that unit only
 
-Rigid does not mean every unit must expose every built-in.
-
-Units still control access through `allowedKeywords`.
-
-That boundary is intentional: built-ins define engine control flow, while definition-specific keywords define workflow meaning.
+That boundary is intentional: built-ins provide reusable standard outcomes, while unit-local transitions still let a logical unit replace a default when needed.
 
 ### Design priorities
 
@@ -343,7 +344,12 @@ Session state stores the persisted facts needed to resume the session reliably.
 
 Keep in session state:
 
+- schema version
+- session id
 - goal
+- provider and model choice
+- source path
+- iteration counter
 - definition identity (`definitionName`)
 - lifecycle status
 - active unit name
@@ -353,6 +359,8 @@ Keep in session state:
 - open questions
 - blockers
 - response cursor for the last consumed user response
+- created timestamp
+- updated timestamp
 
 Do not use session state as a prose workflow explanation layer.
 
@@ -361,8 +369,8 @@ Routing must come from:
 - lifecycle status
 - active unit name
 - last selected keyword
-- built-in keyword behavior
-- transition mapping for definition-specific keywords
+- explicit transition mapping for the active unit when one exists
+- standard built-in keyword behavior when no override is defined
 - response cursor when user input is involved
 
 ## Debugging Artifacts
@@ -477,8 +485,8 @@ Rules:
 
 - the engine constructs the prompt input payload programmatically from session state, the active unit definition, and pending responses
 - the rendered prompt may be markdown or plain text, but it must represent this normalized payload
-- not every persisted field is a prompt input; reasoning inputs are limited to the fields needed by the active unit
-- fields such as `sessionId`, `providerName`, `model`, `sourcePath`, timestamps, and response cursor remain persisted runtime metadata unless a logical unit explicitly requires them
+- the prompt input payload for v1 is the normalized payload defined in this section
+- persisted runtime metadata such as `sessionId`, `providerName`, `model`, `sourcePath`, timestamps, and response cursor stays out of the prompt unless this contract is explicitly expanded
 - observability artifacts are not prompt inputs
 
 ---
@@ -499,17 +507,18 @@ Resolution order:
 
 1. accept the selected keyword
 2. validate it against the active unit
-3. apply built-in keyword behavior when the keyword is built in
-4. otherwise resolve the explicit transition target
+3. if the active unit defines a transition for the selected keyword, resolve that explicit transition target
+4. otherwise apply standard built-in keyword behavior when the keyword is built in
 5. determine the next active unit
 6. normalize and persist state
 
 Rules:
 
 - a definition-specific keyword must have an explicit transition target in the active unit definition
-- a resolved definition transition target moves to that target after successful iteration
-- `[ASK_USER]` persists normalized state, stops, waits for `respond`, and remains on the same unit
-- `[DONE]` ends the session after normal successful state normalization
+- a built-in keyword may also have an explicit transition target in the active unit definition; that target overrides its standard behavior for that unit
+- a resolved transition target moves to that target after successful iteration and sets `status = active`
+- `[ASK_USER]` persists normalized state, stops, waits for `respond`, and remains on the same unit only when no transition override is defined
+- `[DONE]` ends the session after normal successful state normalization only when no transition override is defined
 
 ### Transition Resolution Details
 
@@ -520,10 +529,10 @@ The engine resolves any transition from the active unit definition.
 Design rules:
 
 - the model does not emit a transition target
-- the engine resolves the target unit `name` from the routing definition when a definition-specific keyword has a matching transition
-- use `[CONTINUE]` for an intentional same-unit repeat
-- use `[ASK_USER]` when the current session must stop and wait for user input
-- definition authors must not override built-in keyword behavior
+- the engine resolves the target unit `name` from the routing definition when the active unit has a matching transition for the selected keyword
+- if no transition override exists, built-ins use their standard behavior
+- use `[CONTINUE]` for an intentional same-unit repeat when no override is defined
+- use `[ASK_USER]` when the current session must stop and wait for user input and no override is defined
 
 Examples:
 
@@ -533,7 +542,7 @@ Examples:
 }
 ```
 
-- remain on same unit
+- if the active unit does not define a transition for `[ASK_USER]`, remain on same unit
 - persist returned `summary` and `questions`, then normalize them into `workingSummary` and `openQuestions`
 - stop and wait for `respond`
 
@@ -541,6 +550,11 @@ If `selectedKeyword` is `[SOME_ROUTING_KEYWORD]` and the routing definition maps
 
 - no ask-user behavior
 - next active unit becomes `another_unit`
+
+If `selectedKeyword` is `[CONTINUE]` and the active unit maps that keyword to `another_unit`:
+
+- next active unit becomes `another_unit`
+- standard same-unit repeat behavior does not apply for that unit
 
 ---
 
@@ -582,7 +596,7 @@ Diagnostic artifacts may still be persisted separately:
 After every successful iteration:
 
 1. accept keyword
-2. resolve built-in behavior or transition
+2. resolve explicit transition override or standard built-in behavior
 3. update lifecycle status and working state
 4. set next active unit name
 5. persist updated session state
@@ -677,7 +691,7 @@ Rules:
 - a successful iteration must return any working-state value the next logical unit still needs
 - exactly one `selectedKeyword`
 - keyword must match the active unit's `allowedKeywords`
-- built-in keywords use built-in engine behavior
+- built-in keywords use standard engine behavior unless the active unit defines a transition override for that keyword
 - output must be valid JSON
 - invalid keyword means immediate failure
 - no guessing
@@ -703,7 +717,9 @@ Malformed JSON, missing required fields, invalid field types, or invalid keyword
 - still log and persist raw output and validation failure details
 - end current invocation in failure
 
-### Standard keyword behavior
+### Standard keyword default behavior
+
+The behaviors below are the standard defaults. If the active unit defines a transition for the selected built-in keyword, that explicit transition overrides the behavior below for that unit.
 
 #### `[CONTINUE]`
 - successful iteration
@@ -779,7 +795,7 @@ The routing engine must support explicit user interaction through `respond`.
 
 Flow:
 
-1. active unit selects `[ASK_USER]`
+1. active unit selects `[ASK_USER]` with no transition override
 2. engine records returned questions through normal successful iteration persistence
 3. invocation stops
 4. user later runs `respond`
@@ -797,8 +813,8 @@ Flow:
 - preserve existing session state until the resumed routed run updates it
 - preserve current active unit until the resumed routed run updates it
 - require session status `blocked`
-- after `[ASK_USER]`, use `respond` as the expected recovery path
-- after `[ERROR]`, default to fixing the execution problem and starting another routed run; use `respond` only when the operator wants to attach extra context before that retry
+- after standard `[ASK_USER]` behavior, use `respond` as the expected recovery path
+- after standard `[ERROR]` behavior, default to fixing the execution problem and starting another routed run; use `respond` only when the operator wants to attach extra context before that retry
 - append new response entries instead of rewriting prior ones
 
 `respond` should not:
@@ -845,10 +861,11 @@ Built-in standard keywords are:
 Rules:
 
 - a unit may use a built-in keyword only if it appears in that unit's `allowedKeywords`
-- built-in keyword behavior is defined by the engine
-- definition authors cannot override built-in keyword behavior
-- `[ASK_USER]` always stops the current session and waits for `respond`
-- `[ASK_USER]` never routes to a next unit
+- built-in keywords have standard engine behavior when the active unit does not define a transition for them
+- a unit may override a built-in keyword by declaring a transition target for that keyword in that unit's `transitions`
+- when a built-in keyword is overridden, that explicit transition is used for that unit
+- standard `[ASK_USER]` behavior stops the current session and waits for `respond`
+- standard `[ASK_USER]` behavior does not route to a next unit
 
 ---
 
@@ -902,7 +919,7 @@ Validation rules:
 - transition keys within a unit must be unique
 - every transition key must appear in that unit's `allowedKeywords`
 - every definition-specific keyword in `allowedKeywords` must appear in `transitions`
-- built-in keywords must not appear in `transitions`
+- built-in keywords may appear in `transitions` to override their standard behavior for that unit
 - every transition target unit name must be an existing unit name
 
 ---
@@ -936,7 +953,7 @@ These safeguards do not change the routing model.
 
 ## Final Direction
 
-**The system is a linked set of logical units. One logical unit is active at a time. That logical unit repeats by default. The model returns one keyword. That keyword either keeps execution on the same logical unit, asks the user for input and stops, moves to another logical unit, or ends the session. Built-in keywords are engine-defined, but each logical unit still controls access to them through `allowedKeywords`.**
+**The system is a linked set of logical units. One logical unit is active at a time. That logical unit repeats by default. The model returns one keyword. That keyword either uses a standard built-in behavior or an explicit unit-local transition. Built-in keywords provide standard behavior by default, but a logical unit may override a built-in by declaring a transition for it.**
 
 This gives the system:
 
