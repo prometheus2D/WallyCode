@@ -36,6 +36,10 @@ Readme-style walkthroughs live in [WallyCode.Console/Tutorials](WallyCode.Consol
 - [WallyCode.Console/Tutorials/repo-review.md](WallyCode.Console/Tutorials/repo-review.md) - use `ask` style workflows to review a repository without changing files.
 - [WallyCode.Console/Tutorials/tic-tac-toe.md](WallyCode.Console/Tutorials/tic-tac-toe.md) - use the routed loop to build a small game step by step.
 
+Tutorial automation and regression guidance lives here:
+
+- [WallyCode.Console/Docs/tutorial-automation-process.md](WallyCode.Console/Docs/tutorial-automation-process.md) - use tutorials as executable scenarios with mock-provider tests and live runs.
+
 The `tutorial` command is intended to list these guides and print one by name:
 
 ```text
@@ -213,3 +217,4 @@ That model already allows one installed executable to work against different rep
 Background on the routing model lives under [WallyCode.Console/Docs](WallyCode.Console/Docs).
 
 - [WallyCode.Console/Docs/setup-and-remote-workspaces.md](WallyCode.Console/Docs/setup-and-remote-workspaces.md) - proposed setup flow, self-copy behavior, and remote workspace model.
+- [WallyCode.Console/Docs/tutorial-automation-process.md](WallyCode.Console/Docs/tutorial-automation-process.md) - tutorial automation process for mock-provider regression tests and live scenario runs.

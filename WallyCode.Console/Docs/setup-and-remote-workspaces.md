@@ -39,11 +39,11 @@ Runtime content lives beside the executable:
 - routing definitions are read from `Routing/Definitions` under the app base directory
 - tutorials are read from `Tutorials` under the app base directory
 
-Because of that, a working deployment needs the companion files unless one of these is true:
+The published build copies these companion files beside the executable.
 
-1. the published build copies the companion files with it
-2. the app embeds these assets into the assembly
-3. the publish output is a true single-file bundle that still gives the app access to its data
+`setup` does not install, move, or copy runtime assets. It assumes the published app folder is already complete and only prepares the target directory.
+
+This design keeps runtime content editable and does not require embedded assets or a single-file bundle.
 
 ## Proposed command shape
 
@@ -209,21 +209,14 @@ In every case:
 
 ## Recommended implementation order
 
-Phase 1:
-
 1. add `setup`
 2. make `setup` resolve one target directory and verify whether setup already exists there
 3. add `--force` to recreate setup completely when needed
 4. add `--directory` as the explicit target override
 5. use current working directory as the runtime workspace selector
 6. add `--vs-build` for standard Visual Studio output folders and resolve to the repo git root
-7. keep PATH updates manual and print exact instructions instead of editing the user environment automatically
-
-Phase 2:
-
-1. decide whether to embed routing definitions and tutorials or move to a single-file publish model later if packaging becomes a problem
-2. revisit whether setup needs any other flags after real usage
-3. revisit whether a stronger install experience is needed later
+7. ensure published builds copy `Routing/Definitions` and `Tutorials` beside the executable
+8. keep PATH updates manual and print exact instructions instead of editing the user environment automatically
 
 ## Design decisions
 
@@ -235,10 +228,14 @@ This design uses these rules:
 4. `--force` does a full fresh setup in the target directory.
 5. Workspace initialization writes the default provider and default model.
 6. Visual Studio build mode resolves to the topmost git-level workspace.
-7. Runtime content stays as external files for easy editing.
+7. Published builds copy `Routing/Definitions` and `Tutorials` beside the executable.
+8. Runtime content stays as external files for easy editing.
+9. PATH handling stays manual; setup prints next steps rather than editing the user environment.
+10. `setup` does not install, move, or copy the app.
+11. The setup surface for this design is `setup`, `--directory`, `--force`, and `--vs-build`.
 
 ## Short conclusion
 
 Yes, the idea makes sense.
 
-WallyCode uses a simple split: `setup` prepares one target directory, and normal commands operate on the current working directory. The future-state design keeps setup small, supports a clean reset with `--force`, supports git-root Visual Studio build behavior, and keeps runtime content easy to edit.
+WallyCode uses a simple split: `setup` prepares one target directory, and normal commands operate on the current working directory. This design is ready to implement: published builds ship the required companion files, setup stays small, `--force` provides a clean reset, Visual Studio builds resolve to the repo git root, and runtime content stays easy to edit.
