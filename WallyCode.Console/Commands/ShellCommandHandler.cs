@@ -112,6 +112,8 @@ internal sealed class ShellCommandHandler
     private static bool SupportsMemoryRoot(string commandName)
     {
         return string.Equals(commandName, "loop", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(commandName, "ask", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(commandName, "act", StringComparison.OrdinalIgnoreCase)
             || string.Equals(commandName, "respond", StringComparison.OrdinalIgnoreCase)
             || string.Equals(commandName, "shell", StringComparison.OrdinalIgnoreCase);
     }
