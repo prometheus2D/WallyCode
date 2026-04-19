@@ -6,10 +6,10 @@ WallyCode should be easy to move, easy to install, and easy to point at any work
 
 The target user flow is simple:
 
-1. Copy one published WallyCode build to a machine.
-2. Run one setup command.
-3. Point WallyCode at any repo with `--source`.
-4. Keep repo settings and session state with the repo, not with the executable.
+1. Run `setup` where the app already lives to create a local Wally workspace.
+2. If needed, copy the current app to another folder and set it up there.
+3. Point WallyCode at any repo with `--source` when you want a different workspace.
+4. Keep repo settings and session state with the chosen workspace, not with the executable process itself.
 
 ## Terms
 
@@ -54,18 +54,46 @@ Suggested behavior:
 
 ```text
 wallycode setup
-wallycode setup --install-dir C:\Tools\WallyCode
-wallycode setup --source C:\src\my-repo
-wallycode setup --install-dir C:\Tools\WallyCode --source C:\src\my-repo
+wallycode setup --init
+wallycode setup --init --directory C:\Tools\WallyCode
+wallycode setup --init --force
+wallycode setup --init --install-dir C:\Tools\WallyCode
+wallycode setup --init --source C:\src\my-repo
+wallycode setup --init --vs-build
+wallycode setup --init --install-dir C:\Tools\WallyCode --source C:\src\my-repo
 ```
+
+Running `wallycode setup` by itself should not silently create or copy anything. It should print setup instructions or the help text so the user can choose the exact setup mode.
+
+`--init` should be the flag that actually initializes a target directory.
+
+- `wallycode setup --init` initializes the folder where the current executable is running.
+- `wallycode setup --init --directory C:\somewhere` initializes the provided directory instead.
+- if the provided directory is meant to become a copied install, setup should copy the current app there first and then initialize that same directory.
+- `--force`, `--vs-build`, `--source`, and `--install-dir` are modifiers on `--init`, not stand-alone setup actions.
 
 The command should do the following:
 
 1. Resolve the current running executable or published app folder.
-2. Copy WallyCode into the target install directory.
-3. Ensure required runtime assets are copied with it.
-4. Optionally initialize a target source workspace if `--source` is provided.
-5. Print the exact next commands the user should run.
+2. If `setup` is run with no mode flags, print help or setup instructions and stop.
+3. If `--init` is provided with no directory argument, use the current app folder as the setup location.
+4. If `--init` is provided with a directory argument, use that provided directory as the setup location.
+5. If `wallycode.json` already exists in the chosen setup location, leave it alone.
+6. If `wallycode.json` does not exist in the chosen setup location, create it.
+7. If `--force` is provided with `--init`, always create a fresh setup file.
+8. If `--install-dir` is provided for a copy-based setup, copy WallyCode into that target directory first.
+9. Ensure required runtime assets are copied with it.
+10. Initialize the setup file in the final target location.
+11. If `--source` is provided, use that as the workspace WallyCode will operate on.
+12. Print the exact next commands the user should run.
+
+This keeps setup simple by default:
+
+- `setup` by itself prints instructions or help
+- `setup --init` initializes the folder where the app already runs
+- `setup --init --directory <path>` initializes that provided directory instead
+- remote setup copies the app to another folder and creates setup there
+- `setup --init --force` recreates setup when the user wants a clean start
 
 ## Self-copy behavior
 
@@ -78,21 +106,50 @@ That means the implementation should treat the current app location as the sourc
 
 This gives us a clean story for "I have the exe, now install it somewhere useful."
 
+For the first pass, this should work as a directory copy, not as an exe-only copy. The copied location should become a valid Wally install with the setup file created there if it does not already exist.
+
 ## Workspace initialization
 
 If `--source` is provided, `setup` should treat that path as the workspace WallyCode will operate on.
 
 Suggested first-pass behavior:
 
-1. validate the workspace path exists
-2. create `wallycode.json` if it does not exist yet
-3. leave provider selection at the default unless the user passes an explicit provider or model
-4. print the exact command to start with, for example:
+1. if `--source` is provided, validate that path and use it as the workspace
+2. otherwise, if `--init` has no directory argument, use the current app folder as the workspace
+3. otherwise, if `--init` has a directory argument, use that provided directory as the workspace
+4. if `--install-dir` is provided, use the copied install folder as the workspace unless `--source` overrides it
+5. create `wallycode.json` if it does not exist yet
+6. if `wallycode.json` already exists, leave it alone unless `--force` is provided
+7. use the default provider and the default model during workspace initialization unless the user passes an explicit override
+8. print the exact command to start with, for example:
 
 ```text
 wallycode provider --source C:\src\my-repo
 wallycode loop --definition ask "Summarize this repository in one short paragraph." --source C:\src\my-repo
 ```
+
+## Visual Studio build mode
+
+We also want a simple path for local development builds.
+
+When WallyCode is running from a normal Visual Studio output path such as:
+
+```text
+<project>\bin\Debug\net8.0\
+<project>\bin\Release\net8.0\
+```
+
+`setup --init --vs-build` should treat the parent development workspace as the setup target instead of the build output folder.
+
+Expected behavior:
+
+1. detect that the app is running from a standard Visual Studio build or release folder
+2. walk upward to the git root for the repo the build came from
+3. use that topmost git-level workspace as the setup target so test runs and local debug runs work against the same solution they were built from
+4. create `wallycode.json` there if it does not exist yet
+5. leave the existing file alone unless `--force` is provided
+
+This gives the right local-development behavior: the executable can run from `bin\Debug` or `bin\Release`, but setup lands at the repo git root instead of inside the build output.
 
 ## Remote usage examples
 
@@ -116,27 +173,32 @@ In every case:
 Phase 1:
 
 1. add `setup`
-2. copy the published app directory, not just the exe
-3. include tutorials and routing definitions as copied content
-4. keep PATH updates manual and print exact instructions instead of editing the user environment automatically
+2. make `setup` with no arguments print help or setup instructions
+3. add `--force` to recreate the setup file when needed
+4. add `--init` so setup only runs when the user explicitly asks for initialization
+5. add `--vs-build` for standard Visual Studio output folders and resolve to the repo git root
+6. copy the published app directory, not just the exe
+7. include tutorials and routing definitions as copied content
+8. keep PATH updates manual and print exact instructions instead of editing the user environment automatically
 
 Phase 2:
 
 1. decide whether to embed routing definitions and tutorials or move to a single-file publish model
 2. once runtime assets no longer depend on sibling files, allow true exe-only self-copy
-3. optionally add a stronger install experience such as a stable default install directory
+3. revisit whether a stronger install experience is needed later
 
-## Open decisions
+## Product decisions
 
-These still need a product call before code changes:
+These decisions are now settled for the first implementation:
 
-1. Default install directory: should we use a user-local folder like `%LocalAppData%\WallyCode\bin` or a simple path under the current working folder?
-2. PATH handling: should `setup` only print instructions, or should it offer an explicit flag to update PATH?
-3. Workspace init: should `setup --source` create `wallycode.json` only, or also let the user pick provider and model during setup?
-4. Packaging: do we want to keep external content files for easy editing, or embed them so a lone exe is enough?
+1. There is no default install directory for now.
+2. `setup` by itself should only print instructions or help.
+3. Workspace initialization should use a default model.
+4. Visual Studio build mode should resolve to the topmost git-level workspace.
+5. Runtime content should stay as external files for easy editing.
 
 ## Short conclusion
 
 Yes, the idea makes sense.
 
-WallyCode already has the right workspace model for remote use through `--source`. The missing work is mostly around packaging and a clearer install command, not around the core execution model.
+WallyCode already has the right workspace model for remote use through `--source`. The remaining work is to make `setup` clearer and safer: help by default, local setup when chosen, remote copy when needed, `--force` for a clean reset, git-root Visual Studio build behavior, and external runtime content that stays easy to edit.
