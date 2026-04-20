@@ -35,6 +35,11 @@ internal sealed class ShellCommandHandler
 			Console.WriteLine($"Shell using default memory root: {ProjectSettings.ResolveRuntimeRoot(resolvedSourcePath, memoryRoot: null)}");
         }
 
+        if (_options.Log)
+        {
+            Console.WriteLine($"Shell logging enabled{(_options.Verbose ? " (verbose)" : string.Empty)}.");
+        }
+
         Console.WriteLine();
 
         while (!cancellationToken.IsCancellationRequested)
@@ -106,6 +111,16 @@ internal sealed class ShellCommandHandler
             effectiveArgs.Add(_options.MemoryRoot);
         }
 
+        if (SupportsLogging(args[0]) && _options.Log && !HasOption(args, "log"))
+        {
+            effectiveArgs.Add("--log");
+        }
+
+        if (SupportsLogging(args[0]) && _options.Verbose && !HasOption(args, "verbose"))
+        {
+            effectiveArgs.Add("--verbose");
+        }
+
         return effectiveArgs.ToArray();
     }
 
@@ -116,6 +131,14 @@ internal sealed class ShellCommandHandler
             || string.Equals(commandName, "act", StringComparison.OrdinalIgnoreCase)
             || string.Equals(commandName, "respond", StringComparison.OrdinalIgnoreCase)
             || string.Equals(commandName, "shell", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool SupportsLogging(string commandName)
+    {
+        return string.Equals(commandName, "loop", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(commandName, "ask", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(commandName, "act", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(commandName, "respond", StringComparison.OrdinalIgnoreCase);
     }
 
     private static bool HasOption(IEnumerable<string> args, string optionName)

@@ -4,6 +4,12 @@ using WallyCode.ConsoleApp.Copilot;
 
 namespace WallyCode.ConsoleApp.Project;
 
+internal sealed class LoggingSettings
+{
+    public bool Enabled { get; set; }
+    public bool Verbose { get; set; }
+}
+
 internal sealed class ProjectSettings
 {
     private static readonly string DefaultProviderName = ProviderRegistry.DefaultProviderName;
@@ -19,6 +25,8 @@ internal sealed class ProjectSettings
 
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? Model { get; set; }
+
+    public LoggingSettings Logging { get; set; } = new();
 
     public DateTimeOffset UpdatedAtUtc { get; set; } = DateTimeOffset.UtcNow;
 
@@ -36,6 +44,7 @@ internal sealed class ProjectSettings
 
         settings.Provider = ResolveProviderName(settings.Provider);
         settings.Model = ResolveModelName(settings.Model);
+        settings.Logging ??= new LoggingSettings();
 
         if (settings.UpdatedAtUtc == default)
         {
@@ -50,6 +59,7 @@ internal sealed class ProjectSettings
         Directory.CreateDirectory(projectRoot);
         Provider = ResolveProviderName(Provider);
         Model = ResolveModelName(Model);
+        Logging ??= new LoggingSettings();
         UpdatedAtUtc = DateTimeOffset.UtcNow;
 
         var json = JsonSerializer.Serialize(this, SerializerOptions);

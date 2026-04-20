@@ -33,7 +33,7 @@ internal static class Program
 			settings.AutoVersion = true;
 		});
 
-		var result = parser.ParseArguments<LoopCommandOptions, AskCommandOptions, ActCommandOptions, ProviderCommandOptions, RespondCommandOptions, ShellCommandOptions, TutorialCommandOptions, SetupCommandOptions>(args);
+		var result = parser.ParseArguments<LoopCommandOptions, AskCommandOptions, ActCommandOptions, ProviderCommandOptions, RespondCommandOptions, LoggingCommandOptions, ShellCommandOptions, SetupCommandOptions>(args);
 
 		try
 		{
@@ -43,8 +43,8 @@ internal static class Program
 				(ActCommandOptions options) => new LoopCommandHandler(providerRegistry, logger).ExecuteAsync(options.ToLoopOptions(), cancellationToken),
 				(ProviderCommandOptions options) => new ProviderCommandHandler(providerRegistry, logger).ExecuteAsync(options, cancellationToken),
 				(RespondCommandOptions options) => new RespondCommandHandler(logger).ExecuteAsync(options, cancellationToken),
+				(LoggingCommandOptions options) => new LoggingCommandHandler(logger).ExecuteAsync(options, cancellationToken),
 				(ShellCommandOptions options) => new ShellCommandHandler(options).ExecuteAsync(cancellationToken),
-				(TutorialCommandOptions options) => new TutorialCommandHandler(logger).ExecuteAsync(options, cancellationToken),
 				(SetupCommandOptions options) => new SetupCommandHandler(providerRegistry, logger, appDirectoryPath).ExecuteAsync(options, cancellationToken),
 				errors => Task.FromResult(errors.All(e =>
 					e.Tag == ErrorType.HelpRequestedError

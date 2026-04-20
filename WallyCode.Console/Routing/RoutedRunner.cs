@@ -1,6 +1,7 @@
 using System.Text;
 using System.Text.Json;
 using WallyCode.ConsoleApp.Copilot;
+using WallyCode.ConsoleApp.Runtime;
 
 namespace WallyCode.ConsoleApp.Routing;
 
@@ -24,12 +25,14 @@ internal sealed class RoutedRunner
     private readonly ILlmProvider _provider;
     private readonly RoutingDefinition _definition;
     private readonly string _sessionRoot;
+    private readonly AppLogger? _logger;
 
-    public RoutedRunner(ILlmProvider provider, RoutingDefinition definition, string sessionRoot)
+    public RoutedRunner(ILlmProvider provider, RoutingDefinition definition, string sessionRoot, AppLogger? logger = null)
     {
         _provider = provider;
         _definition = definition;
         _sessionRoot = sessionRoot;
+        _logger = logger;
     }
 
     public async Task<IterationResult> RunOnceAsync(CancellationToken cancellationToken)
@@ -48,10 +51,13 @@ internal sealed class RoutedRunner
 
         var unit = _definition.GetUnit(session.ActiveUnitName);
         var prompt = BuildPrompt(session, unit);
+        _logger?.LogExchange("OUT", $"iteration {session.IterationCount + 1} prompt ({unit.Name})", prompt);
 
         var rawOutput = await _provider.ExecuteAsync(
             new CopilotRequest { Prompt = prompt, Model = session.Model, SourcePath = session.SourcePath },
             cancellationToken);
+
+        _logger?.LogExchange("IN", $"iteration {session.IterationCount + 1} response ({unit.Name})", rawOutput);
 
         var (keyword, summary) = ParseOutput(rawOutput);
 

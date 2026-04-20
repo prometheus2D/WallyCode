@@ -26,8 +26,16 @@ internal sealed class LoopCommandHandler
         }
 
         var projectRoot = ProjectSettings.ResolveProjectRoot(options.SourcePath);
+        var settings = ProjectSettings.Load(projectRoot);
         var sessionRoot = ProjectSettings.ResolveRuntimeRoot(projectRoot, options.MemoryRoot);
         Directory.CreateDirectory(sessionRoot);
+
+        var loggingMode = new LoggingMode
+        {
+            Enabled = options.Log || settings.Logging.Enabled,
+            Verbose = options.Verbose || settings.Logging.Verbose
+        };
+        _logger.ConfigureLogging(sessionRoot, loggingMode);
 
         _logger.Section("WallyCode Loop");
 
@@ -55,7 +63,6 @@ internal sealed class LoopCommandHandler
                 throw new InvalidOperationException("No active session. Start one with: loop <goal> [--definition <name>]");
             }
 
-            var settings = ProjectSettings.Load(projectRoot);
             var providerName = string.IsNullOrWhiteSpace(options.Provider) ? settings.Provider : options.Provider!.Trim();
             provider = _providerRegistry.Get(providerName);
             var model = string.IsNullOrWhiteSpace(options.Model)
@@ -86,7 +93,7 @@ internal sealed class LoopCommandHandler
 
         await provider.EnsureReadyAsync(cancellationToken);
 
-        var runner = new RoutedRunner(provider, definition, sessionRoot);
+        var runner = new RoutedRunner(provider, definition, sessionRoot, _logger);
         var results = await runner.RunAsync(options.Steps, cancellationToken);
 
         foreach (var r in results)

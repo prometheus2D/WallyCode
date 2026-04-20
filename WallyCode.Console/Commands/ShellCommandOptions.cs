@@ -13,4 +13,10 @@ internal sealed class ShellCommandOptions
 
     [Option("reset-memory", HelpText = "Deletes the existing memory workspace and recreates it before starting the shell.")]
     public bool ResetMemory { get; set; }
+
+    [Option("log", HelpText = "Enable transcript logging for commands run inside the shell.")]
+    public bool Log { get; set; }
+
+    [Option("verbose", HelpText = "Enable verbose transcript logging for commands run inside the shell.")]
+    public bool Verbose { get; set; }
 }

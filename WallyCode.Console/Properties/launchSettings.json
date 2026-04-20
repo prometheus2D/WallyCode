@@ -6,6 +6,14 @@
     "WallyCode Shell": {
       "commandName": "Project",
       "commandLineArgs": "shell --reset-memory"
+    },
+    "WallyCode Shell Logging": {
+      "commandName": "Project",
+      "commandLineArgs": "shell --reset-memory --log"
+    },
+    "WallyCode Shell Verbose Logging": {
+      "commandName": "Project",
+      "commandLineArgs": "shell --reset-memory --log --verbose"
     }
   },
   "$schema": "https://json.schemastore.org/launchsettings.json"

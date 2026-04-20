@@ -25,4 +25,10 @@ internal sealed class LoopCommandOptions
 
     [Option("steps", Default = 1, HelpText = "Runs n iterations in this invocation.")]
     public int Steps { get; set; }
+
+    [Option("log", HelpText = "Enable transcript logging for this invocation.")]
+    public bool Log { get; set; }
+
+    [Option("verbose", HelpText = "Enable verbose transcript logging for this invocation.")]
+    public bool Verbose { get; set; }
 }

@@ -13,4 +13,10 @@ internal sealed class RespondCommandOptions
 
     [Option("memory-root", HelpText = "Optional folder for loop session state.")]
     public string? MemoryRoot { get; set; }
+
+    [Option("log", HelpText = "Enable transcript logging for this invocation.")]
+    public bool Log { get; set; }
+
+    [Option("verbose", HelpText = "Enable verbose transcript logging for this invocation.")]
+    public bool Verbose { get; set; }
 }

@@ -23,6 +23,12 @@ internal sealed class ActCommandOptions
     [Option("steps", Default = 1, HelpText = "Runs n iterations in this invocation.")]
     public int Steps { get; set; }
 
+    [Option("log", HelpText = "Enable logging for this invocation.")]
+    public bool Log { get; set; }
+
+    [Option("verbose", HelpText = "Enable verbose logging for this invocation.")]
+    public bool Verbose { get; set; }
+
     public LoopCommandOptions ToLoopOptions() => new()
     {
         Goal = Goal,
@@ -31,6 +37,8 @@ internal sealed class ActCommandOptions
         Model = Model,
         SourcePath = SourcePath,
         MemoryRoot = MemoryRoot,
-        Steps = Steps
+        Steps = Steps,
+        Log = Log,
+        Verbose = Verbose
     };
 }

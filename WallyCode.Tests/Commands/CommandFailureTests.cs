@@ -27,6 +27,38 @@ public class CommandFailureTests
     }
 
     [Fact]
+    public void Ask_to_loop_options_preserves_logging_flags()
+    {
+        var options = new AskCommandOptions
+        {
+            Goal = "hello",
+            Log = true,
+            Verbose = true
+        };
+
+        var loop = options.ToLoopOptions();
+
+        Assert.True(loop.Log);
+        Assert.True(loop.Verbose);
+    }
+
+    [Fact]
+    public void Act_to_loop_options_preserves_logging_flags()
+    {
+        var options = new ActCommandOptions
+        {
+            Goal = "hello",
+            Log = true,
+            Verbose = true
+        };
+
+        var loop = options.ToLoopOptions();
+
+        Assert.True(loop.Log);
+        Assert.True(loop.Verbose);
+    }
+
+    [Fact]
     public async Task Loop_with_conflicting_session_definition_throws_a_clear_error()
     {
         using var workspace = TempWorkspace.Create();

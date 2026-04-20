@@ -23,7 +23,14 @@ internal sealed class RespondCommandHandler
         }
 
         var projectRoot = ProjectSettings.ResolveProjectRoot(options.SourcePath);
+        var settings = ProjectSettings.Load(projectRoot);
         var sessionRoot = ProjectSettings.ResolveRuntimeRoot(projectRoot, options.MemoryRoot);
+        var loggingMode = new LoggingMode
+        {
+            Enabled = options.Log || settings.Logging.Enabled,
+            Verbose = options.Verbose || settings.Logging.Verbose
+        };
+        _logger.ConfigureLogging(sessionRoot, loggingMode);
 
         if (!RoutedSession.Exists(sessionRoot))
         {
@@ -31,13 +38,15 @@ internal sealed class RespondCommandHandler
         }
 
         var session = RoutedSession.Load(sessionRoot);
-        session.PendingResponses.Add(options.Response.Trim());
+        var response = options.Response.Trim();
+        session.PendingResponses.Add(response);
         if (session.Status == SessionStatus.Blocked)
         {
             session.Status = SessionStatus.Active;
         }
         session.Save(sessionRoot);
 
+        _logger.LogExchange("USER", "respond", response);
         _logger.Section("WallyCode Respond");
         _logger.Success("Response saved for the next loop iteration.");
         return Task.FromResult(0);
