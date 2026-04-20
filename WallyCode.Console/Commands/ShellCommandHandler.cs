@@ -31,8 +31,6 @@ internal sealed class ShellCommandHandler
         _logger.LogAction("Shell initialized", $"source={resolvedSourcePath}; sessionRoot={sessionRoot}; vsBuild={_options.VsBuild}");
 
         Console.WriteLine("WallyCode shell");
-        Console.WriteLine("Type a WallyCode command without the executable name.");
-        Console.WriteLine("Type 'exit' to quit.");
 
         if (_options.VsBuild)
         {
@@ -59,6 +57,8 @@ internal sealed class ShellCommandHandler
             Console.WriteLine($"Shell logging enabled{(_options.Verbose ? " (verbose)" : string.Empty)}.");
         }
 
+        Console.WriteLine("Type a WallyCode command without the executable name.");
+        Console.WriteLine("Type 'exit' to quit.");
         Console.WriteLine();
 
         while (!cancellationToken.IsCancellationRequested)
