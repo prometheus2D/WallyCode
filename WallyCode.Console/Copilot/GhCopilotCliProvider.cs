@@ -10,11 +10,22 @@ internal sealed class GhCopilotCliProvider : ILlmProvider
     private static readonly Uri ModelsEndpoint = new("https://api.githubcopilot.com/models");
 
     public GhCopilotCliProvider(string name, string defaultModel, string description, AppLogger logger)
+        : this(name, defaultModel, description, [defaultModel], logger)
+    {
+    }
+
+    public GhCopilotCliProvider(string name, string defaultModel, string description, IReadOnlyList<string> supportedModels, AppLogger logger)
     {
         Name = name;
         DefaultModel = defaultModel;
         Description = description;
-        SupportedModels = [defaultModel];
+        SupportedModels = supportedModels.Count == 0
+            ? [defaultModel]
+            : supportedModels
+                .Where(model => !string.IsNullOrWhiteSpace(model))
+                .Select(model => model.Trim())
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
         _logger = logger;
     }
 

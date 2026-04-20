@@ -2,120 +2,128 @@
 
 WallyCode is a routing-driven CLI for running GitHub Copilot workflows against a repo.
 
-The recommended progression is:
-- use `ask` for direct answers with no file changes
-- use `act` for direct execution plus a normal response
-- use `loop` when the task needs iteration, memory, and staged progress
+Recommended progression:
+- `ask` - direct answer, no file changes
+- `act` - direct execution plus a normal response
+- `loop` - iterative routed workflow with memory and staged progress
 
-`ask` is a shortcut for `loop --definition ask`.
-`act` is a shortcut for `loop --definition act`.
-`loop` without `--definition` uses the default routed workflow.
+Aliases:
+- `ask` = `loop --definition ask`
+- `act` = `loop --definition act`
+- `loop` without `--definition` uses the default routed workflow: `requirements`
 
 ## Quick Start
 
-Initialize the workspace once:
+Initialize once, verify provider/model, then start with `ask`, `act`, and `loop` as needed:
 
 ```text
 wallycode setup
-```
-
-Then verify or configure the provider and model you want to use:
-
-```text
 wallycode provider
 wallycode provider --models
-wallycode provider gh-copilot-claude --set
-wallycode provider --model claude-sonnet-4
-```
-
-Start with `ask` when you want a direct answer with no file changes:
-
-```text
 wallycode ask "Summarize this repository in one short paragraph."
-```
-
-Use `act` when you want direct execution in the repo plus a normal response:
-
-```text
 wallycode act "Implement a minimal health-check endpoint."
-```
-
-Use `loop` when the task needs iteration, memory, and staged progress:
-
-```text
 wallycode loop "Build a simple browser-based tic-tac-toe game in this repo."
-```
-
-## Recommended Day-to-Day Flow
-
-For a new workspace:
-
-```text
-wallycode setup
-wallycode provider
-wallycode provider --models
 ```
 
 If needed, set the default provider and model explicitly:
 
 ```text
+wallycode provider gh-copilot-claude --set
+wallycode provider --model claude-sonnet-4
 wallycode provider gh-copilot-gpt5 --set
 wallycode provider --model gpt-5
 ```
 
-Then use commands in this order:
+## Provider and Model Configuration
 
-1. `ask` - inspect, summarize, explain, review
-2. `act` - make a focused change directly
-3. `loop` - run a multi-step routed workflow with memory
+WallyCode stores workspace configuration in `wallycode.json`.
 
-Examples:
+Check the current provider:
+
+```text
+wallycode provider
+```
+
+This lists providers, shows which one is the default, and shows the current model for each provider entry.
+
+Check the current model for the active provider:
+
+```text
+wallycode provider --models
+```
+
+This lists models for the active provider and marks the default model.
+
+Check models for a specific provider:
+
+```text
+wallycode provider gh-copilot-claude --models
+wallycode provider gh-copilot-gpt5 --models
+```
+
+Refresh and persist discovered models for a provider:
+
+```text
+wallycode provider gh-copilot-claude --refresh
+wallycode provider gh-copilot-gpt5 --refresh
+```
+
+Set defaults:
+
+```text
+wallycode provider gh-copilot-claude --set
+wallycode provider gh-copilot-gpt5 --set
+wallycode provider --model claude-sonnet-4
+wallycode provider --model gpt-5
+```
+
+Available built-in providers:
+- `gh-copilot-claude` (default)
+- `gh-copilot-gpt5`
+
+If commands are not behaving as expected, check provider and model configuration first.
+
+## Core Commands
+
+### ask
+Use for inspection, explanation, summarization, and review without file changes.
 
 ```text
 wallycode ask "Explain the architecture of this repo."
-wallycode act "Add a README section for local development."
+wallycode ask "Summarize this repository." --source C:\src\my-repo
+```
+
+Equivalent routed form:
+
+```text
+wallycode loop --definition ask "Explain the architecture of this repo."
+```
+
+### act
+Use for focused direct execution in the repo plus a normal response.
+
+```text
+wallycode act "Implement a minimal health-check endpoint."
+wallycode act "Add a README section for local development." --source C:\src\my-repo
+```
+
+Equivalent routed form:
+
+```text
+wallycode loop --definition act "Implement a minimal health-check endpoint."
+```
+
+### loop
+Use when the task needs iteration, memory, and staged progress.
+
+```text
 wallycode loop "Build tic-tac-toe in this repo."
-```
-
-## Routing Definitions
-
-`loop` runs the routing engine. The first call starts a session. Later calls continue it.
-
-Pick a different routing definition:
-
-```text
-wallycode loop "Build the export feature." --definition full-pipeline
-```
-
-Shipped definitions (in [WallyCode.Console/Routing/Definitions](WallyCode.Console/Routing/Definitions)):
-
-- `ask` - single-step routed definition for direct question-answering. Intended to behave like a normal LLM response with no file changes.
-- `act` - single-step routed definition for direct execution. Intended to allow file changes and then return a normal user-facing response.
-- `requirements` (default) - collect_requirements -> produce_tasks
-- `tasks` - produce_tasks -> execute_tasks
-- `full-pipeline` - collect_requirements -> produce_tasks -> execute_tasks
-
-`ask` and `act` are intentionally simple routing definitions. They do not route across multiple logical units. The `ask` and `act` commands are convenience aliases for these definitions, but the underlying routed model is still `loop`.
-
-Continue the active loop:
-
-```text
 wallycode loop
-```
-
-Run several iterations at once:
-
-```text
 wallycode loop --steps 3
-```
-
-Answer the loop when it asks you something:
-
-```text
 wallycode respond "Use the simpler approach."
 ```
 
-Point at a different repo or store session state somewhere else:
+Point at another repo or move session state elsewhere:
 
 ```text
 wallycode loop "Work on issue 123" --source C:\src\my-repo --memory-root C:\temp\wallycode-session
@@ -123,9 +131,28 @@ wallycode loop "Work on issue 123" --source C:\src\my-repo --memory-root C:\temp
 
 Session state is written under `.wallycode/` in the project root by default.
 
+## Routing Definitions
+
+`loop` starts or continues a routed session.
+
+Shipped definitions:
+- `ask` - single-step direct answer, no file changes
+- `act` - single-step direct execution
+- `requirements` (default) - `collect_requirements -> produce_tasks`
+- `tasks` - `produce_tasks -> execute_tasks`
+- `full-pipeline` - `collect_requirements -> produce_tasks -> execute_tasks`
+
+Pick a definition explicitly:
+
+```text
+wallycode loop "Build the export feature." --definition full-pipeline
+```
+
+`ask` and `act` are intentionally simple routed definitions. They are convenience commands over `loop`.
+
 ## Setup
 
-Use `setup` once per workspace you want WallyCode to initialize.
+Use `setup` once per workspace:
 
 ```text
 wallycode setup
@@ -144,27 +171,9 @@ wallycode provider --models
 wallycode ask "Summarize this repository in one short paragraph."
 ```
 
-## Other Commands
+## Shell
 
-Shortcut commands for the common single-step routed workflows:
-
-```text
-wallycode ask "Summarize this repository in one short paragraph."
-wallycode ask "Summarize this repository." --source C:\src\my-repo
-wallycode act "Implement a minimal health-check endpoint."
-```
-
-Equivalent `loop` forms:
-
-```text
-wallycode loop --definition ask "Summarize this repository in one short paragraph."
-wallycode loop --definition ask "Summarize this repository." --source C:\src\my-repo
-wallycode loop --definition act "Implement a minimal health-check endpoint."
-```
-
-Use `loop` directly when you want the explicit routed form. Use `ask` and `act` when you want the shorter command shape.
-
-Interactive shell that keeps `--source` and `--memory-root` defaults for every command run inside it:
+Interactive shell keeps `--source` and `--memory-root` defaults for commands run inside it:
 
 ```text
 wallycode shell
@@ -182,56 +191,9 @@ respond "Use the simpler approach"
 exit
 ```
 
-## Providers and Models
-
-WallyCode saves a default provider and optional model in `wallycode.json` at the project root.
-
-Check the current configuration:
-
-```text
-wallycode provider
-wallycode provider --models
-```
-
-Set the default provider:
-
-```text
-wallycode provider gh-copilot-claude --set
-wallycode provider gh-copilot-gpt5 --set
-```
-
-Set the default model for the current provider:
-
-```text
-wallycode provider --model claude-sonnet-4
-wallycode provider --model gpt-5
-```
-
-Available providers:
-
-- `gh-copilot-claude` (default)
-- `gh-copilot-gpt5`
-
-Override for a single run:
-
-```text
-wallycode ask "Summarize this repository" --provider gh-copilot-gpt5
-wallycode act "Implement a minimal health-check endpoint." --provider gh-copilot-gpt5
-wallycode loop "Build the export feature." --model gpt-5
-```
-
-If commands are not behaving as expected, check provider and model configuration first.
-
-## Files Written
-
-- `wallycode.json` - project settings (default provider, model).
-- `.wallycode/` - loop session state. Override location with `--memory-root`.
-
-`source` is the folder the provider operates against. `memory-root` is where WallyCode stores session data.
-
 ## Working Against Another Repo
 
-The easiest way to have one `wallycode` executable operate on another repo or folder is to pass `--source`.
+Use `--source` to operate on another repo or folder:
 
 ```text
 wallycode ask "Summarize this repository." --source C:\src\repo-a
@@ -239,7 +201,7 @@ wallycode act "Implement a minimal health-check endpoint." --source C:\src\repo-
 wallycode loop "Build tic-tac-toe." --source D:\projects\demo-app
 ```
 
-Use `--memory-root` only when you want the runtime workspace somewhere other than the source repo's default `.wallycode` folder.
+Use `--memory-root` only when you want runtime state somewhere other than the source repo's default `.wallycode` folder:
 
 ```text
 wallycode loop "Work on issue 123" --source C:\src\repo-a --memory-root C:\temp\repo-a-session
@@ -248,7 +210,7 @@ wallycode loop "Work on issue 123" --source C:\src\repo-a --memory-root C:\temp\
 Meaning:
 - `--source` selects the repo or folder WallyCode operates on
 - `--memory-root` selects where loop session state is stored
-- neither option changes where the executable itself is installed
+- neither changes where the executable is installed
 
 Typical remote-workspace flow:
 
@@ -260,16 +222,22 @@ wallycode act "Add a README section for local development." --source C:\src\my-r
 wallycode loop "Build tic-tac-toe." --source C:\src\my-repo
 ```
 
+## Files Written
+
+- `wallycode.json` - workspace settings, including default provider/model and provider catalog metadata
+- `.wallycode/` - loop session state; override with `--memory-root`
+
+`source` is the folder the provider operates against. `memory-root` is where WallyCode stores session data.
+
 ## Tutorials
 
-Readme-style walkthroughs live in [WallyCode.Console/Tutorials](WallyCode.Console/Tutorials).
+Walkthroughs live in [WallyCode.Console/Tutorials](WallyCode.Console/Tutorials):
+- [WallyCode.Console/Tutorials/README.md](WallyCode.Console/Tutorials/README.md) - tutorial index and usage notes
+- [WallyCode.Console/Tutorials/book-story.md](WallyCode.Console/Tutorials/book-story.md) - `act` workflow on markdown files
+- [WallyCode.Console/Tutorials/repo-review.md](WallyCode.Console/Tutorials/repo-review.md) - `ask` workflow without file changes
+- [WallyCode.Console/Tutorials/tic-tac-toe.md](WallyCode.Console/Tutorials/tic-tac-toe.md) - routed `loop` workflow
 
-- [WallyCode.Console/Tutorials/README.md](WallyCode.Console/Tutorials/README.md) - tutorial index and usage notes.
-- [WallyCode.Console/Tutorials/book-story.md](WallyCode.Console/Tutorials/book-story.md) - use `act` style workflows to build and revise a story in markdown files.
-- [WallyCode.Console/Tutorials/repo-review.md](WallyCode.Console/Tutorials/repo-review.md) - use `ask` style workflows to review a repository without changing files.
-- [WallyCode.Console/Tutorials/tic-tac-toe.md](WallyCode.Console/Tutorials/tic-tac-toe.md) - use the routed loop to build a small game step by step.
-
-The `tutorial` command is intended to list these guides and print one by name:
+Use:
 
 ```text
 wallycode tutorial --list
@@ -280,12 +248,11 @@ wallycode tutorial tic-tac-toe
 
 ## Remote Workspaces
 
-The executable location and the workspace WallyCode operates on are separate concerns.
+Executable location and workspace location are separate:
+- install `wallycode` wherever convenient
+- use `--source` to point at the repo or folder to operate on
+- `wallycode.json` stays in the source workspace
+- `.wallycode/` stays in the source workspace unless `--memory-root` is provided
 
-- Install `wallycode` wherever it is convenient to run.
-- Use `--source` to point at the repo or folder you want to work on.
-- `wallycode.json` stays in the source workspace.
-- `.wallycode/` stays in the source workspace by default unless `--memory-root` is provided.
-
-That model already allows one installed executable to work against different repos. Installation stays manual: place the published build where you want it, then run setup there or against the workspace you want to initialize.
+One installed executable can operate against multiple repos.
 

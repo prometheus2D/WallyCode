@@ -140,6 +140,59 @@ public class CommandFailureTests
     }
 
     [Fact]
+    public async Task Provider_refresh_persists_discovered_models_to_project_settings()
+    {
+        using var workspace = TempWorkspace.Create();
+        var handler = new ProviderCommandHandler(NewRegistry(), new AppLogger());
+
+        var exitCode = await handler.ExecuteAsync(
+            new ProviderCommandOptions
+            {
+                Name = "mock-provider",
+                Refresh = true,
+                SourcePath = workspace.RootPath
+            },
+            CancellationToken.None);
+
+        Assert.Equal(0, exitCode);
+
+        var settings = ProjectSettings.Load(workspace.RootPath);
+        var catalog = Assert.Single(settings.ProviderCatalog.Providers);
+        Assert.Equal("mock-provider", catalog.Name);
+        Assert.Contains(catalog.Models, model => model.Name == "mock-default-model");
+        Assert.Contains(catalog.Models, model => model.Name == "mock-alt-model");
+        Assert.NotNull(catalog.RefreshedAtUtc);
+    }
+
+    [Fact]
+    public async Task Provider_set_uses_preferred_catalog_model_when_available()
+    {
+        using var workspace = TempWorkspace.Create();
+        var settings = new ProjectSettings();
+        settings.ProviderCatalog.Providers.Add(new ProviderCatalogEntry
+        {
+            Name = "mock-provider",
+            PreferredCheapModel = "mock-alt-model"
+        });
+        settings.Save(workspace.RootPath);
+
+        var handler = new ProviderCommandHandler(NewRegistry(), new AppLogger());
+        var exitCode = await handler.ExecuteAsync(
+            new ProviderCommandOptions
+            {
+                Name = "mock-provider",
+                Set = true,
+                SourcePath = workspace.RootPath
+            },
+            CancellationToken.None);
+
+        Assert.Equal(0, exitCode);
+        var updated = ProjectSettings.Load(workspace.RootPath);
+        Assert.Equal("mock-provider", updated.Provider);
+        Assert.Equal("mock-alt-model", updated.Model);
+    }
+
+    [Fact]
     public async Task Loop_with_blocked_session_and_no_response_warns_and_exits_cleanly()
     {
         using var workspace = TempWorkspace.Create();

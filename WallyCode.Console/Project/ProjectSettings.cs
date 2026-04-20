@@ -10,6 +10,27 @@ internal sealed class LoggingSettings
     public bool Verbose { get; set; }
 }
 
+internal sealed class ProviderModelCatalog
+{
+    public string Name { get; set; } = string.Empty;
+    public bool IsPreferredDefault { get; set; }
+}
+
+internal sealed class ProviderCatalogEntry
+{
+    public string Name { get; set; } = string.Empty;
+    public string Description { get; set; } = string.Empty;
+    public string DefaultModel { get; set; } = string.Empty;
+    public string? PreferredCheapModel { get; set; }
+    public List<ProviderModelCatalog> Models { get; set; } = [];
+    public DateTimeOffset? RefreshedAtUtc { get; set; }
+}
+
+internal sealed class ProviderCatalogSettings
+{
+    public List<ProviderCatalogEntry> Providers { get; set; } = [];
+}
+
 internal sealed class ProjectSettings
 {
     private static readonly string DefaultProviderName = ProviderRegistry.DefaultProviderName;
@@ -28,6 +49,8 @@ internal sealed class ProjectSettings
 
     public LoggingSettings Logging { get; set; } = new();
 
+    public ProviderCatalogSettings ProviderCatalog { get; set; } = new();
+
     public DateTimeOffset UpdatedAtUtc { get; set; } = DateTimeOffset.UtcNow;
 
     public static ProjectSettings Load(string projectRoot)
@@ -45,6 +68,8 @@ internal sealed class ProjectSettings
         settings.Provider = ResolveProviderName(settings.Provider);
         settings.Model = ResolveModelName(settings.Model);
         settings.Logging ??= new LoggingSettings();
+        settings.ProviderCatalog ??= new ProviderCatalogSettings();
+        settings.ProviderCatalog.Providers ??= [];
 
         if (settings.UpdatedAtUtc == default)
         {
@@ -60,6 +85,8 @@ internal sealed class ProjectSettings
         Provider = ResolveProviderName(Provider);
         Model = ResolveModelName(Model);
         Logging ??= new LoggingSettings();
+        ProviderCatalog ??= new ProviderCatalogSettings();
+        ProviderCatalog.Providers ??= [];
         UpdatedAtUtc = DateTimeOffset.UtcNow;
 
         var json = JsonSerializer.Serialize(this, SerializerOptions);

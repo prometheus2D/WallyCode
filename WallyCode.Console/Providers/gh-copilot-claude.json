@@ -1,0 +1,10 @@
+{
+  "name": "gh-copilot-claude",
+  "kind": "gh-copilot-cli",
+  "description": "GitHub Copilot CLI using Claude Sonnet 4.",
+  "defaultModel": "claude-sonnet-4",
+  "preferredCheapModel": "claude-sonnet-4",
+  "supportedModels": [
+    "claude-sonnet-4"
+  ]
+}
