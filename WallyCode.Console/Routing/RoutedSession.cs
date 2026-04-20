@@ -41,6 +41,53 @@ internal sealed class RoutedSession
 
     public static bool Exists(string rootPath) => File.Exists(FilePath(rootPath));
 
+    public static bool IsTerminal(string? status) => status is SessionStatus.Completed or SessionStatus.Failed;
+
+    public static string ArchiveRoot(string rootPath) => Path.Combine(rootPath, "archive");
+
+    public static string ArchiveCompletedSession(string rootPath)
+    {
+        var session = Load(rootPath);
+        if (!IsTerminal(session.Status))
+        {
+            throw new InvalidOperationException("Only completed or failed sessions can be archived.");
+        }
+
+        Directory.CreateDirectory(rootPath);
+        var archiveRoot = ArchiveRoot(rootPath);
+        Directory.CreateDirectory(archiveRoot);
+
+        var timestamp = DateTimeOffset.UtcNow.ToString("yyyyMMdd-HHmmss");
+        var archiveName = $"session-{timestamp}";
+        var archivePath = Path.Combine(archiveRoot, archiveName);
+        var suffix = 1;
+
+        while (Directory.Exists(archivePath))
+        {
+            archivePath = Path.Combine(archiveRoot, $"{archiveName}-{suffix++}");
+        }
+
+        foreach (var entry in Directory.EnumerateFileSystemEntries(rootPath))
+        {
+            if (string.Equals(Path.GetFileName(entry), "archive", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            var destination = Path.Combine(archivePath, Path.GetFileName(entry));
+            if (Directory.Exists(entry))
+            {
+                Directory.Move(entry, destination);
+            }
+            else
+            {
+                File.Move(entry, destination);
+            }
+        }
+
+        return archivePath;
+    }
+
     public static RoutedSession Load(string rootPath)
     {
         var path = FilePath(rootPath);

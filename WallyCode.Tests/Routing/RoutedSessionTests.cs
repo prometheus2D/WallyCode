@@ -42,6 +42,28 @@ public class RoutedSessionTests
     }
 
     [Fact]
+    public void ArchiveCompletedSession_moves_session_contents_into_archive_folder()
+    {
+        using var temp = TempWorkspace.Create();
+        var def = TestDefinitions.TwoUnit();
+        var session = TestDefinitions.NewSession(def, temp.RootPath);
+        session.Status = SessionStatus.Completed;
+        session.Save(temp.RootPath);
+        File.WriteAllText(Path.Combine(temp.RootPath, "transcript.log"), "history");
+
+        var archivePath = RoutedSession.ArchiveCompletedSession(temp.RootPath);
+
+        Assert.False(RoutedSession.Exists(temp.RootPath));
+        Assert.True(Directory.Exists(archivePath));
+        Assert.StartsWith(RoutedSession.ArchiveRoot(temp.RootPath), archivePath, StringComparison.OrdinalIgnoreCase);
+        Assert.True(File.Exists(Path.Combine(archivePath, "session.json")));
+        Assert.True(File.Exists(Path.Combine(archivePath, "transcript.log")));
+
+        var archived = RoutedSession.Load(archivePath);
+        Assert.Equal(SessionStatus.Completed, archived.Status);
+    }
+
+    [Fact]
     public void LoadByName_returns_ask_definition_from_json()
     {
         var definition = RoutingDefinition.LoadByName("ask");

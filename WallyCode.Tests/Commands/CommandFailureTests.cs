@@ -214,6 +214,41 @@ public class CommandFailureTests
         Assert.Contains("Session is blocked. Use 'respond' to provide input.", output);
     }
 
+    [Fact]
+    public async Task Loop_with_completed_session_and_new_goal_archives_old_session_and_starts_a_new_one()
+    {
+        using var workspace = TempWorkspace.Create();
+        var sessionRoot = Path.Combine(workspace.RootPath, ".wallycode");
+        var definition = RoutingDefinition.LoadByName("ask");
+        var session = RoutedSession.Start(definition, "old goal", "mock-provider", "mock-default-model", workspace.RootPath);
+        session.Status = SessionStatus.Completed;
+        session.Save(sessionRoot);
+        File.WriteAllText(Path.Combine(sessionRoot, "transcript.log"), "old transcript");
+
+        var handler = new LoopCommandHandler(NewRegistry(), new AppLogger());
+        var exitCode = await handler.ExecuteAsync(
+            new LoopCommandOptions
+            {
+                Goal = "new goal",
+                Definition = "ask",
+                SourcePath = workspace.RootPath,
+                Steps = 1
+            },
+            CancellationToken.None);
+
+        Assert.Equal(0, exitCode);
+        Assert.True(RoutedSession.Exists(sessionRoot));
+
+        var active = RoutedSession.Load(sessionRoot);
+        Assert.Equal("new goal", active.Goal);
+
+        var archiveRoot = RoutedSession.ArchiveRoot(sessionRoot);
+        var archivedSessionFolder = Assert.Single(Directory.GetDirectories(archiveRoot));
+        var archived = RoutedSession.Load(archivedSessionFolder);
+        Assert.Equal("old goal", archived.Goal);
+        Assert.True(File.Exists(Path.Combine(archivedSessionFolder, "transcript.log")));
+    }
+
     private static ProviderRegistry NewRegistry()
     {
         return new ProviderRegistry([new MockLlmProvider([])]);
