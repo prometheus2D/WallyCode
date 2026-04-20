@@ -44,7 +44,7 @@ internal static class Program
 				(ProviderCommandOptions options) => new ProviderCommandHandler(providerRegistry, logger).ExecuteAsync(options, cancellationToken),
 				(RespondCommandOptions options) => new RespondCommandHandler(logger).ExecuteAsync(options, cancellationToken),
 				(LoggingCommandOptions options) => new LoggingCommandHandler(logger).ExecuteAsync(options, cancellationToken),
-				(ShellCommandOptions options) => new ShellCommandHandler(options).ExecuteAsync(cancellationToken),
+				(ShellCommandOptions options) => new ShellCommandHandler(options, appDirectoryPath).ExecuteAsync(cancellationToken),
 				(SetupCommandOptions options) => new SetupCommandHandler(providerRegistry, logger, appDirectoryPath).ExecuteAsync(options, cancellationToken),
 				errors => Task.FromResult(errors.All(e =>
 					e.Tag == ErrorType.HelpRequestedError

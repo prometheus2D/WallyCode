@@ -11,6 +11,9 @@ internal sealed class ShellCommandOptions
     [Option("memory-root", HelpText = "Optional folder for loop session state.")]
     public string? MemoryRoot { get; set; }
 
+    [Option("vs-build", HelpText = "Resolve the shell source workspace from a standard Visual Studio build output path.")]
+    public bool VsBuild { get; set; }
+
     [Option("reset-memory", HelpText = "Deletes the existing memory workspace and recreates it before starting the shell.")]
     public bool ResetMemory { get; set; }
 

@@ -6,24 +6,28 @@ namespace WallyCode.ConsoleApp.Commands;
 internal sealed class ShellCommandHandler
 {
     private readonly ShellCommandOptions _options;
+    private readonly string _appDirectoryPath;
 
-    public ShellCommandHandler(ShellCommandOptions options)
+    public ShellCommandHandler(ShellCommandOptions options, string? appDirectoryPath = null)
     {
         _options = options;
+        _appDirectoryPath = Path.GetFullPath(string.IsNullOrWhiteSpace(appDirectoryPath)
+            ? AppContext.BaseDirectory
+            : appDirectoryPath);
     }
 
     public async Task<int> ExecuteAsync(CancellationToken cancellationToken)
     {
+        var resolvedSourcePath = ResolveSourcePath();
+
         if (_options.ResetMemory)
         {
-            ResetMemory(_options);
+            ResetMemory(resolvedSourcePath, _options.MemoryRoot);
         }
 
         Console.WriteLine("WallyCode shell");
         Console.WriteLine("Type a WallyCode command without the executable name.");
         Console.WriteLine("Type 'exit' to quit.");
-
-        var resolvedSourcePath = ProjectSettings.ResolveProjectRoot(_options.SourcePath);
         Console.WriteLine($"Shell initialized with source: {resolvedSourcePath}");
 
         if (!string.IsNullOrWhiteSpace(_options.MemoryRoot))
@@ -32,7 +36,7 @@ internal sealed class ShellCommandHandler
         }
         else
         {
-			Console.WriteLine($"Shell using default memory root: {ProjectSettings.ResolveRuntimeRoot(resolvedSourcePath, memoryRoot: null)}");
+            Console.WriteLine($"Shell using default memory root: {ProjectSettings.ResolveRuntimeRoot(resolvedSourcePath, memoryRoot: null)}");
         }
 
         if (_options.Log)
@@ -80,27 +84,38 @@ internal sealed class ShellCommandHandler
 
             if (string.Equals(args[0], "reset-memory", StringComparison.OrdinalIgnoreCase))
             {
-                ResetMemory(_options);
+                ResetMemory(resolvedSourcePath, _options.MemoryRoot);
                 Console.WriteLine();
                 continue;
             }
 
-            var effectiveArgs = ApplyShellDefaults(args);
-            await Program.RunAsync(effectiveArgs, cancellationToken);
+            var effectiveArgs = ApplyShellDefaults(args, resolvedSourcePath);
+            await Program.RunAsync(effectiveArgs, cancellationToken, _appDirectoryPath);
             Console.WriteLine();
         }
 
         return 0;
     }
 
-    private string[] ApplyShellDefaults(string[] args)
+    private string ResolveSourcePath()
+    {
+        var sourcePath = !string.IsNullOrWhiteSpace(_options.SourcePath)
+            ? _options.SourcePath
+            : _options.VsBuild
+                ? WorkspacePathResolver.ResolveVsBuildWorkspaceRoot(_appDirectoryPath)
+                : null;
+
+        return ProjectSettings.ResolveProjectRoot(sourcePath);
+    }
+
+    private string[] ApplyShellDefaults(string[] args, string resolvedSourcePath)
     {
         var effectiveArgs = args.ToList();
 
-        if (!HasOption(args, "source") && !string.IsNullOrWhiteSpace(_options.SourcePath))
+        if (!HasOption(args, "source"))
         {
             effectiveArgs.Add("--source");
-            effectiveArgs.Add(_options.SourcePath);
+            effectiveArgs.Add(resolvedSourcePath);
         }
 
         if (SupportsMemoryRoot(args[0])
@@ -147,10 +162,9 @@ internal sealed class ShellCommandHandler
         return args.Any(arg => string.Equals(arg, longOption, StringComparison.OrdinalIgnoreCase));
     }
 
-    private static void ResetMemory(ShellCommandOptions options)
+    private static void ResetMemory(string resolvedSourcePath, string? memoryRoot)
     {
-        var projectRoot = ProjectSettings.ResolveProjectRoot(options.SourcePath);
-        var sessionRoot = ProjectSettings.ResolveRuntimeRoot(projectRoot, options.MemoryRoot);
+        var sessionRoot = ProjectSettings.ResolveRuntimeRoot(resolvedSourcePath, memoryRoot);
 
         if (Directory.Exists(sessionRoot))
         {

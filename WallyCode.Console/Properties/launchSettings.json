@@ -3,17 +3,21 @@
     "WallyCode": {
       "commandName": "Project"
     },
-    "WallyCode Shell": {
+    "Shell": {
       "commandName": "Project",
       "commandLineArgs": "shell --reset-memory"
     },
-    "WallyCode Shell Logging": {
+    "Shell Log": {
       "commandName": "Project",
       "commandLineArgs": "shell --reset-memory --log"
     },
-    "WallyCode Shell Verbose Logging": {
+    "Shell Verbose": {
       "commandName": "Project",
-      "commandLineArgs": "shell --reset-memory --log --verbose"
+      "commandLineArgs": "shell --vs-build --reset-memory --log --verbose"
+    },
+    "Setup VS": {
+      "commandName": "Project",
+      "commandLineArgs": "setup --vs-build"
     }
   },
   "$schema": "https://json.schemastore.org/launchsettings.json"

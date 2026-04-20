@@ -138,6 +138,21 @@ public class SetupCommandHandlerTests
         Assert.Contains($"cd {workspace.RootPath}", output);
     }
 
+    [Fact]
+    public void ResolveVsBuildWorkspaceRoot_returns_the_topmost_workspace_marker_above_build_output()
+    {
+        using var workspace = TempWorkspace.Create();
+        Directory.CreateDirectory(Path.Combine(workspace.RootPath, ".git"));
+        File.WriteAllText(Path.Combine(workspace.RootPath, "WallyCode.sln"), "Microsoft Visual Studio Solution File");
+
+        var appDirectoryPath = Path.Combine(workspace.RootPath, "WallyCode.Console", "bin", "Debug", "net8.0");
+        Directory.CreateDirectory(appDirectoryPath);
+
+        var resolved = WorkspacePathResolver.ResolveVsBuildWorkspaceRoot(appDirectoryPath);
+
+        Assert.Equal(workspace.RootPath, resolved);
+    }
+
     private static async Task<(int ExitCode, string Output)> ExecuteAsync(string[] args, string appDirectoryPath)
     {
         var writer = new StringWriter();
