@@ -7,6 +7,7 @@ internal sealed class ShellCommandHandler
 {
     private readonly ShellCommandOptions _options;
     private readonly string _appDirectoryPath;
+    private readonly AppLogger _logger = new();
 
     public ShellCommandHandler(ShellCommandOptions options, string? appDirectoryPath = null)
     {
@@ -19,6 +20,9 @@ internal sealed class ShellCommandHandler
     public async Task<int> ExecuteAsync(CancellationToken cancellationToken)
     {
         var resolvedSourcePath = ResolveSourcePath();
+        var sessionRoot = ProjectSettings.ResolveRuntimeRoot(resolvedSourcePath, _options.MemoryRoot);
+        ConfigureShellLogging(sessionRoot);
+        _logger.LogAction("Shell initialized", $"source={resolvedSourcePath}; sessionRoot={sessionRoot}; vsBuild={_options.VsBuild}");
 
         if (_options.ResetMemory)
         {
@@ -53,6 +57,7 @@ internal sealed class ShellCommandHandler
 
             if (input is null)
             {
+                _logger.LogAction("Shell exit", "Console input closed.");
                 return 0;
             }
 
@@ -65,6 +70,7 @@ internal sealed class ShellCommandHandler
 
             if (string.Equals(trimmed, "exit", StringComparison.OrdinalIgnoreCase))
             {
+                _logger.LogAction("Shell exit", "User entered exit.");
                 return 0;
             }
 
@@ -79,6 +85,7 @@ internal sealed class ShellCommandHandler
             {
                 Console.WriteLine("Already in the shell. Type another command or 'exit'.");
                 Console.WriteLine();
+                _logger.LogAction("Shell command skipped", "Nested shell command ignored.");
                 continue;
             }
 
@@ -90,11 +97,22 @@ internal sealed class ShellCommandHandler
             }
 
             var effectiveArgs = ApplyShellDefaults(args, resolvedSourcePath);
+            _logger.LogAction("Executing shell subcommand", string.Join(" ", effectiveArgs), verboseOnly: true);
             await Program.RunAsync(effectiveArgs, cancellationToken, _appDirectoryPath);
             Console.WriteLine();
         }
 
+        _logger.LogAction("Shell exit", "Cancellation requested.");
         return 0;
+    }
+
+    private void ConfigureShellLogging(string sessionRoot)
+    {
+        _logger.ConfigureLogging(sessionRoot, new LoggingMode
+        {
+            Enabled = _options.Log,
+            Verbose = _options.Verbose
+        });
     }
 
     private string ResolveSourcePath()
@@ -136,6 +154,7 @@ internal sealed class ShellCommandHandler
             effectiveArgs.Add("--verbose");
         }
 
+        _logger.LogAction("Applied shell defaults", string.Join(" ", effectiveArgs), verboseOnly: true);
         return effectiveArgs.ToArray();
     }
 
@@ -162,7 +181,7 @@ internal sealed class ShellCommandHandler
         return args.Any(arg => string.Equals(arg, longOption, StringComparison.OrdinalIgnoreCase));
     }
 
-    private static void ResetMemory(string resolvedSourcePath, string? memoryRoot)
+    private void ResetMemory(string resolvedSourcePath, string? memoryRoot)
     {
         var sessionRoot = ProjectSettings.ResolveRuntimeRoot(resolvedSourcePath, memoryRoot);
 
@@ -171,6 +190,7 @@ internal sealed class ShellCommandHandler
             Directory.Delete(sessionRoot, recursive: true);
         }
 
+        _logger.LogAction("Reset memory", $"sessionRoot={sessionRoot}");
         Console.WriteLine($"Reset session at {sessionRoot}");
         Console.WriteLine("A new session will be created the next time you run loop <goal>.");
     }

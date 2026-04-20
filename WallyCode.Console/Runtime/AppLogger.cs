@@ -53,6 +53,17 @@ internal sealed class AppLogger
         Write("ERROR", ConsoleColor.Red, message);
     }
 
+    public void LogCommand(string commandName, IEnumerable<string> args, bool verboseOnly = false)
+    {
+        var renderedArgs = args.Select(RenderArgument);
+        LogEvent("COMMAND", $"{commandName} {string.Join(" ", renderedArgs)}".Trim(), verboseOnly);
+    }
+
+    public void LogAction(string action, string details, bool verboseOnly = false)
+    {
+        LogEvent("ACTION", $"{action}: {details}", verboseOnly);
+    }
+
     public void LogExchange(string direction, string title, string content, bool verboseOnly = false)
     {
         lock (_sync)
@@ -82,6 +93,25 @@ internal sealed class AppLogger
         }
     }
 
+    private void LogEvent(string level, string message, bool verboseOnly)
+    {
+        lock (_sync)
+        {
+            if (_logFilePath is null)
+            {
+                return;
+            }
+
+            if (verboseOnly && !_loggingMode.Verbose)
+            {
+                return;
+            }
+
+            var line = $"[{DateTimeOffset.Now:yyyy-MM-dd HH:mm:ss zzz}] [{level}] {message}{Environment.NewLine}";
+            File.AppendAllText(_logFilePath, line);
+        }
+    }
+
     private void Write(string level, ConsoleColor color, string message)
     {
         var line = $"[{DateTimeOffset.Now:yyyy-MM-dd HH:mm:ss zzz}] [{level}] {message}";
@@ -93,5 +123,17 @@ internal sealed class AppLogger
             Console.WriteLine(line);
             Console.ForegroundColor = originalColor;
         }
+    }
+
+    private static string RenderArgument(string arg)
+    {
+        if (string.IsNullOrEmpty(arg))
+        {
+            return "\"\"";
+        }
+
+        return arg.Any(char.IsWhiteSpace) || arg.Contains('"')
+            ? $"\"{arg.Replace("\"", "\\\"")}" + "\""
+            : arg;
     }
 }

@@ -31,6 +31,7 @@ internal sealed class RespondCommandHandler
             Verbose = options.Verbose || settings.Logging.Verbose
         };
         _logger.ConfigureLogging(sessionRoot, loggingMode);
+        _logger.LogAction("Resolved paths", $"projectRoot={projectRoot}; sessionRoot={sessionRoot}");
 
         if (!RoutedSession.Exists(sessionRoot))
         {
@@ -46,6 +47,7 @@ internal sealed class RespondCommandHandler
         }
         session.Save(sessionRoot);
 
+        _logger.LogAction("Saved response", $"status={session.Status}; pendingResponses={session.PendingResponses.Count}");
         _logger.LogExchange("USER", "respond", response);
         _logger.Section("WallyCode Respond");
         _logger.Success("Response saved for the next loop iteration.");

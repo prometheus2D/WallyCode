@@ -36,6 +36,7 @@ internal sealed class LoopCommandHandler
             Verbose = options.Verbose || settings.Logging.Verbose
         };
         _logger.ConfigureLogging(sessionRoot, loggingMode);
+        _logger.LogAction("Resolved paths", $"projectRoot={projectRoot}; sessionRoot={sessionRoot}");
 
         _logger.Section("WallyCode Loop");
 
@@ -46,6 +47,7 @@ internal sealed class LoopCommandHandler
         if (RoutedSession.Exists(sessionRoot))
         {
             session = RoutedSession.Load(sessionRoot);
+            _logger.LogAction("Loaded session", $"definition={session.DefinitionName}; status={session.Status}; iteration={session.IterationCount}");
             var definitionName = options.Definition?.Trim() ?? session.DefinitionName;
             if (definitionName != session.DefinitionName)
             {
@@ -56,11 +58,13 @@ internal sealed class LoopCommandHandler
             if (RoutedSession.IsTerminal(session.Status))
             {
                 var archivedPath = RoutedSession.ArchiveCompletedSession(sessionRoot);
+                _logger.LogAction("Archived terminal session", $"status={session.Status}; archivePath={archivedPath}");
                 _logger.Info($"Archived previous {session.Status} session to {archivedPath}.");
 
                 if (string.IsNullOrWhiteSpace(options.Goal))
                 {
                     _logger.Success($"Session is already {session.Status}.");
+                    _logger.LogAction("Invocation completed", "Existing terminal session reported without starting a new session.");
                     return 0;
                 }
             }
@@ -68,6 +72,7 @@ internal sealed class LoopCommandHandler
             {
                 definition = RoutingDefinition.LoadByName(definitionName);
                 provider = _providerRegistry.Get(session.ProviderName);
+                _logger.LogAction("Resuming session", $"definition={definition.Name}; provider={provider.Name}; iteration={session.IterationCount}");
                 _logger.Info($"Resuming session at iteration {session.IterationCount}.");
 
                 _logger.Info($"Definition: {definition.Name}");
@@ -78,10 +83,12 @@ internal sealed class LoopCommandHandler
                 if (session.Status == SessionStatus.Blocked)
                 {
                     _logger.Warning("Session is blocked. Use 'respond' to provide input.");
+                    _logger.LogAction("Invocation completed", "Blocked session detected; awaiting respond command.");
                     return 0;
                 }
 
                 await provider.EnsureReadyAsync(cancellationToken);
+                _logger.LogAction("Provider ready", $"provider={provider.Name}; model={session.Model ?? "<default>"}", verboseOnly: true);
 
                 var runner = new RoutedRunner(provider, definition, sessionRoot, _logger);
                 var results = await runner.RunAsync(options.Steps, cancellationToken);
@@ -96,6 +103,7 @@ internal sealed class LoopCommandHandler
                 }
 
                 _logger.Success($"Run complete after {results.Count} iteration(s).");
+                _logger.LogAction("Invocation completed", $"iterations={results.Count}; finalStatus={results.LastOrDefault()?.Status ?? session.Status}");
                 return 0;
             }
         }
@@ -114,6 +122,7 @@ internal sealed class LoopCommandHandler
         definition = RoutingDefinition.LoadByName(options.Definition?.Trim() ?? DefaultDefinitionName);
         session = RoutedSession.Start(definition, options.Goal!, provider.Name, model, projectRoot);
         session.Save(sessionRoot);
+        _logger.LogAction("Started session", $"definition={definition.Name}; provider={provider.Name}; model={model ?? "<default>"}; goal={session.Goal}");
         _logger.Info($"Started session on definition '{definition.Name}'.");
 
         _logger.Info($"Definition: {definition.Name}");
@@ -122,11 +131,12 @@ internal sealed class LoopCommandHandler
         _logger.Info($"Session root: {sessionRoot}");
 
         await provider.EnsureReadyAsync(cancellationToken);
+        _logger.LogAction("Provider ready", $"provider={provider.Name}; model={model ?? "<default>"}", verboseOnly: true);
 
-        var newRunner = new RoutedRunner(provider, definition, sessionRoot, _logger);
-        var newResults = await newRunner.RunAsync(options.Steps, cancellationToken);
+        var runnerNew = new RoutedRunner(provider, definition, sessionRoot, _logger);
+        var resultsNew = await runnerNew.RunAsync(options.Steps, cancellationToken);
 
-        foreach (var r in newResults)
+        foreach (var r in resultsNew)
         {
             _logger.Section($"Iteration {r.IterationNumber}");
             _logger.Info($"Selected keyword: {r.SelectedKeyword}");
@@ -135,7 +145,8 @@ internal sealed class LoopCommandHandler
             _logger.Info($"Status: {r.Status}");
         }
 
-        _logger.Success($"Run complete after {newResults.Count} iteration(s).");
+        _logger.Success($"Run complete after {resultsNew.Count} iteration(s).");
+        _logger.LogAction("Invocation completed", $"iterations={resultsNew.Count}; finalStatus={resultsNew.LastOrDefault()?.Status ?? session.Status}");
         return 0;
     }
 }
