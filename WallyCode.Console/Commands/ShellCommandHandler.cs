@@ -37,9 +37,8 @@ internal sealed class ShellCommandHandler
         if (_options.VsBuild)
         {
             Console.WriteLine("VS build mode enabled.");
-            Console.WriteLine($"Executable directory: {_appDirectoryPath}");
-            Console.WriteLine($"Workspace root: {resolvedSourcePath}");
-            Console.WriteLine("Commands will run against the workspace root, not the executable directory.");
+            Console.WriteLine($"\tDirectory before VS resolution: {_appDirectoryPath}");
+            Console.WriteLine($"\tDirectory after VS resolution:  {resolvedSourcePath}");
         }
         else
         {
