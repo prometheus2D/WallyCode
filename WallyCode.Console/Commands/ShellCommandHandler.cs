@@ -21,18 +21,30 @@ internal sealed class ShellCommandHandler
     {
         var resolvedSourcePath = ResolveSourcePath();
         var sessionRoot = ProjectSettings.ResolveRuntimeRoot(resolvedSourcePath, _options.MemoryRoot);
-        ConfigureShellLogging(sessionRoot);
-        _logger.LogAction("Shell initialized", $"source={resolvedSourcePath}; sessionRoot={sessionRoot}; vsBuild={_options.VsBuild}");
 
         if (_options.ResetMemory)
         {
             ResetMemory(resolvedSourcePath, _options.MemoryRoot);
         }
 
+        ConfigureShellLogging(sessionRoot);
+        _logger.LogAction("Shell initialized", $"source={resolvedSourcePath}; sessionRoot={sessionRoot}; vsBuild={_options.VsBuild}");
+
         Console.WriteLine("WallyCode shell");
         Console.WriteLine("Type a WallyCode command without the executable name.");
         Console.WriteLine("Type 'exit' to quit.");
-        Console.WriteLine($"Shell initialized with source: {resolvedSourcePath}");
+
+        if (_options.VsBuild)
+        {
+            Console.WriteLine("VS build mode enabled.");
+            Console.WriteLine($"Executable directory: {_appDirectoryPath}");
+            Console.WriteLine($"Workspace root: {resolvedSourcePath}");
+            Console.WriteLine("Commands will run against the workspace root, not the executable directory.");
+        }
+        else
+        {
+            Console.WriteLine($"Shell initialized with source: {resolvedSourcePath}");
+        }
 
         if (!string.IsNullOrWhiteSpace(_options.MemoryRoot))
         {

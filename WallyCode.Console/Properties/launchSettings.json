@@ -11,7 +11,7 @@
       "commandName": "Project",
       "commandLineArgs": "shell --reset-memory --log"
     },
-    "Shell Verbose": {
+    "Shell VS Verbose": {
       "commandName": "Project",
       "commandLineArgs": "shell --vs-build --reset-memory --log --verbose"
     },
