@@ -1,12 +1,10 @@
 {
   "name": "ask",
   "startUnitName": "prompt",
-  "units": [
+  "unitRefs": [
     {
-      "name": "prompt",
-      "instructions": "Handle the request directly as a normal user-facing answer. Put the answer in the summary field. Do not change files in the source workspace.",
-      "allowedKeywords": ["[DONE]", "[ASK_USER]", "[FAIL]"],
-      "transitions": {}
+      "ref": "prompt",
+      "promptAddon": "Do not change files in the source workspace."
     }
   ]
 }

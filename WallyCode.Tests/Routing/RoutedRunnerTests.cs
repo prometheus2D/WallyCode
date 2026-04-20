@@ -168,6 +168,23 @@ public class RoutedRunnerTests
     }
 
     [Fact]
+    public async Task Prompt_includes_keyword_descriptions()
+    {
+        using var temp = TempWorkspace.Create();
+        var def = TestDefinitions.TwoUnit();
+        var provider = new MockLlmProvider([
+            new MockInvocation { RawOutput = """{"selectedKeyword":"[CONTINUE]"}""" }
+        ]);
+        var runner = new RoutedRunner(provider, def, temp.RootPath);
+        TestDefinitions.NewSession(def, temp.RootPath).Save(temp.RootPath);
+
+        await runner.RunOnceAsync(CancellationToken.None);
+
+        Assert.Contains("Keyword options:", provider.Requests[0].Prompt);
+        Assert.Contains("[NEXT]: Move to the finish unit.", provider.Requests[0].Prompt);
+    }
+
+    [Fact]
     public async Task Run_throws_when_session_definition_does_not_match()
     {
         using var temp = TempWorkspace.Create();

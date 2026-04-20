@@ -1,17 +1,14 @@
 {
   "name": "tasks",
   "startUnitName": "produce_tasks",
-  "units": [
+  "unitRefs": [
     {
-      "name": "produce_tasks",
-      "instructions": "Turn the goal into a concrete ordered task list. Use [TASKS_READY] when ready to execute, [CONTINUE] to keep refining, [ASK_USER] for clarification, [FAIL] if you cannot proceed.",
-      "allowedKeywords": ["[CONTINUE]", "[ASK_USER]", "[TASKS_READY]", "[FAIL]"],
-      "transitions": { "[TASKS_READY]": "execute_tasks" }
+      "ref": "produce_tasks",
+      "promptAddon": "Use [TASKS_READY] when the ordered task list is ready to execute.",
+      "transitionOverrides": { "[TASKS_READY]": "execute_tasks" }
     },
     {
-      "name": "execute_tasks",
-      "instructions": "Execute the tasks in order. Use [DONE] when all tasks are complete, [CONTINUE] to keep working, [ASK_USER] for clarification, [FAIL] on unrecoverable failure.",
-      "allowedKeywords": ["[CONTINUE]", "[ASK_USER]", "[DONE]", "[FAIL]"]
+      "ref": "execute_tasks"
     }
   ]
 }

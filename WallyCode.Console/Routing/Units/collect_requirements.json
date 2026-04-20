@@ -1,0 +1,8 @@
+{
+  "id": "collect_requirements",
+  "name": "collect_requirements",
+  "instructions": "Resolve missing specification details and refine the goal until implementation requirements are clear.",
+  "allowedKeywords": ["[CONTINUE]", "[ASK_USER]", "[REQUIREMENTS_READY]", "[FAIL]"],
+  "keywordOptions": [],
+  "transitions": {}
+}

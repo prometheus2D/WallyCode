@@ -1,0 +1,8 @@
+{
+  "id": "prompt",
+  "name": "prompt",
+  "instructions": "Handle the request directly. Put the user-facing response in the summary field.",
+  "allowedKeywords": ["[CONTINUE]", "[DONE]", "[FAIL]"],
+  "keywordOptions": [],
+  "transitions": {}
+}

@@ -11,7 +11,15 @@ public class RoutingDefinitionTests
         {
             Name = "x",
             StartUnitName = "u",
-            Units = [new LogicalUnit { Name = "u", AllowedKeywords = ["[DONE]"] }]
+            Units =
+            [
+                new LogicalUnit
+                {
+                    Name = "u",
+                    AllowedKeywords = ["[DONE]"],
+                    KeywordOptions = [new() { Keyword = "[DONE]", Description = "Complete the flow." }]
+                }
+            ]
         };
         def.Validate();
     }
@@ -23,7 +31,15 @@ public class RoutingDefinitionTests
         {
             Name = "x",
             StartUnitName = "missing",
-            Units = [new LogicalUnit { Name = "u", AllowedKeywords = ["[DONE]"] }]
+            Units =
+            [
+                new LogicalUnit
+                {
+                    Name = "u",
+                    AllowedKeywords = ["[DONE]"],
+                    KeywordOptions = [new() { Keyword = "[DONE]", Description = "Complete the flow." }]
+                }
+            ]
         };
         Assert.Throws<InvalidOperationException>(() => def.Validate());
     }
@@ -41,6 +57,7 @@ public class RoutingDefinitionTests
                 {
                     Name = "u",
                     AllowedKeywords = ["[NEXT]"],
+                    KeywordOptions = [new() { Keyword = "[NEXT]", Description = "Move to the next unit." }],
                     Transitions = new() { ["[NEXT]"] = "ghost" }
                 }
             ]
@@ -61,10 +78,24 @@ public class RoutingDefinitionTests
                 {
                     Name = "u",
                     AllowedKeywords = ["[DONE]"],
+                    KeywordOptions = [new() { Keyword = "[DONE]", Description = "Complete the flow." }],
                     Transitions = new() { ["[NEXT]"] = "u" }
                 }
             ]
         };
+        Assert.Throws<InvalidOperationException>(() => def.Validate());
+    }
+
+    [Fact]
+    public void Validate_rejects_allowed_keyword_without_description()
+    {
+        var def = new RoutingDefinition
+        {
+            Name = "x",
+            StartUnitName = "u",
+            Units = [new LogicalUnit { Name = "u", AllowedKeywords = ["[DONE]"] }]
+        };
+
         Assert.Throws<InvalidOperationException>(() => def.Validate());
     }
 

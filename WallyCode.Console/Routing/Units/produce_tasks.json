@@ -1,0 +1,8 @@
+{
+  "id": "produce_tasks",
+  "name": "produce_tasks",
+  "instructions": "Turn the goal and requirements into a concrete ordered task list.",
+  "allowedKeywords": ["[CONTINUE]", "[ASK_USER]", "[TASKS_READY]", "[DONE]", "[FAIL]"],
+  "keywordOptions": [],
+  "transitions": {}
+}

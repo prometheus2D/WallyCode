@@ -16,12 +16,25 @@ internal static class TestDefinitions
                 {
                     Name = "start",
                     AllowedKeywords = ["[CONTINUE]", "[ASK_USER]", "[NEXT]", "[FAIL]"],
+                    KeywordOptions =
+                    [
+                        new() { Keyword = "[CONTINUE]", Description = "Keep working in the same unit." },
+                        new() { Keyword = "[ASK_USER]", Description = "Pause and ask the user for input." },
+                        new() { Keyword = "[NEXT]", Description = "Move to the finish unit." },
+                        new() { Keyword = "[FAIL]", Description = "Stop because the flow cannot continue." }
+                    ],
                     Transitions = new(StringComparer.Ordinal) { ["[NEXT]"] = "finish" }
                 },
                 new LogicalUnit
                 {
                     Name = "finish",
-                    AllowedKeywords = ["[CONTINUE]", "[DONE]", "[FAIL]"]
+                    AllowedKeywords = ["[CONTINUE]", "[DONE]", "[FAIL]"],
+                    KeywordOptions =
+                    [
+                        new() { Keyword = "[CONTINUE]", Description = "Keep working in the finish unit." },
+                        new() { Keyword = "[DONE]", Description = "Complete the flow." },
+                        new() { Keyword = "[FAIL]", Description = "Stop because the flow cannot continue." }
+                    ]
                 }
             ]
         };

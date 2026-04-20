@@ -103,8 +103,11 @@ internal sealed class RoutedRunner
         {
             sb.AppendLine($"Instructions: {unit.Instructions}");
         }
-        sb.AppendLine("Allowed keywords:");
-        foreach (var k in unit.AllowedKeywords) sb.AppendLine($"  - {k}");
+        sb.AppendLine("Keyword options:");
+        foreach (var keyword in unit.AllowedKeywords)
+        {
+            sb.AppendLine($"  - {keyword}: {unit.DescribeKeyword(keyword)}");
+        }
 
         if (session.PendingResponses.Count > 0)
         {
@@ -113,6 +116,7 @@ internal sealed class RoutedRunner
         }
 
         sb.AppendLine();
+        sb.AppendLine("Choose the keyword that best matches the next action based on the keyword option descriptions.");
         sb.AppendLine("Respond with strict JSON: { \"selectedKeyword\": \"[ONE_OF_ALLOWED]\", \"summary\": \"...\" }");
         sb.AppendLine("selectedKeyword must be one of the allowed keywords above. Output JSON only.");
         return sb.ToString();
