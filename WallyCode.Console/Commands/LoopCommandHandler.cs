@@ -26,9 +26,7 @@ internal sealed class LoopCommandHandler
         }
 
         var projectRoot = ProjectSettings.ResolveProjectRoot(options.SourcePath);
-        var sessionRoot = string.IsNullOrWhiteSpace(options.MemoryRoot)
-            ? Path.Combine(projectRoot, ".wallycode")
-            : Path.GetFullPath(options.MemoryRoot);
+        var sessionRoot = ProjectSettings.ResolveRuntimeRoot(projectRoot, options.MemoryRoot);
         Directory.CreateDirectory(sessionRoot);
 
         _logger.Section("WallyCode Loop");

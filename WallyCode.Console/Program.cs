@@ -19,7 +19,7 @@ internal static class Program
 		return await RunAsync(args, cancellationTokenSource.Token);
 	}
 
-	internal static async Task<int> RunAsync(string[] args, CancellationToken cancellationToken)
+	internal static async Task<int> RunAsync(string[] args, CancellationToken cancellationToken, string? appDirectoryPath = null)
 	{
 		var logger = new AppLogger();
 		var providerRegistry = ProviderRegistry.Create(logger);
@@ -33,7 +33,7 @@ internal static class Program
 			settings.AutoVersion = true;
 		});
 
-		var result = parser.ParseArguments<LoopCommandOptions, AskCommandOptions, ActCommandOptions, PromptCommandOptions, ProviderCommandOptions, RespondCommandOptions, ShellCommandOptions, TutorialCommandOptions>(args);
+		var result = parser.ParseArguments<LoopCommandOptions, AskCommandOptions, ActCommandOptions, PromptCommandOptions, ProviderCommandOptions, RespondCommandOptions, ShellCommandOptions, TutorialCommandOptions, SetupCommandOptions>(args);
 
 		try
 		{
@@ -46,6 +46,7 @@ internal static class Program
 				(RespondCommandOptions options) => new RespondCommandHandler(logger).ExecuteAsync(options, cancellationToken),
 				(ShellCommandOptions options) => new ShellCommandHandler(options).ExecuteAsync(cancellationToken),
 				(TutorialCommandOptions options) => new TutorialCommandHandler(logger).ExecuteAsync(options, cancellationToken),
+				(SetupCommandOptions options) => new SetupCommandHandler(providerRegistry, logger, appDirectoryPath).ExecuteAsync(options, cancellationToken),
 				errors => Task.FromResult(errors.All(e =>
 					e.Tag == ErrorType.HelpRequestedError
 					|| e.Tag == ErrorType.HelpVerbRequestedError

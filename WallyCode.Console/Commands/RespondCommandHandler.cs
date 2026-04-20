@@ -23,9 +23,7 @@ internal sealed class RespondCommandHandler
         }
 
         var projectRoot = ProjectSettings.ResolveProjectRoot(options.SourcePath);
-        var sessionRoot = string.IsNullOrWhiteSpace(options.MemoryRoot)
-            ? Path.Combine(projectRoot, ".wallycode")
-            : Path.GetFullPath(options.MemoryRoot);
+        var sessionRoot = ProjectSettings.ResolveRuntimeRoot(projectRoot, options.MemoryRoot);
 
         if (!RoutedSession.Exists(sessionRoot))
         {

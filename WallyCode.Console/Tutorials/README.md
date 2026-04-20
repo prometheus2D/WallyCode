@@ -5,6 +5,8 @@ These markdown files are the tutorial source material for WallyCode.
 The intended command-line flow is:
 
 ```text
+wallycode setup --directory C:\src\my-repo
+cd C:\src\my-repo
 tutorial --list
 tutorial repo-review
 tutorial book-story
@@ -36,3 +38,5 @@ loop --definition act "Implement the requested file changes." --source C:\src\my
 ```
 
 Use `prompt` when you want a one-shot prompt with no session state.
+
+If you prefer to keep running from somewhere else, the tutorial command examples that use `--source` still work.

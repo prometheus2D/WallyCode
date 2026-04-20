@@ -16,4 +16,7 @@ internal sealed class PromptCommandOptions
 
     [Option("source", HelpText = "Repo or folder path used as the project root and Copilot source context.")]
     public string? SourcePath { get; set; }
+
+    [Option("memory-root", HelpText = "Optional folder for prompt logs, prompts, raw output, and other runtime artifacts.")]
+    public string? MemoryRoot { get; set; }
 }

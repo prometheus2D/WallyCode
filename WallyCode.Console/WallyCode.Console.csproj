@@ -12,11 +12,11 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Content Include="Routing\Definitions\*.json">
+    <Content Include="Routing\Definitions\**\*">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
     </Content>
-    <Content Include="Tutorials\*.md">
+    <Content Include="Tutorials\**\*">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
     </Content>

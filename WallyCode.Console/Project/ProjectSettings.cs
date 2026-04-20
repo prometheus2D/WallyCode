@@ -1,11 +1,12 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using WallyCode.ConsoleApp.Copilot;
 
 namespace WallyCode.ConsoleApp.Project;
 
 internal sealed class ProjectSettings
 {
-    private const string DefaultProviderName = "gh-copilot-claude";
+    private static readonly string DefaultProviderName = ProviderRegistry.DefaultProviderName;
 
     private static readonly JsonSerializerOptions SerializerOptions = new()
     {
@@ -76,7 +77,20 @@ internal sealed class ProjectSettings
 
     public static string EnsureRuntimeDirectory(string projectRoot, params string[] segments)
     {
-        var path = segments.Aggregate(Path.Combine(projectRoot, ".wallycode"), Path.Combine);
+        var path = EnsureRuntimeDirectoryAt(ResolveRuntimeRoot(projectRoot, memoryRoot: null), segments);
+        return path;
+    }
+
+    public static string ResolveRuntimeRoot(string projectRoot, string? memoryRoot)
+    {
+        return string.IsNullOrWhiteSpace(memoryRoot)
+            ? Path.Combine(projectRoot, ".wallycode")
+            : Path.GetFullPath(memoryRoot);
+    }
+
+    public static string EnsureRuntimeDirectoryAt(string runtimeRoot, params string[] segments)
+    {
+        var path = segments.Aggregate(runtimeRoot, Path.Combine);
         Directory.CreateDirectory(path);
         return path;
     }

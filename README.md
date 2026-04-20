@@ -9,6 +9,12 @@ The core idea is simple:
 
 ## Quick Start
 
+Initialize the workspace once before normal day-to-day commands:
+
+```text
+wallycode setup
+```
+
 Start with `ask` when you want a direct answer with no file changes:
 
 ```text
@@ -35,10 +41,6 @@ Readme-style walkthroughs live in [WallyCode.Console/Tutorials](WallyCode.Consol
 - [WallyCode.Console/Tutorials/book-story.md](WallyCode.Console/Tutorials/book-story.md) - use `act` style workflows to build and revise a story in markdown files.
 - [WallyCode.Console/Tutorials/repo-review.md](WallyCode.Console/Tutorials/repo-review.md) - use `ask` style workflows to review a repository without changing files.
 - [WallyCode.Console/Tutorials/tic-tac-toe.md](WallyCode.Console/Tutorials/tic-tac-toe.md) - use the routed loop to build a small game step by step.
-
-Tutorial automation and regression guidance lives here:
-
-- [WallyCode.Console/Docs/tutorial-automation-process.md](WallyCode.Console/Docs/tutorial-automation-process.md) - use tutorials as executable scenarios with mock-provider tests and live runs.
 
 The `tutorial` command is intended to list these guides and print one by name:
 
@@ -105,6 +107,26 @@ loop "Work on issue 123" --source C:\src\my-repo --memory-root C:\temp\wallycode
 ```
 
 Session state is written under `.wallycode/` in the project root by default.
+
+## Setup
+
+Use `setup` once per workspace you want WallyCode to initialize.
+
+```text
+wallycode setup
+wallycode setup --directory C:\src\my-repo
+wallycode setup --force
+wallycode setup --vs-build
+```
+
+Typical flow:
+
+```text
+wallycode setup --directory C:\src\my-repo
+cd C:\src\my-repo
+wallycode provider
+wallycode loop --definition ask "Summarize this repository in one short paragraph."
+```
 
 ## Other Commands
 
@@ -210,11 +232,5 @@ The executable location and the workspace WallyCode operates on are separate con
 - `wallycode.json` stays in the source workspace.
 - `.wallycode/` stays in the source workspace by default unless `--memory-root` is provided.
 
-That model already allows one installed executable to work against different repos. The setup work that remains is making installation and self-copy simple enough that a published build can be moved around with minimal friction.
+That model already allows one installed executable to work against different repos. Installation stays manual: place the published build where you want it, then run setup there or against the workspace you want to initialize.
 
-## Design Docs
-
-Background on the routing model lives under [WallyCode.Console/Docs](WallyCode.Console/Docs).
-
-- [WallyCode.Console/Docs/setup-and-remote-workspaces.md](WallyCode.Console/Docs/setup-and-remote-workspaces.md) - proposed setup flow, self-copy behavior, and remote workspace model.
-- [WallyCode.Console/Docs/tutorial-automation-process.md](WallyCode.Console/Docs/tutorial-automation-process.md) - tutorial automation process for mock-provider regression tests and live scenario runs.

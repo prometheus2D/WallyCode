@@ -21,6 +21,7 @@ internal sealed class PromptCommandHandler
     public async Task<int> ExecuteAsync(PromptCommandOptions commandOptions, CancellationToken cancellationToken)
     {
         var projectRoot = ProjectSettings.ResolveProjectRoot(commandOptions.SourcePath);
+        var runtimeRootPath = ProjectSettings.ResolveRuntimeRoot(projectRoot, commandOptions.MemoryRoot);
         var settings = ProjectSettings.Load(projectRoot);
         var providerName = string.IsNullOrWhiteSpace(commandOptions.Provider)
             ? settings.Provider
@@ -30,10 +31,9 @@ internal sealed class PromptCommandHandler
             ? (string.IsNullOrWhiteSpace(settings.Model) ? provider.DefaultModel : settings.Model)
             : commandOptions.Model.Trim();
         var timestamp = DateTimeOffset.Now;
-        var logDirectoryPath = ProjectSettings.EnsureRuntimeDirectory(projectRoot, "logs");
-        var promptDirectoryPath = ProjectSettings.EnsureRuntimeDirectory(projectRoot, "prompts");
-        var rawDirectoryPath = ProjectSettings.EnsureRuntimeDirectory(projectRoot, "raw");
-        var runtimeRootPath = Path.Combine(projectRoot, ".wallycode");
+        var logDirectoryPath = ProjectSettings.EnsureRuntimeDirectoryAt(runtimeRootPath, "logs");
+        var promptDirectoryPath = ProjectSettings.EnsureRuntimeDirectoryAt(runtimeRootPath, "prompts");
+        var rawDirectoryPath = ProjectSettings.EnsureRuntimeDirectoryAt(runtimeRootPath, "raw");
 
         _logger.LogFilePath = Path.Combine(logDirectoryPath, $"prompt-{timestamp:yyyyMMdd-HHmmss}.log");
         _logger.Section("WallyCode Prompt");

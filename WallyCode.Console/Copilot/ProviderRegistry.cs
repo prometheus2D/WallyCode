@@ -2,6 +2,8 @@ namespace WallyCode.ConsoleApp.Copilot;
 
 internal sealed class ProviderRegistry
 {
+    public const string DefaultProviderName = "gh-copilot-claude";
+
     private readonly Dictionary<string, ILlmProvider> _providers;
 
     public ProviderRegistry(IEnumerable<ILlmProvider> providers)
@@ -11,13 +13,15 @@ internal sealed class ProviderRegistry
 
     public IReadOnlyList<ILlmProvider> All => _providers.Values.OrderBy(p => p.Name, StringComparer.OrdinalIgnoreCase).ToList();
 
+    public ILlmProvider Default => Get(DefaultProviderName);
+
     public static ProviderRegistry Create(Runtime.AppLogger logger)
     {
         return new ProviderRegistry(
             providers:
             [
                 new GhCopilotCliProvider(
-                    name: "gh-copilot-claude",
+                    name: DefaultProviderName,
                     defaultModel: "claude-sonnet-4",
                     description: "GitHub Copilot CLI using Claude Sonnet 4.",
                     logger: logger),

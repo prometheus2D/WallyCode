@@ -32,7 +32,7 @@ internal sealed class ShellCommandHandler
         }
         else
         {
-            Console.WriteLine($"Shell using default memory root: {Path.Combine(resolvedSourcePath, ".wallycode")}");
+			Console.WriteLine($"Shell using default memory root: {ProjectSettings.ResolveRuntimeRoot(resolvedSourcePath, memoryRoot: null)}");
         }
 
         Console.WriteLine();
@@ -114,6 +114,7 @@ internal sealed class ShellCommandHandler
         return string.Equals(commandName, "loop", StringComparison.OrdinalIgnoreCase)
             || string.Equals(commandName, "ask", StringComparison.OrdinalIgnoreCase)
             || string.Equals(commandName, "act", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(commandName, "prompt", StringComparison.OrdinalIgnoreCase)
             || string.Equals(commandName, "respond", StringComparison.OrdinalIgnoreCase)
             || string.Equals(commandName, "shell", StringComparison.OrdinalIgnoreCase);
     }
@@ -127,9 +128,7 @@ internal sealed class ShellCommandHandler
     private static void ResetMemory(ShellCommandOptions options)
     {
         var projectRoot = ProjectSettings.ResolveProjectRoot(options.SourcePath);
-        var sessionRoot = string.IsNullOrWhiteSpace(options.MemoryRoot)
-            ? Path.Combine(projectRoot, ".wallycode")
-            : Path.GetFullPath(options.MemoryRoot);
+        var sessionRoot = ProjectSettings.ResolveRuntimeRoot(projectRoot, options.MemoryRoot);
 
         if (Directory.Exists(sessionRoot))
         {
