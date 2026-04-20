@@ -67,6 +67,8 @@ internal sealed class RoutedSession
             archivePath = Path.Combine(archiveRoot, $"{archiveName}-{suffix++}");
         }
 
+        Directory.CreateDirectory(archivePath);
+
         foreach (var entry in Directory.EnumerateFileSystemEntries(rootPath))
         {
             if (string.Equals(Path.GetFileName(entry), "archive", StringComparison.OrdinalIgnoreCase))

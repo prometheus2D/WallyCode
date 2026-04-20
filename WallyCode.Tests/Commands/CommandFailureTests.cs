@@ -219,13 +219,28 @@ public class CommandFailureTests
     {
         using var workspace = TempWorkspace.Create();
         var sessionRoot = Path.Combine(workspace.RootPath, ".wallycode");
+        new ProjectSettings
+        {
+            Provider = "mock-provider",
+            Model = "mock-default-model"
+        }.Save(workspace.RootPath);
+
         var definition = RoutingDefinition.LoadByName("ask");
         var session = RoutedSession.Start(definition, "old goal", "mock-provider", "mock-default-model", workspace.RootPath);
         session.Status = SessionStatus.Completed;
         session.Save(sessionRoot);
         File.WriteAllText(Path.Combine(sessionRoot, "transcript.log"), "old transcript");
 
-        var handler = new LoopCommandHandler(NewRegistry(), new AppLogger());
+        var provider = new MockLlmProvider([
+            new MockInvocation
+            {
+                RawOutput = """{"selectedKeyword":"[DONE]","summary":"done again"}""",
+                ExpectedModel = "mock-default-model",
+                ExpectedSourcePath = workspace.RootPath
+            }
+        ]);
+
+        var handler = new LoopCommandHandler(new ProviderRegistry([provider]), new AppLogger());
         var exitCode = await handler.ExecuteAsync(
             new LoopCommandOptions
             {
@@ -241,12 +256,14 @@ public class CommandFailureTests
 
         var active = RoutedSession.Load(sessionRoot);
         Assert.Equal("new goal", active.Goal);
+        Assert.Equal(SessionStatus.Completed, active.Status);
 
         var archiveRoot = RoutedSession.ArchiveRoot(sessionRoot);
         var archivedSessionFolder = Assert.Single(Directory.GetDirectories(archiveRoot));
         var archived = RoutedSession.Load(archivedSessionFolder);
         Assert.Equal("old goal", archived.Goal);
         Assert.True(File.Exists(Path.Combine(archivedSessionFolder, "transcript.log")));
+        provider.AssertConsumed();
     }
 
     private static ProviderRegistry NewRegistry()
