@@ -17,10 +17,8 @@ Use `ask` style requests when you want analysis only.
 In the current CLI that means:
 
 ```text
-loop --definition ask "<your question>" --source C:\path\to\repo
+ask "<your question>" --source C:\path\to\repo
 ```
-
-If you want one direct answer with no session state, use `prompt` instead.
 
 ## Exact first pass
 

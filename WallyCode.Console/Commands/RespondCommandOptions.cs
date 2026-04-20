@@ -11,6 +11,6 @@ internal sealed class RespondCommandOptions
     [Option("source", HelpText = "Repo or folder path used as the project root.")]
     public string? SourcePath { get; set; }
 
-    [Option("memory-root", HelpText = "Optional folder for loop memory, prompts, raw output, and logs.")]
+    [Option("memory-root", HelpText = "Optional folder for loop session state.")]
     public string? MemoryRoot { get; set; }
 }

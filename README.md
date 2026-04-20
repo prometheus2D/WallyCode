@@ -130,14 +130,14 @@ wallycode loop --definition ask "Summarize this repository in one short paragrap
 
 ## Other Commands
 
-One-shot prompt, no session, no memory:
+Direct answer workflow:
 
 ```text
-prompt "Summarize this repository in one short paragraph."
-prompt "Summarize this repository." --source C:\src\my-repo
+ask "Summarize this repository in one short paragraph."
+ask "Summarize this repository." --source C:\src\my-repo
 ```
 
-If you want the same kind of direct interaction expressed through the routing-definition system, start with `loop --definition ask`, move to `loop --definition act` when file changes are needed, and use the default `loop` workflow when the task needs iteration.
+Use `ask` for direct answers, `act` for direct repo changes, and the default `loop` workflow when the task needs iteration.
 
 Interactive shell that keeps `--source` and `--memory-root` defaults for every command run inside it:
 
@@ -182,14 +182,14 @@ Available providers:
 Override for a single run:
 
 ```text
-prompt "Summarize this repository" --provider gh-copilot-gpt5
+ask "Summarize this repository" --provider gh-copilot-gpt5
 loop "Build the export feature." --model gpt-5
 ```
 
 ## Files Written
 
 - `wallycode.json` - project settings (default provider, model).
-- `.wallycode/` - session state, prompts, raw output, and logs. Override location with `--memory-root`.
+- `.wallycode/` - loop session state. Override location with `--memory-root`.
 
 `source` is the folder the provider operates against. `memory-root` is where WallyCode stores session data.
 

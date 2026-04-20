@@ -69,6 +69,8 @@ public class RoutingDefinitionTests
     }
 
     [Theory]
+    [InlineData("ask")]
+    [InlineData("act")]
     [InlineData("requirements")]
     [InlineData("tasks")]
     [InlineData("full-pipeline")]

@@ -1,12 +1,8 @@
-using System.Text;
-
 namespace WallyCode.ConsoleApp.Runtime;
 
 internal sealed class AppLogger
 {
     private readonly object _sync = new();
-
-    public string? LogFilePath { get; set; }
 
     public void Section(string title)
     {
@@ -43,11 +39,6 @@ internal sealed class AppLogger
             Console.ForegroundColor = color;
             Console.WriteLine(line);
             Console.ForegroundColor = originalColor;
-
-            if (!string.IsNullOrWhiteSpace(LogFilePath))
-            {
-                File.AppendAllText(LogFilePath, line + Environment.NewLine, new UTF8Encoding(false));
-            }
         }
     }
 }

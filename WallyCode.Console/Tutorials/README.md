@@ -30,13 +30,11 @@ Each tutorial is kept simple on purpose:
 
 The README talks about `ask` and `act` as workflow styles.
 
-In the current CLI, those styles are invoked through `loop` with a routing definition:
+In the current CLI, those styles are also available as direct commands:
 
 ```text
-loop --definition ask "Explain this repository." --source C:\src\my-repo
-loop --definition act "Implement the requested file changes." --source C:\src\my-repo
+ask "Explain this repository." --source C:\src\my-repo
+act "Implement the requested file changes." --source C:\src\my-repo
 ```
-
-Use `prompt` when you want a one-shot prompt with no session state.
 
 If you prefer to keep running from somewhere else, the tutorial command examples that use `--source` still work.

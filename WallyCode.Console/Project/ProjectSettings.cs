@@ -75,24 +75,11 @@ internal sealed class ProjectSettings
         return Path.Combine(projectRoot, "wallycode.json");
     }
 
-    public static string EnsureRuntimeDirectory(string projectRoot, params string[] segments)
-    {
-        var path = EnsureRuntimeDirectoryAt(ResolveRuntimeRoot(projectRoot, memoryRoot: null), segments);
-        return path;
-    }
-
     public static string ResolveRuntimeRoot(string projectRoot, string? memoryRoot)
     {
         return string.IsNullOrWhiteSpace(memoryRoot)
             ? Path.Combine(projectRoot, ".wallycode")
             : Path.GetFullPath(memoryRoot);
-    }
-
-    public static string EnsureRuntimeDirectoryAt(string runtimeRoot, params string[] segments)
-    {
-        var path = segments.Aggregate(runtimeRoot, Path.Combine);
-        Directory.CreateDirectory(path);
-        return path;
     }
 
     private static string ResolveProviderName(string? providerName)

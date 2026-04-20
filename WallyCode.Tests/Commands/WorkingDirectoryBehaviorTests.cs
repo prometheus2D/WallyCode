@@ -11,28 +11,28 @@ namespace WallyCode.Tests.Commands;
 public class WorkingDirectoryBehaviorTests
 {
     [Fact]
-    public async Task Prompt_uses_the_current_working_directory_for_settings_and_runtime_artifacts()
+    public async Task Ask_uses_the_current_working_directory_for_settings_and_runtime_artifacts()
     {
         using var workspace = TempWorkspace.Create();
         var provider = new MockLlmProvider([
             new MockInvocation
             {
-                RawOutput = "prompt result",
+                RawOutput = """{"selectedKeyword":"[DONE]","summary":"done"}""",
                 ExpectedModel = "mock-default-model",
                 ExpectedSourcePath = workspace.RootPath
             }
         ]);
-        var handler = new PromptCommandHandler(NewRegistry(provider), new AppLogger());
+        var handler = new LoopCommandHandler(NewRegistry(provider), new AppLogger());
         WriteMockSettings(workspace.RootPath);
 
         var exitCode = await RunInWorkingDirectoryAsync(
             workspace.RootPath,
             () => ExecuteSilentlyAsync(() => handler.ExecuteAsync(
-                new PromptCommandOptions { Prompt = "Summarize this repository." },
+                NewAskOptions("Summarize this repository."),
                 CancellationToken.None)));
 
         Assert.Equal(0, exitCode);
-        AssertRuntimeFilesExist(Path.Combine(workspace.RootPath, ".wallycode"));
+        AssertSessionExists(Path.Combine(workspace.RootPath, ".wallycode"), workspace.RootPath, "ask");
         provider.AssertConsumed();
     }
 
@@ -44,58 +44,50 @@ public class WorkingDirectoryBehaviorTests
         var provider = new MockLlmProvider([
             new MockInvocation
             {
-                RawOutput = "prompt result",
+                RawOutput = """{"selectedKeyword":"[DONE]","summary":"done"}""",
                 ExpectedModel = "mock-default-model",
                 ExpectedSourcePath = sourceWorkspace.RootPath
             }
         ]);
-        var handler = new PromptCommandHandler(NewRegistry(provider), new AppLogger());
+        var handler = new LoopCommandHandler(NewRegistry(provider), new AppLogger());
         WriteMockSettings(sourceWorkspace.RootPath);
 
         var exitCode = await RunInWorkingDirectoryAsync(
             currentDirectory.RootPath,
             () => ExecuteSilentlyAsync(() => handler.ExecuteAsync(
-                new PromptCommandOptions
-                {
-                    Prompt = "Summarize this repository.",
-                    SourcePath = sourceWorkspace.RootPath
-                },
+                NewAskOptions("Summarize this repository.", sourceWorkspace.RootPath),
                 CancellationToken.None)));
 
         Assert.Equal(0, exitCode);
-        AssertRuntimeFilesExist(Path.Combine(sourceWorkspace.RootPath, ".wallycode"));
+        AssertSessionExists(Path.Combine(sourceWorkspace.RootPath, ".wallycode"), sourceWorkspace.RootPath, "ask");
         Assert.False(Directory.Exists(Path.Combine(currentDirectory.RootPath, ".wallycode")));
         provider.AssertConsumed();
     }
 
     [Fact]
-    public async Task Prompt_memory_root_override_moves_runtime_artifacts_out_of_the_source_workspace()
+    public async Task Ask_memory_root_override_moves_runtime_artifacts_out_of_the_source_workspace()
     {
         using var workspace = TempWorkspace.Create();
         using var runtime = TempWorkspace.Create();
         var provider = new MockLlmProvider([
             new MockInvocation
             {
-                RawOutput = "prompt result",
+                RawOutput = """{"selectedKeyword":"[DONE]","summary":"done"}""",
                 ExpectedModel = "mock-default-model",
                 ExpectedSourcePath = workspace.RootPath
             }
         ]);
-        var handler = new PromptCommandHandler(NewRegistry(provider), new AppLogger());
+        var handler = new LoopCommandHandler(NewRegistry(provider), new AppLogger());
         WriteMockSettings(workspace.RootPath);
 
         var exitCode = await RunInWorkingDirectoryAsync(
             workspace.RootPath,
             () => ExecuteSilentlyAsync(() => handler.ExecuteAsync(
-                new PromptCommandOptions
-                {
-                    Prompt = "Summarize this repository.",
-                    MemoryRoot = runtime.RootPath
-                },
+                NewAskOptions("Summarize this repository.", memoryRoot: runtime.RootPath),
                 CancellationToken.None)));
 
         Assert.Equal(0, exitCode);
-        AssertRuntimeFilesExist(runtime.RootPath);
+        AssertSessionExists(runtime.RootPath, workspace.RootPath, "ask");
         Assert.False(Directory.Exists(Path.Combine(workspace.RootPath, ".wallycode")));
         provider.AssertConsumed();
     }
@@ -129,11 +121,8 @@ public class WorkingDirectoryBehaviorTests
                 CancellationToken.None)));
 
         Assert.Equal(0, exitCode);
-        Assert.True(RoutedSession.Exists(runtime.RootPath));
+        AssertSessionExists(runtime.RootPath, workspace.RootPath, "requirements");
         Assert.False(Directory.Exists(Path.Combine(workspace.RootPath, ".wallycode")));
-
-        var session = RoutedSession.Load(runtime.RootPath);
-        Assert.Equal(workspace.RootPath, session.SourcePath);
         provider.AssertConsumed();
     }
 
@@ -146,37 +135,37 @@ public class WorkingDirectoryBehaviorTests
         var provider = new MockLlmProvider([
             new MockInvocation
             {
-                RawOutput = "first result",
+                RawOutput = """{"selectedKeyword":"[DONE]","summary":"first result"}""",
                 ExpectedModel = "mock-default-model",
                 ExpectedSourcePath = workspaceA.RootPath
             },
             new MockInvocation
             {
-                RawOutput = "second result",
+                RawOutput = """{"selectedKeyword":"[DONE]","summary":"second result"}""",
                 ExpectedModel = "mock-default-model",
                 ExpectedSourcePath = workspaceB.RootPath
             }
         ]);
-        var handler = new PromptCommandHandler(NewRegistry(provider), new AppLogger());
+        var handler = new LoopCommandHandler(NewRegistry(provider), new AppLogger());
         WriteMockSettings(workspaceA.RootPath);
         WriteMockSettings(workspaceB.RootPath);
 
         var firstExitCode = await RunInWorkingDirectoryAsync(
             workspaceA.RootPath,
             () => ExecuteSilentlyAsync(() => handler.ExecuteAsync(
-                new PromptCommandOptions { Prompt = "Summarize workspace A." },
+                NewAskOptions("Summarize workspace A."),
                 CancellationToken.None)));
 
         var secondExitCode = await RunInWorkingDirectoryAsync(
             workspaceB.RootPath,
             () => ExecuteSilentlyAsync(() => handler.ExecuteAsync(
-                new PromptCommandOptions { Prompt = "Summarize workspace B." },
+                NewAskOptions("Summarize workspace B."),
                 CancellationToken.None)));
 
         Assert.Equal(0, firstExitCode);
         Assert.Equal(0, secondExitCode);
-        AssertRuntimeFilesExist(Path.Combine(workspaceA.RootPath, ".wallycode"));
-        AssertRuntimeFilesExist(Path.Combine(workspaceB.RootPath, ".wallycode"));
+        AssertSessionExists(Path.Combine(workspaceA.RootPath, ".wallycode"), workspaceA.RootPath, "ask");
+        AssertSessionExists(Path.Combine(workspaceB.RootPath, ".wallycode"), workspaceB.RootPath, "ask");
         Assert.False(File.Exists(ProjectSettings.GetFilePath(install.RootPath)));
         Assert.False(Directory.Exists(Path.Combine(install.RootPath, ".wallycode")));
         provider.AssertConsumed();
@@ -196,11 +185,23 @@ public class WorkingDirectoryBehaviorTests
         }.Save(workspaceRoot);
     }
 
-    private static void AssertRuntimeFilesExist(string runtimeRoot)
+    private static LoopCommandOptions NewAskOptions(string goal, string? sourcePath = null, string? memoryRoot = null)
     {
-        Assert.Single(Directory.GetFiles(Path.Combine(runtimeRoot, "logs")));
-        Assert.Single(Directory.GetFiles(Path.Combine(runtimeRoot, "prompts")));
-        Assert.Single(Directory.GetFiles(Path.Combine(runtimeRoot, "raw")));
+        return new AskCommandOptions
+        {
+            Goal = goal,
+            SourcePath = sourcePath,
+            MemoryRoot = memoryRoot,
+            Steps = 1
+        }.ToLoopOptions();
+    }
+
+    private static void AssertSessionExists(string runtimeRoot, string expectedSourcePath, string expectedDefinitionName)
+    {
+        Assert.True(RoutedSession.Exists(runtimeRoot));
+        var session = RoutedSession.Load(runtimeRoot);
+        Assert.Equal(expectedSourcePath, session.SourcePath);
+        Assert.Equal(expectedDefinitionName, session.DefinitionName);
     }
 
     private static async Task<T> RunInWorkingDirectoryAsync<T>(string workingDirectory, Func<Task<T>> action)
