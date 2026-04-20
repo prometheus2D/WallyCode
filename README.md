@@ -3,9 +3,9 @@
 WallyCode is a routing-driven CLI for running GitHub Copilot workflows against a repo.
 
 The core idea is simple:
-- use `ask` for direct answers with no file changes
-- use `act` for direct repo work with a normal response
-- use `loop` when the task needs iteration, memory, and staged progress
+- use `loop` as the main routed workflow command
+- use `ask` as a shortcut for `loop --definition ask`
+- use `act` as a shortcut for `loop --definition act`
 
 ## Quick Start
 
@@ -15,13 +15,13 @@ Initialize the workspace once before normal day-to-day commands:
 wallycode setup
 ```
 
-Start with `ask` when you want a direct answer with no file changes:
+Use `loop --definition ask` when you want a direct answer with no file changes:
 
 ```text
 loop "Summarize this repository in one short paragraph." --definition ask
 ```
 
-Move to `act` when you want direct execution in the repo plus a normal response:
+Use `loop --definition act` when you want direct execution in the repo plus a normal response:
 
 ```text
 loop "Implement a minimal health-check endpoint." --definition act
@@ -78,7 +78,7 @@ provider gh-copilot-gpt5 --set
 provider gh-copilot-gpt5 --model gpt-5
 ```
 
-That is the natural progression: `ask` for direct answers, `act` for direct repo changes, `loop` for multi-step routed work, and provider configuration once you know which model setup you want as your default.
+That is the natural progression: use `loop` for routed work, use the `ask` and `act` shortcuts when they fit, and configure providers once you know which model setup you want as your default.
 
 ## Routing Definitions
 
@@ -98,7 +98,7 @@ Shipped definitions (in [WallyCode.Console/Routing/Definitions](WallyCode.Consol
 - `tasks` - produce_tasks -> execute_tasks
 - `full-pipeline` - collect_requirements -> produce_tasks -> execute_tasks
 
-`ask` and `act` are intentionally simple routing definitions. They do not route across multiple logical units. They exist as baseline workflows that fit into the same routing-definition model as the more structured pipelines, while leaving room for richer routing behavior later.
+`ask` and `act` are intentionally simple routing definitions. They do not route across multiple logical units. The `ask` and `act` commands are convenience aliases for these definitions, but the underlying routed model is still `loop`.
 
 Point at a different repo or store session state somewhere else:
 
@@ -130,14 +130,21 @@ wallycode loop --definition ask "Summarize this repository in one short paragrap
 
 ## Other Commands
 
-Direct answer workflow:
+Shortcut commands for the common single-step routed workflows:
 
 ```text
 ask "Summarize this repository in one short paragraph."
 ask "Summarize this repository." --source C:\src\my-repo
 ```
 
-Use `ask` for direct answers, `act` for direct repo changes, and the default `loop` workflow when the task needs iteration.
+Equivalent `loop` form:
+
+```text
+loop --definition ask "Summarize this repository in one short paragraph."
+loop --definition ask "Summarize this repository." --source C:\src\my-repo
+```
+
+Use `loop` directly when you want the explicit routed form. Use `ask` and `act` when you want the shorter command shape.
 
 Interactive shell that keeps `--source` and `--memory-root` defaults for every command run inside it:
 
@@ -183,6 +190,7 @@ Override for a single run:
 
 ```text
 ask "Summarize this repository" --provider gh-copilot-gpt5
+loop --definition ask "Summarize this repository" --provider gh-copilot-gpt5
 loop "Build the export feature." --model gpt-5
 ```
 

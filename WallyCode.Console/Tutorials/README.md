@@ -30,7 +30,14 @@ Each tutorial is kept simple on purpose:
 
 The README talks about `ask` and `act` as workflow styles.
 
-In the current CLI, those styles are also available as direct commands:
+The routed form stays primary:
+
+```text
+loop --definition ask "Explain this repository." --source C:\src\my-repo
+loop --definition act "Implement the requested file changes." --source C:\src\my-repo
+```
+
+The direct commands are shortcuts for those same routed definitions:
 
 ```text
 ask "Explain this repository." --source C:\src\my-repo

@@ -14,7 +14,13 @@ This is the right fit for:
 
 Use `ask` style requests when you want analysis only.
 
-In the current CLI that means:
+The underlying routed form is:
+
+```text
+loop --definition ask "<your question>" --source C:\path\to\repo
+```
+
+The shortcut form is:
 
 ```text
 ask "<your question>" --source C:\path\to\repo

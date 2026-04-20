@@ -2,7 +2,7 @@ using CommandLine;
 
 namespace WallyCode.ConsoleApp.Commands;
 
-[Verb("ask", HelpText = "Runs the ask routing definition as a direct-answer workflow.")]
+[Verb("ask", HelpText = "Shortcut for loop --definition ask.")]
 internal sealed class AskCommandOptions
 {
     [Value(0, MetaName = "goal", Required = false, HelpText = "Goal for a new ask session. Omit to continue the active session.")]

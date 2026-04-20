@@ -2,7 +2,7 @@ using CommandLine;
 
 namespace WallyCode.ConsoleApp.Commands;
 
-[Verb("act", HelpText = "Runs the act routing definition as a direct-action workflow.")]
+[Verb("act", HelpText = "Shortcut for loop --definition act.")]
 internal sealed class ActCommandOptions
 {
     [Value(0, MetaName = "goal", Required = false, HelpText = "Goal for a new act session. Omit to continue the active session.")]
