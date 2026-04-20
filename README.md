@@ -2,83 +2,80 @@
 
 WallyCode is a routing-driven CLI for running GitHub Copilot workflows against a repo.
 
-The core idea is simple:
-- use `loop` as the main routed workflow command
-- use `ask` as a shortcut for `loop --definition ask`
-- use `act` as a shortcut for `loop --definition act`
+The recommended progression is:
+- use `ask` for direct answers with no file changes
+- use `act` for direct execution plus a normal response
+- use `loop` when the task needs iteration, memory, and staged progress
+
+`ask` is a shortcut for `loop --definition ask`.
+`act` is a shortcut for `loop --definition act`.
+`loop` without `--definition` uses the default routed workflow.
 
 ## Quick Start
 
-Initialize the workspace once before normal day-to-day commands:
+Initialize the workspace once:
 
 ```text
 wallycode setup
 ```
 
-Use `loop --definition ask` when you want a direct answer with no file changes:
+Then verify or configure the provider and model you want to use:
 
 ```text
-loop "Summarize this repository in one short paragraph." --definition ask
+wallycode provider
+wallycode provider --models
+wallycode provider gh-copilot-claude --set
+wallycode provider --model claude-sonnet-4
 ```
 
-Use `loop --definition act` when you want direct execution in the repo plus a normal response:
+Start with `ask` when you want a direct answer with no file changes:
 
 ```text
-loop "Implement a minimal health-check endpoint." --definition act
+wallycode ask "Summarize this repository in one short paragraph."
 ```
 
-Use `loop` with the default routed workflow when the task needs iteration, memory, and staged progress:
+Use `act` when you want direct execution in the repo plus a normal response:
 
 ```text
-loop "Build a simple browser-based tic-tac-toe game in this repo."
+wallycode act "Implement a minimal health-check endpoint."
 ```
 
-## Tutorials
-
-Readme-style walkthroughs live in [WallyCode.Console/Tutorials](WallyCode.Console/Tutorials).
-
-- [WallyCode.Console/Tutorials/README.md](WallyCode.Console/Tutorials/README.md) - tutorial index and usage notes.
-- [WallyCode.Console/Tutorials/book-story.md](WallyCode.Console/Tutorials/book-story.md) - use `act` style workflows to build and revise a story in markdown files.
-- [WallyCode.Console/Tutorials/repo-review.md](WallyCode.Console/Tutorials/repo-review.md) - use `ask` style workflows to review a repository without changing files.
-- [WallyCode.Console/Tutorials/tic-tac-toe.md](WallyCode.Console/Tutorials/tic-tac-toe.md) - use the routed loop to build a small game step by step.
-
-The `tutorial` command is intended to list these guides and print one by name:
+Use `loop` when the task needs iteration, memory, and staged progress:
 
 ```text
-tutorial --list
-tutorial repo-review
-tutorial book-story
-tutorial tic-tac-toe
+wallycode loop "Build a simple browser-based tic-tac-toe game in this repo."
 ```
 
-Continue the active loop:
+## Recommended Day-to-Day Flow
+
+For a new workspace:
 
 ```text
-loop
+wallycode setup
+wallycode provider
+wallycode provider --models
 ```
 
-Run several iterations at once:
+If needed, set the default provider and model explicitly:
 
 ```text
-loop --steps 3
+wallycode provider gh-copilot-gpt5 --set
+wallycode provider --model gpt-5
 ```
 
-Answer the loop when it asks you something:
+Then use commands in this order:
+
+1. `ask` - inspect, summarize, explain, review
+2. `act` - make a focused change directly
+3. `loop` - run a multi-step routed workflow with memory
+
+Examples:
 
 ```text
-respond "Use the simpler approach."
+wallycode ask "Explain the architecture of this repo."
+wallycode act "Add a README section for local development."
+wallycode loop "Build tic-tac-toe in this repo."
 ```
-
-Later, configure providers and default models for smoother day-to-day use:
-
-```text
-provider
-provider --models
-provider gh-copilot-gpt5 --set
-provider gh-copilot-gpt5 --model gpt-5
-```
-
-That is the natural progression: use `loop` for routed work, use the `ask` and `act` shortcuts when they fit, and configure providers once you know which model setup you want as your default.
 
 ## Routing Definitions
 
@@ -87,7 +84,7 @@ That is the natural progression: use `loop` for routed work, use the `ask` and `
 Pick a different routing definition:
 
 ```text
-loop "Build the export feature." --definition full-pipeline
+wallycode loop "Build the export feature." --definition full-pipeline
 ```
 
 Shipped definitions (in [WallyCode.Console/Routing/Definitions](WallyCode.Console/Routing/Definitions)):
@@ -100,10 +97,28 @@ Shipped definitions (in [WallyCode.Console/Routing/Definitions](WallyCode.Consol
 
 `ask` and `act` are intentionally simple routing definitions. They do not route across multiple logical units. The `ask` and `act` commands are convenience aliases for these definitions, but the underlying routed model is still `loop`.
 
+Continue the active loop:
+
+```text
+wallycode loop
+```
+
+Run several iterations at once:
+
+```text
+wallycode loop --steps 3
+```
+
+Answer the loop when it asks you something:
+
+```text
+wallycode respond "Use the simpler approach."
+```
+
 Point at a different repo or store session state somewhere else:
 
 ```text
-loop "Work on issue 123" --source C:\src\my-repo --memory-root C:\temp\wallycode-session
+wallycode loop "Work on issue 123" --source C:\src\my-repo --memory-root C:\temp\wallycode-session
 ```
 
 Session state is written under `.wallycode/` in the project root by default.
@@ -125,7 +140,8 @@ Typical flow:
 wallycode setup --directory C:\src\my-repo
 cd C:\src\my-repo
 wallycode provider
-wallycode loop --definition ask "Summarize this repository in one short paragraph."
+wallycode provider --models
+wallycode ask "Summarize this repository in one short paragraph."
 ```
 
 ## Other Commands
@@ -133,15 +149,17 @@ wallycode loop --definition ask "Summarize this repository in one short paragrap
 Shortcut commands for the common single-step routed workflows:
 
 ```text
-ask "Summarize this repository in one short paragraph."
-ask "Summarize this repository." --source C:\src\my-repo
+wallycode ask "Summarize this repository in one short paragraph."
+wallycode ask "Summarize this repository." --source C:\src\my-repo
+wallycode act "Implement a minimal health-check endpoint."
 ```
 
-Equivalent `loop` form:
+Equivalent `loop` forms:
 
 ```text
-loop --definition ask "Summarize this repository in one short paragraph."
-loop --definition ask "Summarize this repository." --source C:\src\my-repo
+wallycode loop --definition ask "Summarize this repository in one short paragraph."
+wallycode loop --definition ask "Summarize this repository." --source C:\src\my-repo
+wallycode loop --definition act "Implement a minimal health-check endpoint."
 ```
 
 Use `loop` directly when you want the explicit routed form. Use `ask` and `act` when you want the shorter command shape.
@@ -149,36 +167,44 @@ Use `loop` directly when you want the explicit routed form. Use `ask` and `act` 
 Interactive shell that keeps `--source` and `--memory-root` defaults for every command run inside it:
 
 ```text
-shell
-shell --source C:\src\my-repo --memory-root C:\temp\wallycode-session
+wallycode shell
+wallycode shell --source C:\src\my-repo --memory-root C:\temp\wallycode-session
 ```
 
 Inside the shell:
 
 ```text
-loop --definition ask "Explain the architecture of this repo."
-loop --definition act "Implement a minimal health-check endpoint."
+ask "Explain the architecture of this repo."
+act "Implement a minimal health-check endpoint."
 loop "Work on issue 123"
 loop
 respond "Use the simpler approach"
 exit
 ```
 
-Built-in walkthrough:
-
-```text
-tutorial
-```
-
 ## Providers and Models
 
 WallyCode saves a default provider and optional model in `wallycode.json` at the project root.
 
+Check the current configuration:
+
 ```text
-provider
-provider --models
-provider gh-copilot-gpt5 --set
-provider --model gpt-5
+wallycode provider
+wallycode provider --models
+```
+
+Set the default provider:
+
+```text
+wallycode provider gh-copilot-claude --set
+wallycode provider gh-copilot-gpt5 --set
+```
+
+Set the default model for the current provider:
+
+```text
+wallycode provider --model claude-sonnet-4
+wallycode provider --model gpt-5
 ```
 
 Available providers:
@@ -189,10 +215,12 @@ Available providers:
 Override for a single run:
 
 ```text
-ask "Summarize this repository" --provider gh-copilot-gpt5
-loop --definition ask "Summarize this repository" --provider gh-copilot-gpt5
-loop "Build the export feature." --model gpt-5
+wallycode ask "Summarize this repository" --provider gh-copilot-gpt5
+wallycode act "Implement a minimal health-check endpoint." --provider gh-copilot-gpt5
+wallycode loop "Build the export feature." --model gpt-5
 ```
+
+If commands are not behaving as expected, check provider and model configuration first.
 
 ## Files Written
 
@@ -206,8 +234,8 @@ loop "Build the export feature." --model gpt-5
 The easiest way to have one `wallycode` executable operate on another repo or folder is to pass `--source`.
 
 ```text
-wallycode loop --definition ask "Summarize this repository." --source C:\src\repo-a
-wallycode loop --definition act "Implement a minimal health-check endpoint." --source C:\src\repo-a
+wallycode ask "Summarize this repository." --source C:\src\repo-a
+wallycode act "Implement a minimal health-check endpoint." --source C:\src\repo-a
 wallycode loop "Build tic-tac-toe." --source D:\projects\demo-app
 ```
 
@@ -226,9 +254,28 @@ Typical remote-workspace flow:
 
 ```text
 wallycode provider --source C:\src\my-repo
-wallycode loop --definition ask "Summarize this repository in one short paragraph." --source C:\src\my-repo
-wallycode loop --definition act "Add a README section for local development." --source C:\src\my-repo
+wallycode provider --models --source C:\src\my-repo
+wallycode ask "Summarize this repository in one short paragraph." --source C:\src\my-repo
+wallycode act "Add a README section for local development." --source C:\src\my-repo
 wallycode loop "Build tic-tac-toe." --source C:\src\my-repo
+```
+
+## Tutorials
+
+Readme-style walkthroughs live in [WallyCode.Console/Tutorials](WallyCode.Console/Tutorials).
+
+- [WallyCode.Console/Tutorials/README.md](WallyCode.Console/Tutorials/README.md) - tutorial index and usage notes.
+- [WallyCode.Console/Tutorials/book-story.md](WallyCode.Console/Tutorials/book-story.md) - use `act` style workflows to build and revise a story in markdown files.
+- [WallyCode.Console/Tutorials/repo-review.md](WallyCode.Console/Tutorials/repo-review.md) - use `ask` style workflows to review a repository without changing files.
+- [WallyCode.Console/Tutorials/tic-tac-toe.md](WallyCode.Console/Tutorials/tic-tac-toe.md) - use the routed loop to build a small game step by step.
+
+The `tutorial` command is intended to list these guides and print one by name:
+
+```text
+wallycode tutorial --list
+wallycode tutorial repo-review
+wallycode tutorial book-story
+wallycode tutorial tic-tac-toe
 ```
 
 ## Remote Workspaces
