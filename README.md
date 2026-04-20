@@ -92,8 +92,8 @@ loop "Build the export feature." --definition full-pipeline
 
 Shipped definitions (in [WallyCode.Console/Routing/Definitions](WallyCode.Console/Routing/Definitions)):
 
-- `ask` - single prompt unit for direct question-answering. Intended to behave like a normal LLM response with no file changes.
-- `act` - single prompt unit for direct execution. Intended to allow file changes and then return a normal user-facing response.
+- `ask` - single-step routed definition for direct question-answering. Intended to behave like a normal LLM response with no file changes.
+- `act` - single-step routed definition for direct execution. Intended to allow file changes and then return a normal user-facing response.
 - `requirements` (default) - collect_requirements -> produce_tasks
 - `tasks` - produce_tasks -> execute_tasks
 - `full-pipeline` - collect_requirements -> produce_tasks -> execute_tasks
@@ -219,7 +219,7 @@ wallycode loop "Work on issue 123" --source C:\src\repo-a --memory-root C:\temp\
 
 Meaning:
 - `--source` selects the repo or folder WallyCode operates on
-- `--memory-root` selects where session state, logs, prompts, and raw output are stored
+- `--memory-root` selects where loop session state is stored
 - neither option changes where the executable itself is installed
 
 Typical remote-workspace flow:

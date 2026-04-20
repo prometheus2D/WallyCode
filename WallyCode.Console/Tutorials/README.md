@@ -22,8 +22,8 @@ Each tutorial is kept simple on purpose:
 
 ## Available tutorials
 
-- [book-story](book-story.md) - build a story workspace with markdown files and revise it using `act` style prompts.
-- [repo-review](repo-review.md) - review a repository without file changes using `ask` style prompts.
+- [book-story](book-story.md) - build a story workspace with markdown files and revise it using the `act` workflow.
+- [repo-review](repo-review.md) - review a repository without file changes using the `ask` workflow.
 - [tic-tac-toe](tic-tac-toe.md) - build a small browser game with the routed loop and respond as needed.
 
 ## Command language note
