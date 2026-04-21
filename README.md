@@ -83,6 +83,26 @@ Available built-in providers:
 
 If commands are not behaving as expected, check provider and model configuration first.
 
+## Global Prompt
+
+If you want a workspace-wide prompt added to every routed logical-unit prompt, put it in `wallycode.json` as `globalPrompt`.
+
+Example:
+
+```json
+{
+  "provider": "gh-copilot-claude",
+  "model": "claude-sonnet-4",
+  "globalPrompt": "selectedKeyword must exactly match one of the allowed keywords as written, including brackets. Output JSON only."
+}
+```
+
+Notes:
+- `globalPrompt` is optional
+- if `globalPrompt` is not set, no global prompt is injected
+- this applies to routed prompts used by `ask`, `act`, and `loop`
+- this is a workspace-level setting, so it belongs in the repo's `wallycode.json`
+
 ## Core Commands
 
 ### ask
@@ -224,7 +244,7 @@ wallycode loop "Build tic-tac-toe." --source C:\src\my-repo
 
 ## Files Written
 
-- `wallycode.json` - workspace settings, including default provider/model and provider catalog metadata
+- `wallycode.json` - workspace settings, including default provider/model, optional `globalPrompt`, and provider catalog metadata
 - `.wallycode/` - loop session state; override with `--memory-root`
 
 `source` is the folder the provider operates against. `memory-root` is where WallyCode stores session data.
