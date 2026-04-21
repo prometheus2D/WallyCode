@@ -1,6 +1,7 @@
 using System.Text;
 using System.Text.Json;
 using WallyCode.ConsoleApp.Copilot;
+using WallyCode.ConsoleApp.Project;
 using WallyCode.ConsoleApp.Runtime;
 
 namespace WallyCode.ConsoleApp.Routing;
@@ -26,6 +27,7 @@ internal sealed class RoutedRunner
     private readonly RoutingDefinition _definition;
     private readonly string _sessionRoot;
     private readonly AppLogger? _logger;
+    private readonly string _globalPrompt;
 
     public RoutedRunner(ILlmProvider provider, RoutingDefinition definition, string sessionRoot, AppLogger? logger = null)
     {
@@ -33,6 +35,7 @@ internal sealed class RoutedRunner
         _definition = definition;
         _sessionRoot = sessionRoot;
         _logger = logger;
+        _globalPrompt = LoadGlobalPrompt(sessionRoot);
     }
 
     public async Task<IterationResult> RunOnceAsync(CancellationToken cancellationToken)
@@ -50,7 +53,7 @@ internal sealed class RoutedRunner
         }
 
         var unit = _definition.GetUnit(session.ActiveUnitName);
-        var prompt = BuildPrompt(session, unit);
+        var prompt = BuildPrompt(session, unit, _globalPrompt);
         _logger?.LogExchange("OUT", $"iteration {session.IterationCount + 1} prompt ({unit.Name})", prompt);
 
         var rawOutput = await _provider.ExecuteAsync(
@@ -100,11 +103,16 @@ internal sealed class RoutedRunner
         return results;
     }
 
-    private static string BuildPrompt(RoutedSession session, LogicalUnit unit)
+    private static string BuildPrompt(RoutedSession session, LogicalUnit unit, string globalPrompt)
     {
         var sb = new StringBuilder();
         sb.AppendLine($"Goal: {session.Goal}");
         sb.AppendLine($"Active unit: {unit.Name}");
+        if (!string.IsNullOrWhiteSpace(globalPrompt))
+        {
+            sb.AppendLine("Global prompt:");
+            sb.AppendLine(globalPrompt);
+        }
         if (!string.IsNullOrWhiteSpace(unit.Instructions))
         {
             sb.AppendLine($"Instructions: {unit.Instructions}");
@@ -124,8 +132,16 @@ internal sealed class RoutedRunner
         sb.AppendLine();
         sb.AppendLine("Choose the keyword that best matches the next action based on the keyword option descriptions.");
         sb.AppendLine("Respond with strict JSON: { \"selectedKeyword\": \"[ONE_OF_ALLOWED]\", \"summary\": \"...\" }");
-        sb.AppendLine("selectedKeyword must be one of the allowed keywords above. Output JSON only.");
+        sb.AppendLine("selectedKeyword must be one of the allowed keywords above exactly as written, including brackets. Output JSON only.");
         return sb.ToString();
+    }
+
+    private static string LoadGlobalPrompt(string sessionRoot)
+    {
+        var projectRoot = Directory.GetParent(sessionRoot)?.FullName;
+        return string.IsNullOrWhiteSpace(projectRoot) || !Directory.Exists(projectRoot)
+            ? string.Empty
+            : ProjectSettings.Load(projectRoot).GlobalPrompt ?? string.Empty;
     }
 
     private static (string keyword, string summary) ParseOutput(string rawOutput)
@@ -164,7 +180,7 @@ internal sealed class RoutedRunner
             ? s.GetString() ?? string.Empty
             : string.Empty;
 
-        return (keywordElement.GetString() ?? string.Empty, summary);
+        return (keywordElement.GetString()?.Trim() ?? string.Empty, summary);
     }
 
     private static (string nextUnit, string status, bool stops) ApplyKeyword(LogicalUnit unit, string keyword)

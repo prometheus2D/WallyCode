@@ -1,3 +1,4 @@
+using WallyCode.ConsoleApp.Project;
 using WallyCode.ConsoleApp.Routing;
 using WallyCode.Tests.TestInfrastructure;
 
@@ -48,22 +49,35 @@ public class RoutedRunnerTests
         Assert.False(result.StopsInvocation);
     }
 
-    [Fact]
-    public async Task AskUser_blocks_session_and_stops_invocation()
+    [Theory]
+    [InlineData("[ASK_USER]", SessionStatus.Blocked)]
+    [InlineData("[DONE]", SessionStatus.Completed)]
+    [InlineData("[FAIL]", SessionStatus.Failed)]
+    public async Task Terminal_keywords_update_status_and_stop(string keyword, string expectedStatus)
     {
         using var temp = TempWorkspace.Create();
         var def = TestDefinitions.TwoUnit();
-        var runner = NewRunner(temp.RootPath, def,
-            new MockInvocation { RawOutput = """{"selectedKeyword":"[ASK_USER]"}""" });
+        var session = TestDefinitions.NewSession(def, temp.RootPath);
+        if (keyword == "[DONE]")
+        {
+            session.ActiveUnitName = "finish";
+        }
+        session.Save(temp.RootPath);
+
+        var runner = new RoutedRunner(
+            new MockLlmProvider([new MockInvocation { RawOutput = $$"""{"selectedKeyword":"{{keyword}}"}""" }]),
+            def, temp.RootPath);
 
         var result = await runner.RunOnceAsync(CancellationToken.None);
 
-        Assert.Equal(SessionStatus.Blocked, result.Status);
+        Assert.Equal(expectedStatus, result.Status);
         Assert.True(result.StopsInvocation);
     }
 
-    [Fact]
-    public async Task Done_completes_session()
+    [Theory]
+    [InlineData("DONE")]
+    [InlineData("[BOGUS]")]
+    public async Task Invalid_keyword_throws(string keyword)
     {
         using var temp = TempWorkspace.Create();
         var def = TestDefinitions.TwoUnit();
@@ -72,45 +86,21 @@ public class RoutedRunnerTests
         session.Save(temp.RootPath);
 
         var runner = new RoutedRunner(
-            new MockLlmProvider([new MockInvocation { RawOutput = """{"selectedKeyword":"[DONE]"}""" }]),
+            new MockLlmProvider([new MockInvocation { RawOutput = $$"""{"selectedKeyword":"{{keyword}}"}""" }]),
             def, temp.RootPath);
-
-        var result = await runner.RunOnceAsync(CancellationToken.None);
-        Assert.Equal(SessionStatus.Completed, result.Status);
-        Assert.True(result.StopsInvocation);
-    }
-
-    [Fact]
-    public async Task Fail_marks_session_failed()
-    {
-        using var temp = TempWorkspace.Create();
-        var def = TestDefinitions.TwoUnit();
-        var runner = NewRunner(temp.RootPath, def,
-            new MockInvocation { RawOutput = """{"selectedKeyword":"[FAIL]"}""" });
-
-        var result = await runner.RunOnceAsync(CancellationToken.None);
-        Assert.Equal(SessionStatus.Failed, result.Status);
-        Assert.True(result.StopsInvocation);
-    }
-
-    [Fact]
-    public async Task Keyword_not_in_allowed_throws()
-    {
-        using var temp = TempWorkspace.Create();
-        var def = TestDefinitions.TwoUnit();
-        var runner = NewRunner(temp.RootPath, def,
-            new MockInvocation { RawOutput = """{"selectedKeyword":"[BOGUS]"}""" });
 
         await Assert.ThrowsAsync<InvalidOperationException>(() => runner.RunOnceAsync(CancellationToken.None));
     }
 
-    [Fact]
-    public async Task Malformed_json_throws()
+    [Theory]
+    [InlineData("not json")]
+    [InlineData("{}")]
+    public async Task Malformed_or_missing_keyword_json_throws(string rawOutput)
     {
         using var temp = TempWorkspace.Create();
         var def = TestDefinitions.TwoUnit();
         var runner = NewRunner(temp.RootPath, def,
-            new MockInvocation { RawOutput = "not json" });
+            new MockInvocation { RawOutput = rawOutput });
 
         await Assert.ThrowsAsync<InvalidOperationException>(() => runner.RunOnceAsync(CancellationToken.None));
     }
@@ -185,25 +175,51 @@ public class RoutedRunnerTests
     }
 
     [Fact]
+    public async Task Prompt_does_not_include_global_prompt_when_not_configured()
+    {
+        using var temp = TempWorkspace.Create();
+        var def = TestDefinitions.TwoUnit();
+        var provider = new MockLlmProvider([
+            new MockInvocation { RawOutput = """{"selectedKeyword":"[CONTINUE]"}""" }
+        ]);
+        var runner = new RoutedRunner(provider, def, temp.RootPath);
+        TestDefinitions.NewSession(def, temp.RootPath).Save(temp.RootPath);
+
+        await runner.RunOnceAsync(CancellationToken.None);
+
+        Assert.DoesNotContain("Global prompt:", provider.Requests[0].Prompt);
+    }
+
+    [Fact]
+    public async Task Prompt_uses_workspace_global_prompt_when_present()
+    {
+        using var temp = TempWorkspace.Create();
+        var settings = new ProjectSettings
+        {
+            GlobalPrompt = "Always preserve brackets in keywords."
+        };
+        settings.Save(temp.RootPath);
+
+        var def = TestDefinitions.TwoUnit();
+        var provider = new MockLlmProvider([
+            new MockInvocation { RawOutput = """{"selectedKeyword":"[CONTINUE]"}""" }
+        ]);
+        var runner = new RoutedRunner(provider, def, temp.RootPath);
+        TestDefinitions.NewSession(def, temp.RootPath).Save(temp.RootPath);
+
+        await runner.RunOnceAsync(CancellationToken.None);
+
+        Assert.Contains("Global prompt:", provider.Requests[0].Prompt);
+        Assert.Contains("Always preserve brackets in keywords.", provider.Requests[0].Prompt);
+    }
+
+    [Fact]
     public async Task Run_throws_when_session_definition_does_not_match()
     {
         using var temp = TempWorkspace.Create();
         var def = TestDefinitions.TwoUnit();
         var session = TestDefinitions.NewSession(def, temp.RootPath);
         session.DefinitionName = "other";
-        session.Save(temp.RootPath);
-
-        var runner = new RoutedRunner(new MockLlmProvider([]), def, temp.RootPath);
-        await Assert.ThrowsAsync<InvalidOperationException>(() => runner.RunOnceAsync(CancellationToken.None));
-    }
-
-    [Fact]
-    public async Task Run_throws_when_session_completed()
-    {
-        using var temp = TempWorkspace.Create();
-        var def = TestDefinitions.TwoUnit();
-        var session = TestDefinitions.NewSession(def, temp.RootPath);
-        session.Status = SessionStatus.Completed;
         session.Save(temp.RootPath);
 
         var runner = new RoutedRunner(new MockLlmProvider([]), def, temp.RootPath);

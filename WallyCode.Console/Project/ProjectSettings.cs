@@ -47,6 +47,9 @@ internal sealed class ProjectSettings
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? Model { get; set; }
 
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? GlobalPrompt { get; set; }
+
     public LoggingSettings Logging { get; set; } = new();
 
     public ProviderCatalogSettings ProviderCatalog { get; set; } = new();
@@ -67,6 +70,7 @@ internal sealed class ProjectSettings
 
         settings.Provider = ResolveProviderName(settings.Provider);
         settings.Model = ResolveModelName(settings.Model);
+        settings.GlobalPrompt = ResolveGlobalPrompt(settings.GlobalPrompt);
         settings.Logging ??= new LoggingSettings();
         settings.ProviderCatalog ??= new ProviderCatalogSettings();
         settings.ProviderCatalog.Providers ??= [];
@@ -84,6 +88,7 @@ internal sealed class ProjectSettings
         Directory.CreateDirectory(projectRoot);
         Provider = ResolveProviderName(Provider);
         Model = ResolveModelName(Model);
+        GlobalPrompt = ResolveGlobalPrompt(GlobalPrompt);
         Logging ??= new LoggingSettings();
         ProviderCatalog ??= new ProviderCatalogSettings();
         ProviderCatalog.Providers ??= [];
@@ -134,5 +139,12 @@ internal sealed class ProjectSettings
         return string.IsNullOrWhiteSpace(modelName)
             ? null
             : modelName.Trim();
+    }
+
+    private static string? ResolveGlobalPrompt(string? globalPrompt)
+    {
+        return string.IsNullOrWhiteSpace(globalPrompt)
+            ? null
+            : globalPrompt.Trim();
     }
 }
