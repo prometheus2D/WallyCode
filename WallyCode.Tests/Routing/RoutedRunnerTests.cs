@@ -8,7 +8,7 @@ public class RoutedRunnerTests
 {
     private static RoutedRunner NewRunner(string root, RoutingDefinition def, params MockInvocation[] script)
     {
-        var session = TestDefinitions.NewSession(def, root);
+        var session = RoutedSession.Start(def, "test goal", "mock-provider", "mock-default-model", root);
         session.Save(root);
         return new RoutedRunner(new MockLlmProvider(script), def, root);
     }
@@ -17,14 +17,14 @@ public class RoutedRunnerTests
     public async Task Continue_keeps_active_unit_and_increments_iteration()
     {
         using var temp = TempWorkspace.Create();
-        var def = TestDefinitions.TwoUnit();
+        var def = RoutingDefinition.LoadByName("requirements");
         var runner = NewRunner(temp.RootPath, def,
             new MockInvocation { RawOutput = """{"selectedKeyword":"[CONTINUE]","summary":"working"}""" });
 
         var result = await runner.RunOnceAsync(CancellationToken.None);
 
         Assert.Equal("[CONTINUE]", result.SelectedKeyword);
-        Assert.Equal("start", result.ActiveUnitName);
+        Assert.Equal("collect_requirements", result.ActiveUnitName);
         Assert.Equal(SessionStatus.Active, result.Status);
         Assert.False(result.StopsInvocation);
         Assert.Equal("working", result.Summary);
@@ -38,13 +38,13 @@ public class RoutedRunnerTests
     public async Task Transition_keyword_moves_to_target_unit()
     {
         using var temp = TempWorkspace.Create();
-        var def = TestDefinitions.TwoUnit();
+        var def = RoutingDefinition.LoadByName("requirements");
         var runner = NewRunner(temp.RootPath, def,
-            new MockInvocation { RawOutput = """{"selectedKeyword":"[NEXT]"}""" });
+            new MockInvocation { RawOutput = """{"selectedKeyword":"[REQUIREMENTS_READY]"}""" });
 
         var result = await runner.RunOnceAsync(CancellationToken.None);
 
-        Assert.Equal("finish", result.ActiveUnitName);
+        Assert.Equal("produce_tasks", result.ActiveUnitName);
         Assert.Equal(SessionStatus.Active, result.Status);
         Assert.False(result.StopsInvocation);
     }
@@ -56,11 +56,11 @@ public class RoutedRunnerTests
     public async Task Terminal_keywords_update_status_and_stop(string keyword, string expectedStatus)
     {
         using var temp = TempWorkspace.Create();
-        var def = TestDefinitions.TwoUnit();
-        var session = TestDefinitions.NewSession(def, temp.RootPath);
-        if (keyword == "[DONE]")
+        var def = RoutingDefinition.LoadByName("requirements");
+        var session = RoutedSession.Start(def, "test goal", "mock-provider", "mock-default-model", temp.RootPath);
+        if (keyword is "[DONE]" or "[FAIL]")
         {
-            session.ActiveUnitName = "finish";
+            session.ActiveUnitName = "produce_tasks";
         }
         session.Save(temp.RootPath);
 
@@ -80,9 +80,9 @@ public class RoutedRunnerTests
     public async Task Invalid_keyword_throws(string keyword)
     {
         using var temp = TempWorkspace.Create();
-        var def = TestDefinitions.TwoUnit();
-        var session = TestDefinitions.NewSession(def, temp.RootPath);
-        session.ActiveUnitName = "finish";
+        var def = RoutingDefinition.LoadByName("requirements");
+        var session = RoutedSession.Start(def, "test goal", "mock-provider", "mock-default-model", temp.RootPath);
+        session.ActiveUnitName = "produce_tasks";
         session.Save(temp.RootPath);
 
         var runner = new RoutedRunner(
@@ -98,7 +98,7 @@ public class RoutedRunnerTests
     public async Task Malformed_or_missing_keyword_json_throws(string rawOutput)
     {
         using var temp = TempWorkspace.Create();
-        var def = TestDefinitions.TwoUnit();
+        var def = RoutingDefinition.LoadByName("requirements");
         var runner = NewRunner(temp.RootPath, def,
             new MockInvocation { RawOutput = rawOutput });
 
@@ -109,7 +109,7 @@ public class RoutedRunnerTests
     public async Task Code_fenced_json_is_parsed()
     {
         using var temp = TempWorkspace.Create();
-        var def = TestDefinitions.TwoUnit();
+        var def = RoutingDefinition.LoadByName("requirements");
         var runner = NewRunner(temp.RootPath, def,
             new MockInvocation { RawOutput = "```json\n{\"selectedKeyword\":\"[CONTINUE]\"}\n```" });
 
@@ -121,8 +121,8 @@ public class RoutedRunnerTests
     public async Task Run_steps_stops_on_blocking_keyword()
     {
         using var temp = TempWorkspace.Create();
-        var def = TestDefinitions.TwoUnit();
-        var session = TestDefinitions.NewSession(def, temp.RootPath);
+        var def = RoutingDefinition.LoadByName("requirements");
+        var session = RoutedSession.Start(def, "test goal", "mock-provider", "mock-default-model", temp.RootPath);
         session.Save(temp.RootPath);
         var runner = new RoutedRunner(
             new MockLlmProvider([
@@ -141,8 +141,8 @@ public class RoutedRunnerTests
     public async Task Pending_responses_appear_in_prompt_then_clear()
     {
         using var temp = TempWorkspace.Create();
-        var def = TestDefinitions.TwoUnit();
-        var session = TestDefinitions.NewSession(def, temp.RootPath);
+        var def = RoutingDefinition.LoadByName("requirements");
+        var session = RoutedSession.Start(def, "test goal", "mock-provider", "mock-default-model", temp.RootPath);
         session.PendingResponses.Add("user said csv");
         session.Save(temp.RootPath);
 
@@ -161,29 +161,29 @@ public class RoutedRunnerTests
     public async Task Prompt_includes_keyword_descriptions()
     {
         using var temp = TempWorkspace.Create();
-        var def = TestDefinitions.TwoUnit();
+        var def = RoutingDefinition.LoadByName("requirements");
         var provider = new MockLlmProvider([
             new MockInvocation { RawOutput = """{"selectedKeyword":"[CONTINUE]"}""" }
         ]);
         var runner = new RoutedRunner(provider, def, temp.RootPath);
-        TestDefinitions.NewSession(def, temp.RootPath).Save(temp.RootPath);
+        RoutedSession.Start(def, "test goal", "mock-provider", "mock-default-model", temp.RootPath).Save(temp.RootPath);
 
         await runner.RunOnceAsync(CancellationToken.None);
 
         Assert.Contains("Keyword options:", provider.Requests[0].Prompt);
-        Assert.Contains("[NEXT]: Move to the finish unit.", provider.Requests[0].Prompt);
+        Assert.Contains("[REQUIREMENTS_READY]:", provider.Requests[0].Prompt);
     }
 
     [Fact]
     public async Task Prompt_does_not_include_global_prompt_when_not_configured()
     {
         using var temp = TempWorkspace.Create();
-        var def = TestDefinitions.TwoUnit();
+        var def = RoutingDefinition.LoadByName("requirements");
         var provider = new MockLlmProvider([
             new MockInvocation { RawOutput = """{"selectedKeyword":"[CONTINUE]"}""" }
         ]);
         var runner = new RoutedRunner(provider, def, temp.RootPath);
-        TestDefinitions.NewSession(def, temp.RootPath).Save(temp.RootPath);
+        RoutedSession.Start(def, "test goal", "mock-provider", "mock-default-model", temp.RootPath).Save(temp.RootPath);
 
         await runner.RunOnceAsync(CancellationToken.None);
 
@@ -200,12 +200,12 @@ public class RoutedRunnerTests
         };
         settings.Save(temp.RootPath);
 
-        var def = TestDefinitions.TwoUnit();
+        var def = RoutingDefinition.LoadByName("requirements");
         var provider = new MockLlmProvider([
             new MockInvocation { RawOutput = """{"selectedKeyword":"[CONTINUE]"}""" }
         ]);
         var runner = new RoutedRunner(provider, def, temp.RootPath);
-        TestDefinitions.NewSession(def, temp.RootPath).Save(temp.RootPath);
+        RoutedSession.Start(def, "test goal", "mock-provider", "mock-default-model", temp.RootPath).Save(temp.RootPath);
 
         await runner.RunOnceAsync(CancellationToken.None);
 
@@ -217,8 +217,8 @@ public class RoutedRunnerTests
     public async Task Run_throws_when_session_definition_does_not_match()
     {
         using var temp = TempWorkspace.Create();
-        var def = TestDefinitions.TwoUnit();
-        var session = TestDefinitions.NewSession(def, temp.RootPath);
+        var def = RoutingDefinition.LoadByName("requirements");
+        var session = RoutedSession.Start(def, "test goal", "mock-provider", "mock-default-model", temp.RootPath);
         session.DefinitionName = "other";
         session.Save(temp.RootPath);
 

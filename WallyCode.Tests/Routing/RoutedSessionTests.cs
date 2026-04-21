@@ -8,11 +8,11 @@ public class RoutedSessionTests
     [Fact]
     public void Start_initializes_active_unit_to_definition_start()
     {
-        var def = TestDefinitions.TwoUnit();
+        var def = RoutingDefinition.LoadByName("requirements");
         var session = RoutedSession.Start(def, "build", "mock-provider", "m", "/src");
 
-        Assert.Equal("test-def", session.DefinitionName);
-        Assert.Equal("start", session.ActiveUnitName);
+        Assert.Equal("requirements", session.DefinitionName);
+        Assert.Equal("collect_requirements", session.ActiveUnitName);
         Assert.Equal(SessionStatus.Active, session.Status);
         Assert.Equal(0, session.IterationCount);
     }
@@ -21,8 +21,8 @@ public class RoutedSessionTests
     public void Save_then_load_round_trips()
     {
         using var temp = TempWorkspace.Create();
-        var def = TestDefinitions.TwoUnit();
-        var session = TestDefinitions.NewSession(def, temp.RootPath);
+        var def = RoutingDefinition.LoadByName("requirements");
+        var session = RoutedSession.Start(def, "test goal", "mock-provider", "mock-default-model", temp.RootPath);
         session.IterationCount = 3;
         session.LastSelectedKeyword = "[CONTINUE]";
         session.PendingResponses.Add("hi");
@@ -45,8 +45,8 @@ public class RoutedSessionTests
     public void ArchiveCompletedSession_moves_session_contents_into_archive_folder()
     {
         using var temp = TempWorkspace.Create();
-        var def = TestDefinitions.TwoUnit();
-        var session = TestDefinitions.NewSession(def, temp.RootPath);
+        var def = RoutingDefinition.LoadByName("requirements");
+        var session = RoutedSession.Start(def, "test goal", "mock-provider", "mock-default-model", temp.RootPath);
         session.Status = SessionStatus.Completed;
         session.Save(temp.RootPath);
         File.WriteAllText(Path.Combine(temp.RootPath, "transcript.log"), "history");
