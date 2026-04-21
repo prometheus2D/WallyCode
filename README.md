@@ -1,278 +1,370 @@
 # WallyCode
 
-WallyCode is a routing-driven CLI for running GitHub Copilot workflows against a repo.
+WallyCode is a .NET 8 command-line tool for running a routed LLM workflow against a local repository or folder.
 
-Recommended progression:
-- `ask` - direct answer, no file changes
-- `act` - direct execution plus a normal response
-- `loop` - iterative routed workflow with memory and staged progress
+It can:
+- initialize a project for WallyCode
+- list and configure LLM providers
+- start or continue routed sessions
+- pause for user input when a session blocks
+- log prompts, responses, and transitions for inspection
 
-Aliases:
-- `ask` = `loop --definition ask`
-- `act` = `loop --definition act`
-- `loop` without `--definition` uses the default routed workflow: `requirements`
+## Prerequisites
 
-## Quick Start
+Before using WallyCode, make sure you have:
+- .NET 8 SDK or runtime available
+- GitHub Copilot CLI installed and authenticated if you want to use the built-in GitHub Copilot providers
 
-Initialize once, verify provider/model, then start with `ask`, `act`, and `loop` as needed:
-
-```text
-wallycode setup
-wallycode provider
-wallycode provider --models
-wallycode ask "Summarize this repository in one short paragraph."
-wallycode act "Implement a minimal health-check endpoint."
-wallycode loop "Build a simple browser-based tic-tac-toe game in this repo."
-```
-
-If needed, set the default provider and model explicitly:
-
-```text
-wallycode provider gh-copilot-claude --set
-wallycode provider --model claude-sonnet-4
-wallycode provider gh-copilot-gpt5 --set
-wallycode provider --model gpt-5
-```
-
-## Provider and Model Configuration
-
-WallyCode stores workspace configuration in `wallycode.json`.
-
-Check the current provider:
-
-```text
-wallycode provider
-```
-
-This lists providers, shows which one is the default, and shows the current model for each provider entry.
-
-Check the current model for the active provider:
-
-```text
-wallycode provider --models
-```
-
-This lists models for the active provider and marks the default model.
-
-Check models for a specific provider:
-
-```text
-wallycode provider gh-copilot-claude --models
-wallycode provider gh-copilot-gpt5 --models
-```
-
-Refresh and persist discovered models for a provider:
-
-```text
-wallycode provider gh-copilot-claude --refresh
-wallycode provider gh-copilot-gpt5 --refresh
-```
-
-Set defaults:
-
-```text
-wallycode provider gh-copilot-claude --set
-wallycode provider gh-copilot-gpt5 --set
-wallycode provider --model claude-sonnet-4
-wallycode provider --model gpt-5
-```
-
-Available built-in providers:
-- `gh-copilot-claude` (default)
+This workspace currently includes these provider names:
+- `gh-copilot-claude`
 - `gh-copilot-gpt5`
 
-If commands are not behaving as expected, check provider and model configuration first.
+## Build
 
-## Global Prompt
+From the repository root:
 
-If you want a workspace-wide prompt added to every routed logical-unit prompt, put it in `wallycode.json` as `globalPrompt`.
+```powershell
+dotnet build
+```
+
+If you want to run the app without installing it globally, use:
+
+```powershell
+dotnet run --project .\WallyCode.Console -- --help
+```
+
+In the examples below, `wallycode` means either:
+- a published/installed executable named `wallycode`, or
+- `dotnet run --project .\WallyCode.Console --`
 
 Example:
 
-```json
-{
-  "provider": "gh-copilot-claude",
-  "model": "claude-sonnet-4",
-  "globalPrompt": "selectedKeyword must exactly match one of the allowed keywords as written, including brackets. Output JSON only."
-}
+```powershell
+dotnet run --project .\WallyCode.Console -- provider
+```
+
+## Quick start
+
+### 1. Build the project
+
+```powershell
+dotnet build
+```
+
+### 2. Initialize your target folder
+
+Run setup in the repository or folder you want WallyCode to work against.
+
+```powershell
+wallycode setup --directory C:\path\to\your\repo
+```
+
+This creates:
+- `wallycode.json`
+- `.wallycode\`
+
+If you are already in the target folder and running the app there, you can also use:
+
+```powershell
+wallycode setup
+```
+
+To recreate setup artifacts:
+
+```powershell
+wallycode setup --directory C:\path\to\your\repo --force
+```
+
+### 3. Check available providers
+
+```powershell
+wallycode provider --source C:\path\to\your\repo
+```
+
+This lists configured providers and shows which one is the current default.
+
+### 4. Set the default provider
+
+Example:
+
+```powershell
+wallycode provider gh-copilot-claude --set --source C:\path\to\your\repo
+```
+
+Or:
+
+```powershell
+wallycode provider gh-copilot-gpt5 --set --source C:\path\to\your\repo
+```
+
+### 5. List models for a provider
+
+```powershell
+wallycode provider gh-copilot-claude --models --source C:\path\to\your\repo
+```
+
+### 6. Set the default model
+
+```powershell
+wallycode provider gh-copilot-claude --model claude-sonnet-4 --source C:\path\to\your\repo
+```
+
+Another example:
+
+```powershell
+wallycode provider gh-copilot-gpt5 --model gpt-5 --source C:\path\to\your\repo
+```
+
+### 7. Start a session
+
+Start a routed session with a goal:
+
+```powershell
+wallycode loop "Summarize this repository in one short paragraph." --source C:\path\to\your\repo
+```
+
+### 8. Continue the active session
+
+If a session already exists and is still active:
+
+```powershell
+wallycode loop --source C:\path\to\your\repo
+```
+
+### 9. Respond when the session asks for input
+
+If the session becomes blocked and asks for user input:
+
+```powershell
+wallycode respond "Use CSV output." --source C:\path\to\your\repo
+```
+
+Then continue the loop:
+
+```powershell
+wallycode loop --source C:\path\to\your\repo
+```
+
+## Core commands
+
+## `setup`
+
+Initializes WallyCode in a target directory.
+
+```powershell
+wallycode setup [--directory <path>] [--vs-build] [--force]
+```
+
+Options:
+- `--directory <path>`: target directory for setup
+- `--vs-build`: resolve the setup target from a standard Visual Studio build output path
+- `--force`: recreate setup artifacts even if they already exist
+
+Examples:
+
+```powershell
+wallycode setup --directory C:\src\MyRepo
+wallycode setup --directory C:\src\MyRepo --force
+```
+
+## `provider`
+
+Lists providers, lists models, refreshes discovered models, or sets the default provider/model.
+
+```powershell
+wallycode provider [name] [--set] [--models] [--refresh] [--model <model>] [--source <path>]
+```
+
+Common examples:
+
+List providers for a project:
+
+```powershell
+wallycode provider --source C:\src\MyRepo
+```
+
+Set the default provider:
+
+```powershell
+wallycode provider gh-copilot-claude --set --source C:\src\MyRepo
+```
+
+List models for a provider:
+
+```powershell
+wallycode provider gh-copilot-gpt5 --models --source C:\src\MyRepo
+```
+
+Refresh discovered models for a provider:
+
+```powershell
+wallycode provider gh-copilot-gpt5 --refresh --source C:\src\MyRepo
+```
+
+Set the default model for the current or selected provider:
+
+```powershell
+wallycode provider gh-copilot-gpt5 --model gpt-5 --source C:\src\MyRepo
 ```
 
 Notes:
-- `globalPrompt` is optional
-- if `globalPrompt` is not set, no global prompt is injected
-- this applies to routed prompts used by `ask`, `act`, and `loop`
-- this is a workspace-level setting, so it belongs in the repo's `wallycode.json`
+- `--source` points at the repo or folder whose `wallycode.json` should be updated
+- if `name` is omitted for `--models`, `--refresh`, or `--model`, WallyCode uses the current project default provider
 
-## Core Commands
+## `loop`
 
-### ask
-Use for inspection, explanation, summarization, and review without file changes.
+Runs the routing engine against a routing definition.
 
-```text
-wallycode ask "Explain the architecture of this repo."
-wallycode ask "Summarize this repository." --source C:\src\my-repo
+```powershell
+wallycode loop [goal] [--definition <name>] [--provider <name>] [--model <model>] [--source <path>] [--memory-root <path>] [--steps <n>] [--log] [--verbose]
 ```
 
-Equivalent routed form:
+Behavior:
+- if there is no active session, provide a `goal` to start one
+- if there is an active session, omit `goal` to continue it
+- if the session is blocked, use `respond` first
+- if the session is completed or failed, WallyCode archives it before starting a new one
 
-```text
-wallycode loop --definition ask "Explain the architecture of this repo."
+Examples:
+
+Start a new session with the default definition:
+
+```powershell
+wallycode loop "Summarize this repository in one short paragraph." --source C:\src\MyRepo
 ```
 
-### act
-Use for focused direct execution in the repo plus a normal response.
+Start a session with the `ask` definition:
 
-```text
-wallycode act "Implement a minimal health-check endpoint."
-wallycode act "Add a README section for local development." --source C:\src\my-repo
+```powershell
+wallycode loop "What does this project do?" --definition ask --source C:\src\MyRepo
 ```
 
-Equivalent routed form:
+Start a session with the `act` definition:
 
-```text
-wallycode loop --definition act "Implement a minimal health-check endpoint."
+```powershell
+wallycode loop "Refactor the routing code for readability." --definition act --source C:\src\MyRepo
 ```
 
-### loop
-Use when the task needs iteration, memory, and staged progress.
+Run multiple iterations in one invocation:
 
-```text
-wallycode loop "Build tic-tac-toe in this repo."
-wallycode loop
-wallycode loop --steps 3
-wallycode respond "Use the simpler approach."
+```powershell
+wallycode loop "Review the repository structure." --steps 3 --source C:\src\MyRepo
 ```
 
-Point at another repo or move session state elsewhere:
+Override provider and model for a new session:
 
-```text
-wallycode loop "Work on issue 123" --source C:\src\my-repo --memory-root C:\temp\wallycode-session
+```powershell
+wallycode loop "Summarize the tests." --provider gh-copilot-gpt5 --model gpt-5 --source C:\src\MyRepo
 ```
 
-Session state is written under `.wallycode/` in the project root by default.
+Continue the current session:
 
-## Routing Definitions
-
-`loop` starts or continues a routed session.
-
-Shipped definitions:
-- `ask` - single-step direct answer, no file changes
-- `act` - single-step direct execution
-- `requirements` (default) - `collect_requirements -> produce_tasks`
-- `tasks` - `produce_tasks -> execute_tasks`
-- `full-pipeline` - `collect_requirements -> produce_tasks -> execute_tasks`
-
-Pick a definition explicitly:
-
-```text
-wallycode loop "Build the export feature." --definition full-pipeline
+```powershell
+wallycode loop --source C:\src\MyRepo
 ```
 
-`ask` and `act` are intentionally simple routed definitions. They are convenience commands over `loop`.
+Use a separate session state folder:
 
-## Setup
-
-Use `setup` once per workspace:
-
-```text
-wallycode setup
-wallycode setup --directory C:\src\my-repo
-wallycode setup --force
-wallycode setup --vs-build
+```powershell
+wallycode loop "Analyze docs." --source C:\src\MyRepo --memory-root C:\temp\wally-session
 ```
 
-Typical flow:
+## `respond`
 
-```text
-wallycode setup --directory C:\src\my-repo
-cd C:\src\my-repo
-wallycode provider
-wallycode provider --models
-wallycode ask "Summarize this repository in one short paragraph."
+Appends a user response for the active loop session.
+
+```powershell
+wallycode respond <response> [--source <path>] [--memory-root <path>] [--log] [--verbose]
 ```
 
-## Shell
+Example:
 
-Interactive shell keeps `--source` and `--memory-root` defaults for commands run inside it:
-
-```text
-wallycode shell
-wallycode shell --source C:\src\my-repo --memory-root C:\temp\wallycode-session
+```powershell
+wallycode respond "Prefer bullet points and keep it short." --source C:\src\MyRepo
 ```
 
-Inside the shell:
+Then continue:
 
-```text
-ask "Explain the architecture of this repo."
-act "Implement a minimal health-check endpoint."
-loop "Work on issue 123"
-loop
-respond "Use the simpler approach"
-exit
+```powershell
+wallycode loop --source C:\src\MyRepo
 ```
 
-## Working Against Another Repo
+## Logging and stepping through transitions
 
-Use `--source` to operate on another repo or folder:
-
-```text
-wallycode ask "Summarize this repository." --source C:\src\repo-a
-wallycode act "Implement a minimal health-check endpoint." --source C:\src\repo-a
-wallycode loop "Build tic-tac-toe." --source D:\projects\demo-app
-```
-
-Use `--memory-root` only when you want runtime state somewhere other than the source repo's default `.wallycode` folder:
-
-```text
-wallycode loop "Work on issue 123" --source C:\src\repo-a --memory-root C:\temp\repo-a-session
-```
-
-Meaning:
-- `--source` selects the repo or folder WallyCode operates on
-- `--memory-root` selects where loop session state is stored
-- neither changes where the executable is installed
-
-Typical remote-workspace flow:
-
-```text
-wallycode provider --source C:\src\my-repo
-wallycode provider --models --source C:\src\my-repo
-wallycode ask "Summarize this repository in one short paragraph." --source C:\src\my-repo
-wallycode act "Add a README section for local development." --source C:\src\my-repo
-wallycode loop "Build tic-tac-toe." --source C:\src\my-repo
-```
-
-## Files Written
-
-- `wallycode.json` - workspace settings, including default provider/model, optional `globalPrompt`, and provider catalog metadata
-- `.wallycode/` - loop session state; override with `--memory-root`
-
-`source` is the folder the provider operates against. `memory-root` is where WallyCode stores session data.
-
-## Tutorials
-
-Walkthroughs live in [WallyCode.Console/Tutorials](WallyCode.Console/Tutorials):
-- [WallyCode.Console/Tutorials/README.md](WallyCode.Console/Tutorials/README.md) - tutorial index and usage notes
-- [WallyCode.Console/Tutorials/book-story.md](WallyCode.Console/Tutorials/book-story.md) - `act` workflow on markdown files
-- [WallyCode.Console/Tutorials/repo-review.md](WallyCode.Console/Tutorials/repo-review.md) - `ask` workflow without file changes
-- [WallyCode.Console/Tutorials/tic-tac-toe.md](WallyCode.Console/Tutorials/tic-tac-toe.md) - routed `loop` workflow
+WallyCode supports invocation logging on these commands:
+- `loop`
+- `ask`
+- `act`
+- `respond`
+- `shell`
 
 Use:
 
-```text
-wallycode tutorial --list
-wallycode tutorial repo-review
-wallycode tutorial book-story
-wallycode tutorial tic-tac-toe
+```powershell
+wallycode loop "Summarize this repository." --source C:\src\MyRepo --log
 ```
 
-## Remote Workspaces
+For more detailed logging:
 
-Executable location and workspace location are separate:
-- install `wallycode` wherever convenient
-- use `--source` to point at the repo or folder to operate on
-- `wallycode.json` stays in the source workspace
-- `.wallycode/` stays in the source workspace unless `--memory-root` is provided
+```powershell
+wallycode loop "Summarize this repository." --source C:\src\MyRepo --log --verbose
+```
 
-One installed executable can operate against multiple repos.
+This is the current user-facing way to inspect:
+- prompts sent to the provider
+- provider responses
+- iteration-by-iteration transitions
+- session status changes
+
+## Definitions
+
+The routed workflow supports named definitions.
+
+Examples currently covered by tests include:
+- `ask`
+- `act`
+
+If you do not specify `--definition`, `loop` defaults to `requirements`.
+
+## Project files created and used by WallyCode
+
+In your target project folder:
+- `wallycode.json`: project settings such as default provider and model
+- `.wallycode\`: runtime/session state
+
+Session state may include:
+- `session.json`
+- archived sessions under `.wallycode\archive\`
+- logs and transcripts when logging is enabled
+
+## Typical first-use flow
+
+```powershell
+wallycode setup --directory C:\src\MyRepo
+wallycode provider --source C:\src\MyRepo
+wallycode provider gh-copilot-claude --set --source C:\src\MyRepo
+wallycode provider gh-copilot-claude --model claude-sonnet-4 --source C:\src\MyRepo
+wallycode loop "Summarize this repository in one short paragraph." --source C:\src\MyRepo --log
+```
+
+If the session blocks:
+
+```powershell
+wallycode respond "Focus on the routing and test structure." --source C:\src\MyRepo --log
+wallycode loop --source C:\src\MyRepo --log
+```
+
+## Troubleshooting
+
+If a provider is unavailable:
+- verify the required external tooling is installed
+- verify you are authenticated for that provider
+- run `wallycode provider --source <path>` to inspect provider readiness
+
+If `loop` says there is no active session:
+- start one with `wallycode loop "<goal>" --source <path>`
+
+If a session is blocked:
+- use `wallycode respond "<message>" --source <path>`
+- then run `wallycode loop --source <path>` again
 
