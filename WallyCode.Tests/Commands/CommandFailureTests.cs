@@ -80,6 +80,104 @@ public class CommandFailureTests
     }
 
     [Fact]
+    public async Task Resume_without_an_active_session_throws_a_clear_error()
+    {
+        using var workspace = TempWorkspace.Create();
+        var handler = new ResumeCommandHandler(new LoopCommandHandler(NewRegistry(), new AppLogger()));
+
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => handler.ExecuteAsync(
+            new ResumeCommandOptions
+            {
+                SourcePath = workspace.RootPath,
+                Steps = 1
+            },
+            CancellationToken.None));
+
+        Assert.Contains("No resumable session exists", exception.Message);
+    }
+
+    [Fact]
+    public async Task Resume_with_blocked_session_throws_a_clear_error()
+    {
+        using var workspace = TempWorkspace.Create();
+        var definition = RoutingDefinition.LoadByName("requirements");
+        var session = RoutedSession.Start(definition, "test goal", "mock-provider", "mock-default-model", workspace.RootPath);
+        session.Status = SessionStatus.Blocked;
+        session.Save(Path.Combine(workspace.RootPath, ".wallycode"));
+
+        var handler = new ResumeCommandHandler(new LoopCommandHandler(NewRegistry(), new AppLogger()));
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => handler.ExecuteAsync(
+            new ResumeCommandOptions
+            {
+                SourcePath = workspace.RootPath,
+                Steps = 1
+            },
+            CancellationToken.None));
+
+        Assert.Contains("Session is waiting for user input", exception.Message);
+    }
+
+    [Fact]
+    public async Task Resume_with_terminal_session_throws_a_clear_error()
+    {
+        using var workspace = TempWorkspace.Create();
+        var definition = RoutingDefinition.LoadByName("requirements");
+        var session = RoutedSession.Start(definition, "test goal", "mock-provider", "mock-default-model", workspace.RootPath);
+        session.Status = SessionStatus.Completed;
+        session.Save(Path.Combine(workspace.RootPath, ".wallycode"));
+
+        var handler = new ResumeCommandHandler(new LoopCommandHandler(NewRegistry(), new AppLogger()));
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => handler.ExecuteAsync(
+            new ResumeCommandOptions
+            {
+                SourcePath = workspace.RootPath,
+                Steps = 1
+            },
+            CancellationToken.None));
+
+        Assert.Contains("cannot be resumed", exception.Message);
+    }
+
+    [Fact]
+    public async Task Resume_with_active_session_continues_where_it_left_off()
+    {
+        using var workspace = TempWorkspace.Create();
+        new ProjectSettings
+        {
+            Provider = "mock-provider",
+            Model = "mock-default-model"
+        }.Save(workspace.RootPath);
+
+        var definition = RoutingDefinition.LoadByName("requirements");
+        var session = RoutedSession.Start(definition, "test goal", "mock-provider", "mock-default-model", workspace.RootPath);
+        session.Save(Path.Combine(workspace.RootPath, ".wallycode"));
+
+        var provider = new MockLlmProvider([
+            new MockInvocation
+            {
+                RawOutput = """{"selectedKeyword":"[REQUIREMENTS_READY]","summary":"moving forward"}""",
+                ExpectedModel = "mock-default-model",
+                ExpectedSourcePath = workspace.RootPath
+            }
+        ]);
+
+        var handler = new ResumeCommandHandler(new LoopCommandHandler(new ProviderRegistry([provider]), new AppLogger()));
+        var exitCode = await handler.ExecuteAsync(
+            new ResumeCommandOptions
+            {
+                SourcePath = workspace.RootPath,
+                Steps = 1
+            },
+            CancellationToken.None);
+
+        Assert.Equal(0, exitCode);
+        var resumed = RoutedSession.Load(Path.Combine(workspace.RootPath, ".wallycode"));
+        Assert.Equal("produce_tasks", resumed.ActiveUnitName);
+        Assert.Equal(1, resumed.IterationCount);
+        provider.AssertConsumed();
+    }
+
+    [Fact]
     public async Task Respond_without_an_active_session_throws_a_clear_error()
     {
         using var workspace = TempWorkspace.Create();

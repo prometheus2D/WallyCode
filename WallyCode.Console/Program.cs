@@ -35,12 +35,13 @@ internal static class Program
 			settings.AutoVersion = true;
 		});
 
-		var result = parser.ParseArguments<LoopCommandOptions, AskCommandOptions, ActCommandOptions, ProviderCommandOptions, RespondCommandOptions, LoggingCommandOptions, ShellCommandOptions, SetupCommandOptions>(args);
+		var result = parser.ParseArguments<LoopCommandOptions, ResumeCommandOptions, AskCommandOptions, ActCommandOptions, ProviderCommandOptions, RespondCommandOptions, LoggingCommandOptions, ShellCommandOptions, SetupCommandOptions>(args);
 
 		try
 		{
 			return await result.MapResult(
 				(LoopCommandOptions options) => new LoopCommandHandler(providerRegistry, logger).ExecuteAsync(options, cancellationToken),
+				(ResumeCommandOptions options) => new ResumeCommandHandler(new LoopCommandHandler(providerRegistry, logger)).ExecuteAsync(options, cancellationToken),
 				(AskCommandOptions options) => new LoopCommandHandler(providerRegistry, logger).ExecuteAsync(options.ToLoopOptions(), cancellationToken),
 				(ActCommandOptions options) => new LoopCommandHandler(providerRegistry, logger).ExecuteAsync(options.ToLoopOptions(), cancellationToken),
 				(ProviderCommandOptions options) => new ProviderCommandHandler(providerRegistry, logger).ExecuteAsync(options, cancellationToken),
@@ -105,6 +106,7 @@ internal static class Program
 	private static bool SupportsInvocationLogging(string commandName)
 	{
 		return string.Equals(commandName, "loop", StringComparison.OrdinalIgnoreCase)
+			|| string.Equals(commandName, "resume", StringComparison.OrdinalIgnoreCase)
 			|| string.Equals(commandName, "ask", StringComparison.OrdinalIgnoreCase)
 			|| string.Equals(commandName, "act", StringComparison.OrdinalIgnoreCase)
 			|| string.Equals(commandName, "respond", StringComparison.OrdinalIgnoreCase)
