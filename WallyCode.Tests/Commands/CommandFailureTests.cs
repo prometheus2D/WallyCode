@@ -215,6 +215,40 @@ public class CommandFailureTests
     }
 
     [Fact]
+    public async Task Loop_with_empty_summary_prints_standard_placeholder()
+    {
+        using var workspace = TempWorkspace.Create();
+        new ProjectSettings
+        {
+            Provider = "mock-provider",
+            Model = "mock-default-model"
+        }.Save(workspace.RootPath);
+
+        var provider = new MockLlmProvider([
+            new MockInvocation
+            {
+                RawOutput = """{"selectedKeyword":"[DONE]","summary":""}""",
+                ExpectedModel = "mock-default-model",
+                ExpectedSourcePath = workspace.RootPath
+            }
+        ]);
+
+        var handler = new LoopCommandHandler(new ProviderRegistry([provider]), new AppLogger());
+        var (exitCode, output) = await ExecuteSilentlyAsync(() => handler.ExecuteAsync(
+            new LoopCommandOptions
+            {
+                Goal = "new goal",
+                Definition = "ask",
+                SourcePath = workspace.RootPath,
+                Steps = 1
+            },
+            CancellationToken.None));
+
+        Assert.Equal(0, exitCode);
+        Assert.Contains("Summary: [no summary provided]", output);
+    }
+
+    [Fact]
     public async Task Loop_with_completed_session_and_new_goal_archives_old_session_and_starts_a_new_one()
     {
         using var workspace = TempWorkspace.Create();

@@ -8,6 +8,7 @@ namespace WallyCode.ConsoleApp.Commands;
 internal sealed class LoopCommandHandler
 {
     private const string DefaultDefinitionName = "requirements";
+    private const string EmptySummaryMessage = "[no summary provided]";
 
     private readonly ProviderRegistry _providerRegistry;
     private readonly AppLogger _logger;
@@ -101,7 +102,7 @@ internal sealed class LoopCommandHandler
                 {
                     _logger.Section($"Iteration {r.IterationNumber}");
                     _logger.Info($"Selected keyword: {r.SelectedKeyword}");
-                    if (!string.IsNullOrWhiteSpace(r.Summary)) _logger.Info($"Summary: {r.Summary}");
+                    _logger.Info($"Summary: {FormatSummary(r.Summary)}");
                     _logger.Info($"Next unit: {r.ActiveUnitName}");
                     _logger.Info($"Status: {r.Status}");
                 }
@@ -150,7 +151,7 @@ internal sealed class LoopCommandHandler
         {
             _logger.Section($"Iteration {r.IterationNumber}");
             _logger.Info($"Selected keyword: {r.SelectedKeyword}");
-            if (!string.IsNullOrWhiteSpace(r.Summary)) _logger.Info($"Summary: {r.Summary}");
+            _logger.Info($"Summary: {FormatSummary(r.Summary)}");
             _logger.Info($"Next unit: {r.ActiveUnitName}");
             _logger.Info($"Status: {r.Status}");
         }
@@ -164,5 +165,12 @@ internal sealed class LoopCommandHandler
         _logger.Success($"Run complete after {resultsNew.Count} iteration(s).");
         _logger.LogAction("Invocation completed", $"iterations={resultsNew.Count}; finalStatus={finalNewResult?.Status ?? session.Status}");
         return 0;
+    }
+
+    private static string FormatSummary(string? summary)
+    {
+        return string.IsNullOrWhiteSpace(summary)
+            ? EmptySummaryMessage
+            : summary;
     }
 }
