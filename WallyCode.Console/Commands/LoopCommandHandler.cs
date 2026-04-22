@@ -60,6 +60,10 @@ internal sealed class LoopCommandHandler
                 var archivedPath = RoutedSession.ArchiveCompletedSession(sessionRoot);
                 _logger.LogAction("Archived terminal session", $"status={session.Status}; archivePath={archivedPath}");
                 _logger.Info($"Archived previous {session.Status} session to {archivedPath}.");
+                if (session.Status == SessionStatus.Error && !string.IsNullOrWhiteSpace(session.LastSummary))
+                {
+                    _logger.Warning($"Previous error: {session.LastSummary}");
+                }
 
                 if (string.IsNullOrWhiteSpace(options.Goal))
                 {
@@ -102,8 +106,14 @@ internal sealed class LoopCommandHandler
                     _logger.Info($"Status: {r.Status}");
                 }
 
+                var finalResult = results.LastOrDefault();
+                if (finalResult?.Status == SessionStatus.Error && !string.IsNullOrWhiteSpace(finalResult.Summary))
+                {
+                    _logger.Warning($"Error: {finalResult.Summary}");
+                }
+
                 _logger.Success($"Run complete after {results.Count} iteration(s).");
-                _logger.LogAction("Invocation completed", $"iterations={results.Count}; finalStatus={results.LastOrDefault()?.Status ?? session.Status}");
+                _logger.LogAction("Invocation completed", $"iterations={results.Count}; finalStatus={finalResult?.Status ?? session.Status}");
                 return 0;
             }
         }
@@ -145,8 +155,14 @@ internal sealed class LoopCommandHandler
             _logger.Info($"Status: {r.Status}");
         }
 
+        var finalNewResult = resultsNew.LastOrDefault();
+        if (finalNewResult?.Status == SessionStatus.Error && !string.IsNullOrWhiteSpace(finalNewResult.Summary))
+        {
+            _logger.Warning($"Error: {finalNewResult.Summary}");
+        }
+
         _logger.Success($"Run complete after {resultsNew.Count} iteration(s).");
-        _logger.LogAction("Invocation completed", $"iterations={resultsNew.Count}; finalStatus={resultsNew.LastOrDefault()?.Status ?? session.Status}");
+        _logger.LogAction("Invocation completed", $"iterations={resultsNew.Count}; finalStatus={finalNewResult?.Status ?? session.Status}");
         return 0;
     }
 }

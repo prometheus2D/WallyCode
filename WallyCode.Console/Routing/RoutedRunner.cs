@@ -21,7 +21,7 @@ internal sealed class RoutedRunner
     private const string Continue = "[CONTINUE]";
     private const string AskUser = "[ASK_USER]";
     private const string Done = "[DONE]";
-    private const string Fail = "[FAIL]";
+    private const string Error = "[ERROR]";
 
     private readonly ILlmProvider _provider;
     private readonly RoutingDefinition _definition;
@@ -47,7 +47,7 @@ internal sealed class RoutedRunner
             throw new InvalidOperationException(
                 $"Session is on definition '{session.DefinitionName}' but '{_definition.Name}' was supplied.");
         }
-        if (session.Status is SessionStatus.Completed or SessionStatus.Failed)
+        if (session.Status is SessionStatus.Completed or SessionStatus.Error)
         {
             throw new InvalidOperationException($"Session is {session.Status}; nothing to run.");
         }
@@ -74,6 +74,7 @@ internal sealed class RoutedRunner
 
         session.IterationCount++;
         session.LastSelectedKeyword = keyword;
+        session.LastSummary = summary;
         session.ActiveUnitName = nextUnit;
         session.Status = status;
         session.PendingResponses.Clear();
@@ -131,8 +132,10 @@ internal sealed class RoutedRunner
 
         sb.AppendLine();
         sb.AppendLine("Choose the keyword that best matches the next action based on the keyword option descriptions.");
+        sb.AppendLine("If an unrecoverable problem occurred, select [ERROR].");
         sb.AppendLine("Respond with strict JSON: { \"selectedKeyword\": \"[ONE_OF_ALLOWED]\", \"summary\": \"...\" }");
         sb.AppendLine("selectedKeyword must be one of the allowed keywords above exactly as written, including brackets. Output JSON only.");
+        sb.AppendLine("When selecting [ERROR], put the user-visible reason in summary.");
         return sb.ToString();
     }
 
@@ -194,7 +197,7 @@ internal sealed class RoutedRunner
             Continue => (unit.Name, SessionStatus.Active, false),
             AskUser => (unit.Name, SessionStatus.Blocked, true),
             Done => (unit.Name, SessionStatus.Completed, true),
-            Fail => (unit.Name, SessionStatus.Failed, true),
+            Error => (unit.Name, SessionStatus.Error, true),
             _ => throw new InvalidOperationException($"Keyword '{keyword}' has no transition and is not a built-in.")
         };
     }

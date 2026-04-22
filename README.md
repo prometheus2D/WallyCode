@@ -243,6 +243,21 @@ If omitted, `loop` defaults to:
 
 ---
 
+## Keywords
+
+Shared control keywords are intentionally small:
+
+- `[CONTINUE]` keeps work in the current logical unit
+- `[ASK_USER]` blocks the session until `respond` provides input
+- `[DONE]` completes the workflow
+- `[ERROR]` stops the workflow because an unrecoverable problem occurred
+
+Workflow-specific routing keywords such as `[REQUIREMENTS_READY]` and `[TASKS_READY]` move execution between logical units.
+
+When `[ERROR]` is selected, the provider should put the user-visible reason in the `summary` field.
+
+---
+
 ## Observability
 
 If you want to see each prompt/response/transition, use logging.
@@ -256,6 +271,7 @@ This is the current operator-facing trace surface for:
 - raw provider output
 - selected keyword per iteration
 - next unit / session status
+- error reason when a run ends with `[ERROR]`
 
 Recommended pattern while tuning prompts or routing:
 
@@ -298,6 +314,10 @@ No active session:
 Blocked session:
 - `wallycode respond "<message>" --source <repo>`
 - then `wallycode loop --source <repo>`
+
+Workflow ended with `[ERROR]`:
+- inspect the logged summary/error reason
+- adjust the goal, definition, or workspace state before retrying
 
 Wrong repo or wrong session state:
 - verify `--source`

@@ -73,7 +73,7 @@ public class RoutedSessionTests
         Assert.Single(definition.Units);
         Assert.Equal("prompt", definition.Units[0].Name);
         Assert.Contains("Do not change files", definition.Units[0].Instructions);
-        Assert.Equal(["[DONE]", "[ASK_USER]", "[FAIL]"], definition.Units[0].AllowedKeywords);
+        Assert.Equal(["[DONE]", "[ERROR]"], definition.Units[0].AllowedKeywords);
     }
 
     [Fact]
@@ -86,6 +86,6 @@ public class RoutedSessionTests
         Assert.Single(definition.Units);
         Assert.Equal("prompt", definition.Units[0].Name);
         Assert.Contains("You may change files", definition.Units[0].Instructions);
-        Assert.Equal(["[DONE]", "[ASK_USER]", "[FAIL]"], definition.Units[0].AllowedKeywords);
+        Assert.Equal(["[DONE]", "[ERROR]"], definition.Units[0].AllowedKeywords);
     }
 }

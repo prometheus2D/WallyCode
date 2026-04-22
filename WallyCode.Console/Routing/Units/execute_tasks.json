@@ -2,7 +2,7 @@
   "id": "execute_tasks",
   "name": "execute_tasks",
   "instructions": "Execute the planned tasks in order and report progress in the summary.",
-  "allowedKeywords": ["[CONTINUE]", "[ASK_USER]", "[DONE]", "[FAIL]"],
+  "allowedKeywords": ["[CONTINUE]", "[ASK_USER]", "[DONE]", "[ERROR]"],
   "keywordOptions": [],
   "transitions": {}
 }

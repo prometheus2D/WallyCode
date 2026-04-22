@@ -52,31 +52,33 @@ public class RoutedRunnerTests
     [Theory]
     [InlineData("[ASK_USER]", SessionStatus.Blocked)]
     [InlineData("[DONE]", SessionStatus.Completed)]
-    [InlineData("[FAIL]", SessionStatus.Failed)]
+    [InlineData("[ERROR]", SessionStatus.Error)]
     public async Task Terminal_keywords_update_status_and_stop(string keyword, string expectedStatus)
     {
         using var temp = TempWorkspace.Create();
         var def = RoutingDefinition.LoadByName("requirements");
         var session = RoutedSession.Start(def, "test goal", "mock-provider", "mock-default-model", temp.RootPath);
-        if (keyword is "[DONE]" or "[FAIL]")
+        if (keyword is "[DONE]" or "[ERROR]")
         {
             session.ActiveUnitName = "produce_tasks";
         }
         session.Save(temp.RootPath);
 
         var runner = new RoutedRunner(
-            new MockLlmProvider([new MockInvocation { RawOutput = $$"""{"selectedKeyword":"{{keyword}}"}""" }]),
+            new MockLlmProvider([new MockInvocation { RawOutput = $$"""{"selectedKeyword":"{{keyword}}","summary":"problem details"}""" }]),
             def, temp.RootPath);
 
         var result = await runner.RunOnceAsync(CancellationToken.None);
 
         Assert.Equal(expectedStatus, result.Status);
         Assert.True(result.StopsInvocation);
+        Assert.Equal("problem details", RoutedSession.Load(temp.RootPath).LastSummary);
     }
 
     [Theory]
     [InlineData("DONE")]
     [InlineData("[BOGUS]")]
+    [InlineData("[FAIL]")]
     public async Task Invalid_keyword_throws(string keyword)
     {
         using var temp = TempWorkspace.Create();
@@ -172,6 +174,23 @@ public class RoutedRunnerTests
 
         Assert.Contains("Keyword options:", provider.Requests[0].Prompt);
         Assert.Contains("[REQUIREMENTS_READY]:", provider.Requests[0].Prompt);
+    }
+
+    [Fact]
+    public async Task Prompt_mentions_error_keyword_guidance()
+    {
+        using var temp = TempWorkspace.Create();
+        var def = RoutingDefinition.LoadByName("requirements");
+        var provider = new MockLlmProvider([
+            new MockInvocation { RawOutput = """{"selectedKeyword":"[CONTINUE]"}""" }
+        ]);
+        var runner = new RoutedRunner(provider, def, temp.RootPath);
+        RoutedSession.Start(def, "test goal", "mock-provider", "mock-default-model", temp.RootPath).Save(temp.RootPath);
+
+        await runner.RunOnceAsync(CancellationToken.None);
+
+        Assert.Contains("select [ERROR]", provider.Requests[0].Prompt);
+        Assert.DoesNotContain("[FAIL]", provider.Requests[0].Prompt);
     }
 
     [Fact]

@@ -7,7 +7,7 @@ internal static class SessionStatus
     public const string Active = "active";
     public const string Blocked = "blocked";
     public const string Completed = "completed";
-    public const string Failed = "failed";
+    public const string Error = "error";
 }
 
 internal sealed class RoutedSession
@@ -20,6 +20,7 @@ internal sealed class RoutedSession
     public string ActiveUnitName { get; set; } = string.Empty;
     public string Status { get; set; } = SessionStatus.Active;
     public string LastSelectedKeyword { get; set; } = string.Empty;
+    public string LastSummary { get; set; } = string.Empty;
     public int IterationCount { get; set; }
     public List<string> PendingResponses { get; set; } = [];
 
@@ -41,7 +42,7 @@ internal sealed class RoutedSession
 
     public static bool Exists(string rootPath) => File.Exists(FilePath(rootPath));
 
-    public static bool IsTerminal(string? status) => status is SessionStatus.Completed or SessionStatus.Failed;
+    public static bool IsTerminal(string? status) => status is SessionStatus.Completed or SessionStatus.Error;
 
     public static string ArchiveRoot(string rootPath) => Path.Combine(rootPath, "archive");
 
@@ -50,7 +51,7 @@ internal sealed class RoutedSession
         var session = Load(rootPath);
         if (!IsTerminal(session.Status))
         {
-            throw new InvalidOperationException("Only completed or failed sessions can be archived.");
+            throw new InvalidOperationException("Only completed or error sessions can be archived.");
         }
 
         Directory.CreateDirectory(rootPath);

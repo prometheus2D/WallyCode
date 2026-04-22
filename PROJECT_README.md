@@ -17,8 +17,8 @@ Current best-fit terminology for this codebase:
   - Shared logical units can be reused across multiple definitions.
 
 - **Keywords** are the routing decisions emitted by the provider.
-  - Shared control keywords should stay small and predictable: `[CONTINUE]`, `[ASK_USER]`, `[DONE]`, and `[FAIL]`.
-  - Routing keywords beyond those control outcomes should be definition-specific or unit-specific, not generic shared workflow terms like `[NEXT]`.
+  - Shared control keywords should stay small and predictable: `[CONTINUE]`, `[ASK_USER]`, `[DONE]`, and `[ERROR]`.
+  - Routing keywords beyond those control outcomes should be definition-specific or unit-specific.
 
 ## Is "definitions are basically call commands / starting points" correct?
 
@@ -89,7 +89,7 @@ At runtime it:
 4. asks the provider for a `selectedKeyword`
 5. applies either:
    - an explicit transition to another unit, or
-   - a built-in control outcome like continue / ask user / done / fail
+   - a built-in control outcome like continue / ask user / done / error
 
 This means the runtime model is:
 
@@ -104,8 +104,10 @@ Preferred model for this project:
 - `[CONTINUE]` means remain in the current logical unit.
 - `[ASK_USER]` means block and wait for `respond` input.
 - `[DONE]` means the workflow is complete.
-- `[FAIL]` means the workflow cannot continue because of an unrecoverable problem.
-- Any keyword that routes between units should be named for the workflow meaning, such as `[REQUIREMENTS_READY]` or `[TASKS_READY]`, rather than a generic shared `[NEXT]`.
+- `[ERROR]` means the workflow cannot continue because of an unrecoverable problem.
+- Any keyword that routes between units should be named for the workflow meaning, such as `[REQUIREMENTS_READY]` or `[TASKS_READY]`, rather than a generic shared routing keyword.
+
+When `[ERROR]` is selected, the provider should put the user-visible reason in the `summary` field.
 
 This keeps the shared keyword surface small while allowing definitions to express their own routing semantics.
 
