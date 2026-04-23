@@ -92,6 +92,11 @@ public class RoutedRunnerTests
             def, temp.RootPath);
 
         await Assert.ThrowsAsync<InvalidOperationException>(() => runner.RunOnceAsync(CancellationToken.None));
+
+        var persisted = RoutedSession.Load(temp.RootPath);
+        Assert.Equal(SessionStatus.Error, persisted.Status);
+        Assert.Equal("[ERROR]", persisted.LastSelectedKeyword);
+        Assert.False(string.IsNullOrWhiteSpace(persisted.LastSummary));
     }
 
     [Theory]
@@ -105,6 +110,33 @@ public class RoutedRunnerTests
             new MockInvocation { RawOutput = rawOutput });
 
         await Assert.ThrowsAsync<InvalidOperationException>(() => runner.RunOnceAsync(CancellationToken.None));
+
+        var persisted = RoutedSession.Load(temp.RootPath);
+        Assert.Equal(SessionStatus.Error, persisted.Status);
+        Assert.Equal("[ERROR]", persisted.LastSelectedKeyword);
+    }
+
+    [Fact]
+    public async Task Provider_failure_parks_session_in_error_state()
+    {
+        using var temp = TempWorkspace.Create();
+        var def = RoutingDefinition.LoadByName("requirements");
+        RoutedSession.Start(def, "test goal", "mock-provider", "mock-default-model", temp.RootPath).Save(temp.RootPath);
+
+        var provider = new MockLlmProvider([
+            new MockInvocation { Exception = new InvalidOperationException("provider unreachable") }
+        ]);
+        var runner = new RoutedRunner(provider, def, temp.RootPath);
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => runner.RunOnceAsync(CancellationToken.None));
+        Assert.Equal("provider unreachable", ex.Message);
+
+        var persisted = RoutedSession.Load(temp.RootPath);
+        Assert.Equal(SessionStatus.Error, persisted.Status);
+        Assert.Equal("[ERROR]", persisted.LastSelectedKeyword);
+        Assert.Equal("provider unreachable", persisted.LastSummary);
+        Assert.Equal(1, persisted.IterationCount);
+        Assert.Empty(persisted.PendingResponses);
     }
 
     [Fact]

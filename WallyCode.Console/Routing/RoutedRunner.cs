@@ -52,25 +52,44 @@ internal sealed class RoutedRunner
             throw new InvalidOperationException($"Session is {session.Status}; nothing to run.");
         }
 
-        var unit = _definition.GetUnit(session.ActiveUnitName);
-        var prompt = BuildPrompt(session, unit, _globalPrompt);
-        _logger?.LogExchange("OUT", $"iteration {session.IterationCount + 1} prompt ({unit.Name})", prompt);
+        string keyword;
+        string summary;
+        string nextUnit;
+        string status;
+        bool stops;
 
-        var rawOutput = await _provider.ExecuteAsync(
-            new CopilotRequest { Prompt = prompt, Model = session.Model, SourcePath = session.SourcePath },
-            cancellationToken);
-
-        _logger?.LogExchange("IN", $"iteration {session.IterationCount + 1} response ({unit.Name})", rawOutput);
-
-        var (keyword, summary) = ParseOutput(rawOutput);
-
-        if (!unit.AllowedKeywords.Contains(keyword))
+        try
         {
-            throw new InvalidOperationException(
-                $"Provider returned keyword '{keyword}' which is not allowed for unit '{unit.Name}'.");
-        }
+            var unit = _definition.GetUnit(session.ActiveUnitName);
+            var prompt = BuildPrompt(session, unit, _globalPrompt);
+            _logger?.LogExchange("OUT", $"iteration {session.IterationCount + 1} prompt ({unit.Name})", prompt);
 
-        var (nextUnit, status, stops) = ApplyKeyword(unit, keyword);
+            var rawOutput = await _provider.ExecuteAsync(
+                new CopilotRequest { Prompt = prompt, Model = session.Model, SourcePath = session.SourcePath },
+                cancellationToken);
+
+            _logger?.LogExchange("IN", $"iteration {session.IterationCount + 1} response ({unit.Name})", rawOutput);
+
+            (keyword, summary) = ParseOutput(rawOutput);
+
+            if (!unit.AllowedKeywords.Contains(keyword))
+            {
+                throw new InvalidOperationException(
+                    $"Provider returned keyword '{keyword}' which is not allowed for unit '{unit.Name}'.");
+            }
+
+            (nextUnit, status, stops) = ApplyKeyword(unit, keyword);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            session.IterationCount++;
+            session.LastSelectedKeyword = Error;
+            session.LastSummary = ex.Message;
+            session.Status = SessionStatus.Error;
+            session.PendingResponses.Clear();
+            session.Save(_sessionRoot);
+            throw;
+        }
 
         session.IterationCount++;
         session.LastSelectedKeyword = keyword;
