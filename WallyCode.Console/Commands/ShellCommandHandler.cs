@@ -6,25 +6,42 @@ namespace WallyCode.ConsoleApp.Commands;
 internal sealed class ShellCommandHandler
 {
     private readonly ShellCommandOptions _options;
+    private readonly string _appDirectoryPath;
+    private readonly AppLogger _logger = new();
 
-    public ShellCommandHandler(ShellCommandOptions options)
+    public ShellCommandHandler(ShellCommandOptions options, string? appDirectoryPath = null)
     {
         _options = options;
+        _appDirectoryPath = Path.GetFullPath(string.IsNullOrWhiteSpace(appDirectoryPath)
+            ? AppContext.BaseDirectory
+            : appDirectoryPath);
     }
 
     public async Task<int> ExecuteAsync(CancellationToken cancellationToken)
     {
+        var resolvedSourcePath = ResolveSourcePath();
+        var sessionRoot = ProjectSettings.ResolveRuntimeRoot(resolvedSourcePath, _options.MemoryRoot);
+
         if (_options.ResetMemory)
         {
-            ResetMemory(_options);
+            ResetMemory(resolvedSourcePath, _options.MemoryRoot);
         }
 
-        Console.WriteLine("WallyCode shell");
-        Console.WriteLine("Type a WallyCode command without the executable name.");
-        Console.WriteLine("Type 'exit' to quit.");
+        ConfigureShellLogging(sessionRoot);
+        _logger.LogAction("Shell initialized", $"source={resolvedSourcePath}; sessionRoot={sessionRoot}; vsBuild={_options.VsBuild}");
 
-        var resolvedSourcePath = ProjectSettings.ResolveProjectRoot(_options.SourcePath);
-        Console.WriteLine($"Shell initialized with source: {resolvedSourcePath}");
+        Console.WriteLine("WallyCode shell");
+
+        if (_options.VsBuild)
+        {
+            Console.WriteLine("VS build mode enabled.");
+            Console.WriteLine($"\tDirectory before VS resolution: {_appDirectoryPath}");
+            Console.WriteLine($"\tDirectory after VS resolution:  {resolvedSourcePath}");
+        }
+        else
+        {
+            Console.WriteLine($"Shell initialized with source: {resolvedSourcePath}");
+        }
 
         if (!string.IsNullOrWhiteSpace(_options.MemoryRoot))
         {
@@ -32,9 +49,16 @@ internal sealed class ShellCommandHandler
         }
         else
         {
-            Console.WriteLine($"Shell using default memory root: {Path.Combine(resolvedSourcePath, ".wallycode")}");
+            Console.WriteLine($"Shell using default memory root: {ProjectSettings.ResolveRuntimeRoot(resolvedSourcePath, memoryRoot: null)}");
         }
 
+        if (_options.Log)
+        {
+            Console.WriteLine($"Shell logging enabled{(_options.Verbose ? " (verbose)" : string.Empty)}.");
+        }
+
+        Console.WriteLine("Type a WallyCode command without the executable name.");
+        Console.WriteLine("Type 'exit' to quit.");
         Console.WriteLine();
 
         while (!cancellationToken.IsCancellationRequested)
@@ -44,6 +68,7 @@ internal sealed class ShellCommandHandler
 
             if (input is null)
             {
+                _logger.LogAction("Shell exit", "Console input closed.");
                 return 0;
             }
 
@@ -56,6 +81,7 @@ internal sealed class ShellCommandHandler
 
             if (string.Equals(trimmed, "exit", StringComparison.OrdinalIgnoreCase))
             {
+                _logger.LogAction("Shell exit", "User entered exit.");
                 return 0;
             }
 
@@ -70,32 +96,55 @@ internal sealed class ShellCommandHandler
             {
                 Console.WriteLine("Already in the shell. Type another command or 'exit'.");
                 Console.WriteLine();
+                _logger.LogAction("Shell command skipped", "Nested shell command ignored.");
                 continue;
             }
 
             if (string.Equals(args[0], "reset-memory", StringComparison.OrdinalIgnoreCase))
             {
-                ResetMemory(_options);
+                ResetMemory(resolvedSourcePath, _options.MemoryRoot);
                 Console.WriteLine();
                 continue;
             }
 
-            var effectiveArgs = ApplyShellDefaults(args);
-            await Program.RunAsync(effectiveArgs, cancellationToken);
+            var effectiveArgs = ApplyShellDefaults(args, resolvedSourcePath);
+            _logger.LogAction("Executing shell subcommand", string.Join(" ", effectiveArgs), verboseOnly: true);
+            await Program.RunAsync(effectiveArgs, cancellationToken, _appDirectoryPath);
             Console.WriteLine();
         }
 
+        _logger.LogAction("Shell exit", "Cancellation requested.");
         return 0;
     }
 
-    private string[] ApplyShellDefaults(string[] args)
+    private void ConfigureShellLogging(string sessionRoot)
+    {
+        _logger.ConfigureLogging(sessionRoot, new LoggingMode
+        {
+            Enabled = _options.Log,
+            Verbose = _options.Verbose
+        });
+    }
+
+    private string ResolveSourcePath()
+    {
+        var sourcePath = !string.IsNullOrWhiteSpace(_options.SourcePath)
+            ? _options.SourcePath
+            : _options.VsBuild
+                ? WorkspacePathResolver.ResolveVsBuildWorkspaceRoot(_appDirectoryPath)
+                : null;
+
+        return ProjectSettings.ResolveProjectRoot(sourcePath);
+    }
+
+    private string[] ApplyShellDefaults(string[] args, string resolvedSourcePath)
     {
         var effectiveArgs = args.ToList();
 
-        if (!HasOption(args, "source") && !string.IsNullOrWhiteSpace(_options.SourcePath))
+        if (!HasOption(args, "source"))
         {
             effectiveArgs.Add("--source");
-            effectiveArgs.Add(_options.SourcePath);
+            effectiveArgs.Add(resolvedSourcePath);
         }
 
         if (SupportsMemoryRoot(args[0])
@@ -106,14 +155,35 @@ internal sealed class ShellCommandHandler
             effectiveArgs.Add(_options.MemoryRoot);
         }
 
+        if (SupportsLogging(args[0]) && _options.Log && !HasOption(args, "log"))
+        {
+            effectiveArgs.Add("--log");
+        }
+
+        if (SupportsLogging(args[0]) && _options.Verbose && !HasOption(args, "verbose"))
+        {
+            effectiveArgs.Add("--verbose");
+        }
+
+        _logger.LogAction("Applied shell defaults", string.Join(" ", effectiveArgs), verboseOnly: true);
         return effectiveArgs.ToArray();
     }
 
     private static bool SupportsMemoryRoot(string commandName)
     {
         return string.Equals(commandName, "loop", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(commandName, "ask", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(commandName, "act", StringComparison.OrdinalIgnoreCase)
             || string.Equals(commandName, "respond", StringComparison.OrdinalIgnoreCase)
             || string.Equals(commandName, "shell", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool SupportsLogging(string commandName)
+    {
+        return string.Equals(commandName, "loop", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(commandName, "ask", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(commandName, "act", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(commandName, "respond", StringComparison.OrdinalIgnoreCase);
     }
 
     private static bool HasOption(IEnumerable<string> args, string optionName)
@@ -122,16 +192,18 @@ internal sealed class ShellCommandHandler
         return args.Any(arg => string.Equals(arg, longOption, StringComparison.OrdinalIgnoreCase));
     }
 
-    private static void ResetMemory(ShellCommandOptions options)
+    private void ResetMemory(string resolvedSourcePath, string? memoryRoot)
     {
-        var projectRoot = ProjectSettings.ResolveProjectRoot(options.SourcePath);
-        var resolvedMemoryRoot = string.IsNullOrWhiteSpace(options.MemoryRoot)
-            ? null
-            : Path.GetFullPath(options.MemoryRoot);
+        var sessionRoot = ProjectSettings.ResolveRuntimeRoot(resolvedSourcePath, memoryRoot);
 
-        MemoryWorkspace.Reset(projectRoot, resolvedMemoryRoot);
-        Console.WriteLine($"Reset memory workspace at {resolvedMemoryRoot ?? Path.Combine(projectRoot, ".wallycode")}");
-        Console.WriteLine("A new loop session will be created the next time you run loop <goal>.");
+        if (Directory.Exists(sessionRoot))
+        {
+            Directory.Delete(sessionRoot, recursive: true);
+        }
+
+        _logger.LogAction("Reset memory", $"sessionRoot={sessionRoot}");
+        Console.WriteLine($"Reset session at {sessionRoot}");
+        Console.WriteLine("A new session will be created the next time you run loop <goal>.");
     }
 
     private static string[] SplitArguments(string commandLine)

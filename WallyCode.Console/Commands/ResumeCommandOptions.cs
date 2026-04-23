@@ -2,21 +2,9 @@ using CommandLine;
 
 namespace WallyCode.ConsoleApp.Commands;
 
-[Verb("loop", HelpText = "Runs the routing engine against a routing definition.")]
-internal sealed class LoopCommandOptions
+[Verb("resume", HelpText = "Resumes the active routed session when the current workspace state is resumable.")]
+internal sealed class ResumeCommandOptions
 {
-    [Value(0, MetaName = "goal", Required = false, HelpText = "Goal for a new session. Omit to continue the active session.")]
-    public string? Goal { get; set; }
-
-    [Option("definition", HelpText = "Routing definition name. Defaults to 'requirements'.")]
-    public string? Definition { get; set; }
-
-    [Option("provider", HelpText = "Optional provider override.")]
-    public string? Provider { get; set; }
-
-    [Option("model", HelpText = "Optional model override.")]
-    public string? Model { get; set; }
-
     [Option("source", HelpText = "Repo or folder path used as the project root and provider source context.")]
     public string? SourcePath { get; set; }
 
@@ -34,6 +22,19 @@ internal sealed class LoopCommandOptions
 
     [Option("verbose", HelpText = "Enable verbose transcript logging for this invocation.")]
     public bool Verbose { get; set; }
+
+    public LoopCommandOptions ToLoopOptions()
+    {
+        return new LoopCommandOptions
+        {
+            SourcePath = SourcePath,
+            MemoryRoot = MemoryRoot,
+            Steps = Steps,
+            Step = Step,
+            Log = Log,
+            Verbose = Verbose
+        };
+    }
 
     public int GetEffectiveSteps() => Step ? 1 : Steps;
 }

@@ -1,0 +1,91 @@
+using WallyCode.ConsoleApp.Routing;
+using WallyCode.Tests.TestInfrastructure;
+
+namespace WallyCode.Tests.Routing;
+
+public class RoutedSessionTests
+{
+    [Fact]
+    public void Start_initializes_active_unit_to_definition_start()
+    {
+        var def = RoutingDefinition.LoadByName("requirements");
+        var session = RoutedSession.Start(def, "build", "mock-provider", "m", "/src");
+
+        Assert.Equal("requirements", session.DefinitionName);
+        Assert.Equal("collect_requirements", session.ActiveUnitName);
+        Assert.Equal(SessionStatus.Active, session.Status);
+        Assert.Equal(0, session.IterationCount);
+    }
+
+    [Fact]
+    public void Save_then_load_round_trips()
+    {
+        using var temp = TempWorkspace.Create();
+        var def = RoutingDefinition.LoadByName("requirements");
+        var session = RoutedSession.Start(def, "test goal", "mock-provider", "mock-default-model", temp.RootPath);
+        session.IterationCount = 3;
+        session.LastSelectedKeyword = "[CONTINUE]";
+        session.PendingResponses.Add("hi");
+        session.Save(temp.RootPath);
+
+        var loaded = RoutedSession.Load(temp.RootPath);
+        Assert.Equal(3, loaded.IterationCount);
+        Assert.Equal("[CONTINUE]", loaded.LastSelectedKeyword);
+        Assert.Equal(new[] { "hi" }, loaded.PendingResponses);
+    }
+
+    [Fact]
+    public void Exists_returns_false_when_no_session_file()
+    {
+        using var temp = TempWorkspace.Create();
+        Assert.False(RoutedSession.Exists(temp.RootPath));
+    }
+
+    [Fact]
+    public void ArchiveCompletedSession_moves_session_contents_into_archive_folder()
+    {
+        using var temp = TempWorkspace.Create();
+        var def = RoutingDefinition.LoadByName("requirements");
+        var session = RoutedSession.Start(def, "test goal", "mock-provider", "mock-default-model", temp.RootPath);
+        session.Status = SessionStatus.Completed;
+        session.Save(temp.RootPath);
+        File.WriteAllText(Path.Combine(temp.RootPath, "transcript.log"), "history");
+
+        var archivePath = RoutedSession.ArchiveCompletedSession(temp.RootPath);
+
+        Assert.False(RoutedSession.Exists(temp.RootPath));
+        Assert.True(Directory.Exists(archivePath));
+        Assert.StartsWith(RoutedSession.ArchiveRoot(temp.RootPath), archivePath, StringComparison.OrdinalIgnoreCase);
+        Assert.True(File.Exists(Path.Combine(archivePath, "session.json")));
+        Assert.True(File.Exists(Path.Combine(archivePath, "transcript.log")));
+
+        var archived = RoutedSession.Load(archivePath);
+        Assert.Equal(SessionStatus.Completed, archived.Status);
+    }
+
+    [Fact]
+    public void LoadByName_returns_ask_definition_from_json()
+    {
+        var definition = RoutingDefinition.LoadByName("ask");
+
+        Assert.Equal("ask", definition.Name);
+        Assert.Equal("prompt", definition.StartUnitName);
+        Assert.Single(definition.Units);
+        Assert.Equal("prompt", definition.Units[0].Name);
+        Assert.Contains("Do not change files", definition.Units[0].Instructions);
+        Assert.Equal(["[DONE]", "[ERROR]"], definition.Units[0].AllowedKeywords);
+    }
+
+    [Fact]
+    public void LoadByName_returns_act_definition_from_json()
+    {
+        var definition = RoutingDefinition.LoadByName("act");
+
+        Assert.Equal("act", definition.Name);
+        Assert.Equal("prompt", definition.StartUnitName);
+        Assert.Single(definition.Units);
+        Assert.Equal("prompt", definition.Units[0].Name);
+        Assert.Contains("You may change files", definition.Units[0].Instructions);
+        Assert.Equal(["[DONE]", "[ERROR]"], definition.Units[0].AllowedKeywords);
+    }
+}

@@ -2,14 +2,11 @@ using CommandLine;
 
 namespace WallyCode.ConsoleApp.Commands;
 
-[Verb("loop", HelpText = "Runs the routing engine against a routing definition.")]
-internal sealed class LoopCommandOptions
+[Verb("ask", HelpText = "Shortcut for loop --definition ask.")]
+internal sealed class AskCommandOptions
 {
-    [Value(0, MetaName = "goal", Required = false, HelpText = "Goal for a new session. Omit to continue the active session.")]
+    [Value(0, MetaName = "goal", Required = false, HelpText = "Goal for a new ask session. Omit to continue the active session.")]
     public string? Goal { get; set; }
-
-    [Option("definition", HelpText = "Routing definition name. Defaults to 'requirements'.")]
-    public string? Definition { get; set; }
 
     [Option("provider", HelpText = "Optional provider override.")]
     public string? Provider { get; set; }
@@ -26,14 +23,22 @@ internal sealed class LoopCommandOptions
     [Option("steps", Default = 1, HelpText = "Runs n iterations in this invocation.")]
     public int Steps { get; set; }
 
-    [Option("step", HelpText = "Runs exactly one iteration in this invocation.")]
-    public bool Step { get; set; }
-
-    [Option("log", HelpText = "Enable transcript logging for this invocation.")]
+    [Option("log", HelpText = "Enable logging for this invocation.")]
     public bool Log { get; set; }
 
-    [Option("verbose", HelpText = "Enable verbose transcript logging for this invocation.")]
+    [Option("verbose", HelpText = "Enable verbose logging for this invocation.")]
     public bool Verbose { get; set; }
 
-    public int GetEffectiveSteps() => Step ? 1 : Steps;
+    public LoopCommandOptions ToLoopOptions() => new()
+    {
+        Goal = Goal,
+        Definition = "ask",
+        Provider = Provider,
+        Model = Model,
+        SourcePath = SourcePath,
+        MemoryRoot = MemoryRoot,
+        Steps = Steps,
+        Log = Log,
+        Verbose = Verbose
+    };
 }

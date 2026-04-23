@@ -2,6 +2,8 @@ namespace WallyCode.ConsoleApp.Copilot;
 
 internal sealed class ProviderRegistry
 {
+    public const string DefaultProviderName = "gh-copilot-claude";
+
     private readonly Dictionary<string, ILlmProvider> _providers;
 
     public ProviderRegistry(IEnumerable<ILlmProvider> providers)
@@ -11,22 +13,29 @@ internal sealed class ProviderRegistry
 
     public IReadOnlyList<ILlmProvider> All => _providers.Values.OrderBy(p => p.Name, StringComparer.OrdinalIgnoreCase).ToList();
 
+    public ILlmProvider Default => Get(DefaultProviderName);
+
     public static ProviderRegistry Create(Runtime.AppLogger logger)
     {
-        return new ProviderRegistry(
-            providers:
-            [
-                new GhCopilotCliProvider(
-                    name: "gh-copilot-claude",
-                    defaultModel: "claude-sonnet-4",
-                    description: "GitHub Copilot CLI using Claude Sonnet 4.",
-                    logger: logger),
-                new GhCopilotCliProvider(
-                    name: "gh-copilot-gpt5",
-                    defaultModel: "gpt-5",
-                    description: "GitHub Copilot CLI using GPT-5.",
-                    logger: logger)
-            ]);
+        var baseDirectory = AppContext.BaseDirectory;
+        var definitions = ProviderDefinition.LoadAll(baseDirectory);
+        var providers = definitions.Select(definition => CreateProvider(definition, logger)).ToList();
+        return new ProviderRegistry(providers);
+    }
+
+    private static ILlmProvider CreateProvider(ProviderDefinition definition, Runtime.AppLogger logger)
+    {
+        return definition.Kind switch
+        {
+            "gh-copilot-cli" => new GhCopilotCliProvider(
+                name: definition.Name,
+                defaultModel: definition.DefaultModel,
+                description: definition.Description,
+                supportedModels: definition.SupportedModels,
+                logger: logger),
+            _ => throw new InvalidOperationException(
+                $"Unknown provider kind '{definition.Kind}' in provider '{definition.Name}'.")
+        };
     }
 
     public ILlmProvider Get(string providerName)

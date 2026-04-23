@@ -1,0 +1,10 @@
+{
+  "name": "ask",
+  "startUnitName": "prompt",
+  "unitRefs": [
+    {
+      "ref": "prompt",
+      "promptAddon": "Do not change files in the source workspace."
+    }
+  ]
+}

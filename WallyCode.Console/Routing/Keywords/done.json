@@ -1,0 +1,4 @@
+{
+  "id": "[DONE]",
+  "description": "Use when the current logical unit has completed its work and the flow should finish unless a transition overrides it."
+}

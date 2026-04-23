@@ -1,11 +1,39 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using WallyCode.ConsoleApp.Copilot;
 
 namespace WallyCode.ConsoleApp.Project;
 
+internal sealed class LoggingSettings
+{
+    public bool Enabled { get; set; }
+    public bool Verbose { get; set; }
+}
+
+internal sealed class ProviderModelCatalog
+{
+    public string Name { get; set; } = string.Empty;
+    public bool IsPreferredDefault { get; set; }
+}
+
+internal sealed class ProviderCatalogEntry
+{
+    public string Name { get; set; } = string.Empty;
+    public string Description { get; set; } = string.Empty;
+    public string DefaultModel { get; set; } = string.Empty;
+    public string? PreferredCheapModel { get; set; }
+    public List<ProviderModelCatalog> Models { get; set; } = [];
+    public DateTimeOffset? RefreshedAtUtc { get; set; }
+}
+
+internal sealed class ProviderCatalogSettings
+{
+    public List<ProviderCatalogEntry> Providers { get; set; } = [];
+}
+
 internal sealed class ProjectSettings
 {
-    private const string DefaultProviderName = "gh-copilot-claude";
+    private static readonly string DefaultProviderName = ProviderRegistry.DefaultProviderName;
 
     private static readonly JsonSerializerOptions SerializerOptions = new()
     {
@@ -18,6 +46,13 @@ internal sealed class ProjectSettings
 
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? Model { get; set; }
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? GlobalPrompt { get; set; }
+
+    public LoggingSettings Logging { get; set; } = new();
+
+    public ProviderCatalogSettings ProviderCatalog { get; set; } = new();
 
     public DateTimeOffset UpdatedAtUtc { get; set; } = DateTimeOffset.UtcNow;
 
@@ -35,6 +70,10 @@ internal sealed class ProjectSettings
 
         settings.Provider = ResolveProviderName(settings.Provider);
         settings.Model = ResolveModelName(settings.Model);
+        settings.GlobalPrompt = ResolveGlobalPrompt(settings.GlobalPrompt);
+        settings.Logging ??= new LoggingSettings();
+        settings.ProviderCatalog ??= new ProviderCatalogSettings();
+        settings.ProviderCatalog.Providers ??= [];
 
         if (settings.UpdatedAtUtc == default)
         {
@@ -49,6 +88,10 @@ internal sealed class ProjectSettings
         Directory.CreateDirectory(projectRoot);
         Provider = ResolveProviderName(Provider);
         Model = ResolveModelName(Model);
+        GlobalPrompt = ResolveGlobalPrompt(GlobalPrompt);
+        Logging ??= new LoggingSettings();
+        ProviderCatalog ??= new ProviderCatalogSettings();
+        ProviderCatalog.Providers ??= [];
         UpdatedAtUtc = DateTimeOffset.UtcNow;
 
         var json = JsonSerializer.Serialize(this, SerializerOptions);
@@ -74,11 +117,11 @@ internal sealed class ProjectSettings
         return Path.Combine(projectRoot, "wallycode.json");
     }
 
-    public static string EnsureRuntimeDirectory(string projectRoot, params string[] segments)
+    public static string ResolveRuntimeRoot(string projectRoot, string? memoryRoot)
     {
-        var path = segments.Aggregate(Path.Combine(projectRoot, ".wallycode"), Path.Combine);
-        Directory.CreateDirectory(path);
-        return path;
+        return string.IsNullOrWhiteSpace(memoryRoot)
+            ? Path.Combine(projectRoot, ".wallycode")
+            : Path.GetFullPath(memoryRoot);
     }
 
     private static string ResolveProviderName(string? providerName)
@@ -96,5 +139,12 @@ internal sealed class ProjectSettings
         return string.IsNullOrWhiteSpace(modelName)
             ? null
             : modelName.Trim();
+    }
+
+    private static string? ResolveGlobalPrompt(string? globalPrompt)
+    {
+        return string.IsNullOrWhiteSpace(globalPrompt)
+            ? null
+            : globalPrompt.Trim();
     }
 }
