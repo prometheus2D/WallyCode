@@ -15,7 +15,8 @@ internal sealed class ResumeCommandHandler
 
     public async Task<int> ExecuteAsync(ResumeCommandOptions options, CancellationToken cancellationToken)
     {
-        if (options.Steps <= 0)
+        var effectiveSteps = options.GetEffectiveSteps();
+        if (effectiveSteps <= 0)
         {
             throw new InvalidOperationException("Steps must be greater than zero.");
         }

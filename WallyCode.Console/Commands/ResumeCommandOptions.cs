@@ -14,6 +14,9 @@ internal sealed class ResumeCommandOptions
     [Option("steps", Default = 1, HelpText = "Runs n iterations in this invocation.")]
     public int Steps { get; set; }
 
+    [Option("step", HelpText = "Runs exactly one iteration in this invocation.")]
+    public bool Step { get; set; }
+
     [Option("log", HelpText = "Enable transcript logging for this invocation.")]
     public bool Log { get; set; }
 
@@ -27,8 +30,11 @@ internal sealed class ResumeCommandOptions
             SourcePath = SourcePath,
             MemoryRoot = MemoryRoot,
             Steps = Steps,
+            Step = Step,
             Log = Log,
             Verbose = Verbose
         };
     }
+
+    public int GetEffectiveSteps() => Step ? 1 : Steps;
 }

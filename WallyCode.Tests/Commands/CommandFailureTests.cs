@@ -80,6 +80,50 @@ public class CommandFailureTests
     }
 
     [Fact]
+    public async Task Loop_step_flag_forces_a_single_iteration()
+    {
+        using var workspace = TempWorkspace.Create();
+        new ProjectSettings
+        {
+            Provider = "mock-provider",
+            Model = "mock-default-model"
+        }.Save(workspace.RootPath);
+
+        var provider = new MockLlmProvider([
+            new MockInvocation
+            {
+                RawOutput = """{"selectedKeyword":"[CONTINUE]","summary":"first"}""",
+                ExpectedModel = "mock-default-model",
+                ExpectedSourcePath = workspace.RootPath
+            },
+            new MockInvocation
+            {
+                RawOutput = """{"selectedKeyword":"[CONTINUE]","summary":"second"}""",
+                ExpectedModel = "mock-default-model",
+                ExpectedSourcePath = workspace.RootPath
+            }
+        ]);
+
+        var handler = new LoopCommandHandler(new ProviderRegistry([provider]), new AppLogger());
+        var exitCode = await handler.ExecuteAsync(
+            new LoopCommandOptions
+            {
+                Goal = "new goal",
+                Definition = "requirements",
+                SourcePath = workspace.RootPath,
+                Steps = 5,
+                Step = true
+            },
+            CancellationToken.None);
+
+        Assert.Equal(0, exitCode);
+        var session = RoutedSession.Load(Path.Combine(workspace.RootPath, ".wallycode"));
+        Assert.Equal(1, session.IterationCount);
+        Assert.Equal("collect_requirements", session.ActiveUnitName);
+        Assert.Equal(1, provider.ConsumedCount);
+    }
+
+    [Fact]
     public async Task Resume_without_an_active_session_throws_a_clear_error()
     {
         using var workspace = TempWorkspace.Create();
@@ -175,6 +219,52 @@ public class CommandFailureTests
         Assert.Equal("produce_tasks", resumed.ActiveUnitName);
         Assert.Equal(1, resumed.IterationCount);
         provider.AssertConsumed();
+    }
+
+    [Fact]
+    public async Task Resume_step_flag_forces_a_single_iteration()
+    {
+        using var workspace = TempWorkspace.Create();
+        new ProjectSettings
+        {
+            Provider = "mock-provider",
+            Model = "mock-default-model"
+        }.Save(workspace.RootPath);
+
+        var definition = RoutingDefinition.LoadByName("requirements");
+        var session = RoutedSession.Start(definition, "test goal", "mock-provider", "mock-default-model", workspace.RootPath);
+        session.Save(Path.Combine(workspace.RootPath, ".wallycode"));
+
+        var provider = new MockLlmProvider([
+            new MockInvocation
+            {
+                RawOutput = """{"selectedKeyword":"[CONTINUE]","summary":"first"}""",
+                ExpectedModel = "mock-default-model",
+                ExpectedSourcePath = workspace.RootPath
+            },
+            new MockInvocation
+            {
+                RawOutput = """{"selectedKeyword":"[CONTINUE]","summary":"second"}""",
+                ExpectedModel = "mock-default-model",
+                ExpectedSourcePath = workspace.RootPath
+            }
+        ]);
+
+        var handler = new ResumeCommandHandler(new LoopCommandHandler(new ProviderRegistry([provider]), new AppLogger()));
+        var exitCode = await handler.ExecuteAsync(
+            new ResumeCommandOptions
+            {
+                SourcePath = workspace.RootPath,
+                Steps = 5,
+                Step = true
+            },
+            CancellationToken.None);
+
+        Assert.Equal(0, exitCode);
+        var resumed = RoutedSession.Load(Path.Combine(workspace.RootPath, ".wallycode"));
+        Assert.Equal(1, resumed.IterationCount);
+        Assert.Equal("collect_requirements", resumed.ActiveUnitName);
+        Assert.Equal(1, provider.ConsumedCount);
     }
 
     [Fact]

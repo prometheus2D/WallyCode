@@ -26,9 +26,14 @@ internal sealed class LoopCommandOptions
     [Option("steps", Default = 1, HelpText = "Runs n iterations in this invocation.")]
     public int Steps { get; set; }
 
+    [Option("step", HelpText = "Runs exactly one iteration in this invocation.")]
+    public bool Step { get; set; }
+
     [Option("log", HelpText = "Enable transcript logging for this invocation.")]
     public bool Log { get; set; }
 
     [Option("verbose", HelpText = "Enable verbose transcript logging for this invocation.")]
     public bool Verbose { get; set; }
+
+    public int GetEffectiveSteps() => Step ? 1 : Steps;
 }

@@ -21,7 +21,8 @@ internal sealed class LoopCommandHandler
 
     public async Task<int> ExecuteAsync(LoopCommandOptions options, CancellationToken cancellationToken)
     {
-        if (options.Steps <= 0)
+        var effectiveSteps = options.GetEffectiveSteps();
+        if (effectiveSteps <= 0)
         {
             throw new InvalidOperationException("Steps must be greater than zero.");
         }
@@ -96,7 +97,7 @@ internal sealed class LoopCommandHandler
                 _logger.LogAction("Provider ready", $"provider={provider.Name}; model={session.Model ?? "<default>"}", verboseOnly: true);
 
                 var runner = new RoutedRunner(provider, definition, sessionRoot, _logger);
-                var results = await runner.RunAsync(options.Steps, cancellationToken);
+                var results = await runner.RunAsync(effectiveSteps, cancellationToken);
 
                 foreach (var r in results)
                 {
@@ -145,7 +146,7 @@ internal sealed class LoopCommandHandler
         _logger.LogAction("Provider ready", $"provider={provider.Name}; model={model ?? "<default>"}", verboseOnly: true);
 
         var runnerNew = new RoutedRunner(provider, definition, sessionRoot, _logger);
-        var resultsNew = await runnerNew.RunAsync(options.Steps, cancellationToken);
+        var resultsNew = await runnerNew.RunAsync(effectiveSteps, cancellationToken);
 
         foreach (var r in resultsNew)
         {
