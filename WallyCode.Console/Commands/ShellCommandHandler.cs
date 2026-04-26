@@ -202,7 +202,7 @@ internal sealed class ShellCommandHandler
         }
 
         _logger.LogAction("Reset memory", $"sessionRoot={sessionRoot}");
-        Console.WriteLine($"Reset session at {sessionRoot}");
+        Console.WriteLine($"Reset session state at {sessionRoot}");
         Console.WriteLine("A new session will be created the next time you run loop <goal>.");
     }
 

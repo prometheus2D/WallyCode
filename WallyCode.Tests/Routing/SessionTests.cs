@@ -7,13 +7,13 @@ namespace WallyCode.Tests.Routing;
 public class SessionTests
 {
     [Fact]
-    public void Start_initializes_active_unit_to_definition_start()
+    public void Start_initializes_active_step_to_workflow_start()
     {
-        var def = RoutingDefinition.LoadByName("requirements");
+        var def = WorkflowDefinition.LoadByName("requirements");
         var session = Session.Start(def, "build", "mock-provider", "m", "/src");
 
-        Assert.Equal("requirements", session.DefinitionName);
-        Assert.Equal("collect_requirements", session.ActiveUnitName);
+        Assert.Equal("requirements", session.WorkflowName);
+        Assert.Equal("collect_requirements", session.ActiveStepName);
         Assert.Equal(SessionStatus.Active, session.Status);
         Assert.Equal(0, session.IterationCount);
     }
@@ -22,7 +22,7 @@ public class SessionTests
     public void Save_then_load_round_trips()
     {
         using var temp = TempWorkspace.Create();
-        var def = RoutingDefinition.LoadByName("requirements");
+        var def = WorkflowDefinition.LoadByName("requirements");
         var session = Session.Start(def, "test goal", "mock-provider", "mock-default-model", temp.RootPath);
         session.IterationCount = 3;
         session.LastSelectedKeyword = "[CONTINUE]";
@@ -46,7 +46,7 @@ public class SessionTests
     public void ArchiveCompletedSession_moves_session_contents_into_archive_folder()
     {
         using var temp = TempWorkspace.Create();
-        var def = RoutingDefinition.LoadByName("requirements");
+        var def = WorkflowDefinition.LoadByName("requirements");
         var session = Session.Start(def, "test goal", "mock-provider", "mock-default-model", temp.RootPath);
         session.Status = SessionStatus.Completed;
         session.Save(temp.RootPath);
@@ -67,26 +67,26 @@ public class SessionTests
     [Fact]
     public void LoadByName_returns_ask_definition_from_json()
     {
-        var definition = RoutingDefinition.LoadByName("ask");
+        var definition = WorkflowDefinition.LoadByName("ask");
 
         Assert.Equal("ask", definition.Name);
-        Assert.Equal("prompt", definition.StartUnitName);
-        Assert.Single(definition.Units);
-        Assert.Equal("prompt", definition.Units[0].Name);
-        Assert.Contains("Do not change files", definition.Units[0].Instructions);
-        Assert.Equal(["[DONE]", "[ERROR]"], definition.Units[0].AllowedKeywords);
+        Assert.Equal("prompt", definition.StartStepName);
+        Assert.Single(definition.Steps);
+        Assert.Equal("prompt", definition.Steps[0].Name);
+        Assert.Contains("Do not change files", definition.Steps[0].Instructions);
+        Assert.Equal(["[DONE]", "[ERROR]"], definition.Steps[0].AllowedKeywords);
     }
 
     [Fact]
     public void LoadByName_returns_act_definition_from_json()
     {
-        var definition = RoutingDefinition.LoadByName("act");
+        var definition = WorkflowDefinition.LoadByName("act");
 
         Assert.Equal("act", definition.Name);
-        Assert.Equal("prompt", definition.StartUnitName);
-        Assert.Single(definition.Units);
-        Assert.Equal("prompt", definition.Units[0].Name);
-        Assert.Contains("You may change files", definition.Units[0].Instructions);
-        Assert.Equal(["[DONE]", "[ERROR]"], definition.Units[0].AllowedKeywords);
+        Assert.Equal("prompt", definition.StartStepName);
+        Assert.Single(definition.Steps);
+        Assert.Equal("prompt", definition.Steps[0].Name);
+        Assert.Contains("You may change files", definition.Steps[0].Instructions);
+        Assert.Equal(["[DONE]", "[ERROR]"], definition.Steps[0].AllowedKeywords);
     }
 }

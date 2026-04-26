@@ -2,7 +2,7 @@ using CommandLine;
 
 namespace WallyCode.ConsoleApp.Commands;
 
-[Verb("resume", HelpText = "Resumes the active routed session when the current workspace state is resumable.")]
+[Verb("resume", HelpText = "Resumes the active session when the current workspace state is resumable.")]
 internal sealed class ResumeCommandOptions
 {
     [Option("source", HelpText = "Repo or folder path used as the project root and provider source context.")]

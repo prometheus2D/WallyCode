@@ -12,7 +12,7 @@ internal sealed class IterationResult
     public required int IterationNumber { get; init; }
     public required string SelectedKeyword { get; init; }
     public required string Summary { get; init; }
-    public required string ActiveUnitName { get; init; }
+    public required string ActiveStepName { get; init; }
     public required string Status { get; init; }
     public required bool StopsInvocation { get; init; }
 }
@@ -25,12 +25,12 @@ internal sealed class Runner
     private const string Error = "[ERROR]";
 
     private readonly ILlmProvider _provider;
-    private readonly RoutingDefinition _definition;
+    private readonly WorkflowDefinition _definition;
     private readonly string _sessionRoot;
     private readonly AppLogger? _logger;
     private readonly string _globalPrompt;
 
-    public Runner(ILlmProvider provider, RoutingDefinition definition, string sessionRoot, AppLogger? logger = null)
+    public Runner(ILlmProvider provider, WorkflowDefinition definition, string sessionRoot, AppLogger? logger = null)
     {
         _provider = provider;
         _definition = definition;
@@ -43,10 +43,10 @@ internal sealed class Runner
     {
         var session = Session.Load(_sessionRoot);
 
-        if (session.DefinitionName != _definition.Name)
+        if (session.WorkflowName != _definition.Name)
         {
             throw new InvalidOperationException(
-                $"Session is on definition '{session.DefinitionName}' but '{_definition.Name}' was supplied.");
+                $"Session is on workflow '{session.WorkflowName}' but '{_definition.Name}' was supplied.");
         }
 
         if (session.Status is SessionStatus.Completed or SessionStatus.Error)
@@ -56,31 +56,31 @@ internal sealed class Runner
 
         string keyword;
         string summary;
-        string nextUnit;
+        string nextStep;
         string status;
         bool stops;
 
         try
         {
-            var unit = _definition.GetUnit(session.ActiveUnitName);
-            var prompt = BuildPrompt(session, unit, _globalPrompt);
-            _logger?.LogExchange("OUT", $"iteration {session.IterationCount + 1} prompt ({unit.Name})", prompt);
+            var step = _definition.GetStep(session.ActiveStepName);
+            var prompt = BuildPrompt(session, step, _globalPrompt);
+            _logger?.LogExchange("OUT", $"iteration {session.IterationCount + 1} prompt ({step.Name})", prompt);
 
             var rawOutput = await _provider.ExecuteAsync(
                 new CopilotRequest { Prompt = prompt, Model = session.Model, SourcePath = session.SourcePath },
                 cancellationToken);
 
-            _logger?.LogExchange("IN", $"iteration {session.IterationCount + 1} response ({unit.Name})", rawOutput);
+            _logger?.LogExchange("IN", $"iteration {session.IterationCount + 1} response ({step.Name})", rawOutput);
 
             (keyword, summary) = ParseOutput(rawOutput);
 
-            if (!unit.AllowedKeywords.Contains(keyword))
+            if (!step.AllowedKeywords.Contains(keyword))
             {
                 throw new InvalidOperationException(
-                    $"Provider returned keyword '{keyword}' which is not allowed for unit '{unit.Name}'.");
+                    $"Provider returned keyword '{keyword}' which is not allowed for step '{step.Name}'.");
             }
 
-            (nextUnit, status, stops) = ApplyKeyword(unit, keyword);
+            (nextStep, status, stops) = ApplyKeyword(step, keyword);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -96,7 +96,7 @@ internal sealed class Runner
         session.IterationCount++;
         session.LastSelectedKeyword = keyword;
         session.LastSummary = summary;
-        session.ActiveUnitName = nextUnit;
+        session.ActiveStepName = nextStep;
         session.Status = status;
         session.PendingResponses.Clear();
         session.Save(_sessionRoot);
@@ -106,7 +106,7 @@ internal sealed class Runner
             IterationNumber = session.IterationCount,
             SelectedKeyword = keyword,
             Summary = summary,
-            ActiveUnitName = nextUnit,
+            ActiveStepName = nextStep,
             Status = status,
             StopsInvocation = stops
         };
@@ -126,26 +126,26 @@ internal sealed class Runner
         return results;
     }
 
-    private static string BuildPrompt(Session session, LogicalUnit unit, string globalPrompt)
+    private static string BuildPrompt(Session session, WorkflowStep step, string globalPrompt)
     {
         var sb = new StringBuilder();
         sb.AppendLine($"Goal: {session.Goal}");
-        sb.AppendLine($"Active unit: {unit.Name}");
+        sb.AppendLine($"Active step: {step.Name}");
         if (!string.IsNullOrWhiteSpace(globalPrompt))
         {
             sb.AppendLine("Global prompt:");
             sb.AppendLine(globalPrompt);
         }
 
-        if (!string.IsNullOrWhiteSpace(unit.Instructions))
+        if (!string.IsNullOrWhiteSpace(step.Instructions))
         {
-            sb.AppendLine($"Instructions: {unit.Instructions}");
+            sb.AppendLine($"Instructions: {step.Instructions}");
         }
 
         sb.AppendLine("Keyword options:");
-        foreach (var keyword in unit.AllowedKeywords)
+        foreach (var keyword in step.AllowedKeywords)
         {
-            sb.AppendLine($"  - {keyword}: {unit.DescribeKeyword(keyword)}");
+            sb.AppendLine($"  - {keyword}: {step.DescribeKeyword(keyword)}");
         }
 
         if (session.PendingResponses.Count > 0)
@@ -221,19 +221,19 @@ internal sealed class Runner
         return (keywordElement.GetString()?.Trim() ?? string.Empty, summary);
     }
 
-    private static (string nextUnit, string status, bool stops) ApplyKeyword(LogicalUnit unit, string keyword)
+    private static (string nextStep, string status, bool stops) ApplyKeyword(WorkflowStep step, string keyword)
     {
-        if (unit.Transitions.TryGetValue(keyword, out var target))
+        if (step.Transitions.TryGetValue(keyword, out var target))
         {
             return (target, SessionStatus.Active, false);
         }
 
         return keyword switch
         {
-            Continue => (unit.Name, SessionStatus.Active, false),
-            AskUser => (unit.Name, SessionStatus.Blocked, true),
-            Done => (unit.Name, SessionStatus.Completed, true),
-            Error => (unit.Name, SessionStatus.Error, true),
+            Continue => (step.Name, SessionStatus.Active, false),
+            AskUser => (step.Name, SessionStatus.Blocked, true),
+            Done => (step.Name, SessionStatus.Completed, true),
+            Error => (step.Name, SessionStatus.Error, true),
             _ => throw new InvalidOperationException($"Keyword '{keyword}' has no transition and is not a built-in.")
         };
     }

@@ -2,13 +2,13 @@ using CommandLine;
 
 namespace WallyCode.ConsoleApp.Commands;
 
-[Verb("loop", HelpText = "Runs the routing engine against a routing definition.")]
+[Verb("loop", HelpText = "Runs the workflow engine against a workflow definition.")]
 internal sealed class LoopCommandOptions
 {
     [Value(0, MetaName = "goal", Required = false, HelpText = "Goal for a new session. Omit to continue the active session.")]
     public string? Goal { get; set; }
 
-    [Option("definition", HelpText = "Routing definition name. Defaults to 'requirements'.")]
+    [Option("definition", HelpText = "Workflow definition name. Defaults to 'requirements'.")]
     public string? Definition { get; set; }
 
     [Option("provider", HelpText = "Optional provider override.")]

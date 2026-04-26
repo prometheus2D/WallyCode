@@ -2,18 +2,18 @@ using WallyCode.ConsoleApp.Routing;
 
 namespace WallyCode.Tests.Routing;
 
-public class RoutingDefinitionTests
+public class WorkflowDefinitionTests
 {
     [Fact]
     public void Validate_passes_for_minimal_definition()
     {
-        var def = new RoutingDefinition
+        var def = new WorkflowDefinition
         {
             Name = "x",
-            StartUnitName = "u",
-            Units =
+            StartStepName = "u",
+            Steps =
             [
-                new LogicalUnit
+                new WorkflowStep
                 {
                     Name = "u",
                     AllowedKeywords = ["[DONE]"],
@@ -25,15 +25,15 @@ public class RoutingDefinitionTests
     }
 
     [Fact]
-    public void Validate_rejects_missing_start_unit()
+    public void Validate_rejects_missing_start_step()
     {
-        var def = new RoutingDefinition
+        var def = new WorkflowDefinition
         {
             Name = "x",
-            StartUnitName = "missing",
-            Units =
+            StartStepName = "missing",
+            Steps =
             [
-                new LogicalUnit
+                new WorkflowStep
                 {
                     Name = "u",
                     AllowedKeywords = ["[DONE]"],
@@ -45,19 +45,19 @@ public class RoutingDefinitionTests
     }
 
     [Fact]
-    public void Validate_rejects_transition_to_unknown_unit()
+    public void Validate_rejects_transition_to_unknown_step()
     {
-        var def = new RoutingDefinition
+        var def = new WorkflowDefinition
         {
             Name = "x",
-            StartUnitName = "u",
-            Units =
+            StartStepName = "u",
+            Steps =
             [
-                new LogicalUnit
+                new WorkflowStep
                 {
                     Name = "u",
                     AllowedKeywords = ["[NEXT]"],
-                    KeywordOptions = [new() { Keyword = "[NEXT]", Description = "Move to the next unit." }],
+                    KeywordOptions = [new() { Keyword = "[NEXT]", Description = "Move to the next step." }],
                     Transitions = new() { ["[NEXT]"] = "ghost" }
                 }
             ]
@@ -68,13 +68,13 @@ public class RoutingDefinitionTests
     [Fact]
     public void Validate_rejects_transition_key_not_in_allowed_keywords()
     {
-        var def = new RoutingDefinition
+        var def = new WorkflowDefinition
         {
             Name = "x",
-            StartUnitName = "u",
-            Units =
+            StartStepName = "u",
+            Steps =
             [
-                new LogicalUnit
+                new WorkflowStep
                 {
                     Name = "u",
                     AllowedKeywords = ["[DONE]"],
@@ -89,11 +89,11 @@ public class RoutingDefinitionTests
     [Fact]
     public void Validate_rejects_allowed_keyword_without_description()
     {
-        var def = new RoutingDefinition
+        var def = new WorkflowDefinition
         {
             Name = "x",
-            StartUnitName = "u",
-            Units = [new LogicalUnit { Name = "u", AllowedKeywords = ["[DONE]"] }]
+            StartStepName = "u",
+            Steps = [new WorkflowStep { Name = "u", AllowedKeywords = ["[DONE]"] }]
         };
 
         Assert.Throws<InvalidOperationException>(() => def.Validate());
@@ -107,8 +107,8 @@ public class RoutingDefinitionTests
     [InlineData("full-pipeline")]
     public void Shipped_definitions_load_and_validate(string name)
     {
-        var def = RoutingDefinition.LoadByName(name);
+        var def = WorkflowDefinition.LoadByName(name);
         Assert.Equal(name, def.Name);
-        Assert.Contains(def.Units, u => u.Name == def.StartUnitName);
+        Assert.Contains(def.Steps, step => step.Name == def.StartStepName);
     }
 }

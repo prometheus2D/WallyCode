@@ -197,12 +197,12 @@ public class WorkingDirectoryBehaviorTests
         }.ToLoopOptions();
     }
 
-    private static void AssertSessionExists(string runtimeRoot, string expectedSourcePath, string expectedDefinitionName)
+    private static void AssertSessionExists(string runtimeRoot, string expectedSourcePath, string expectedWorkflowName)
     {
         Assert.True(Session.Exists(runtimeRoot));
         var session = Session.Load(runtimeRoot);
         Assert.Equal(expectedSourcePath, session.SourcePath);
-        Assert.Equal(expectedDefinitionName, session.DefinitionName);
+        Assert.Equal(expectedWorkflowName, session.WorkflowName);
     }
 
     private static async Task<T> RunInWorkingDirectoryAsync<T>(string workingDirectory, Func<Task<T>> action)

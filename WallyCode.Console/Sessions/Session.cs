@@ -26,19 +26,19 @@ internal abstract class SessionBase
 
 internal sealed class Session : SessionBase
 {
-    public string DefinitionName { get; set; } = string.Empty;
-    public string ActiveUnitName { get; set; } = string.Empty;
+    public string WorkflowName { get; set; } = string.Empty;
+    public string ActiveStepName { get; set; } = string.Empty;
 
-    public static Session Start(RoutingDefinition definition, string goal, string providerName, string? model, string sourcePath)
+    public static Session Start(WorkflowDefinition definition, string goal, string providerName, string? model, string sourcePath)
     {
         return new Session
         {
-            DefinitionName = definition.Name,
+            WorkflowName = definition.Name,
             Goal = goal.Trim(),
             ProviderName = providerName,
             Model = model,
             SourcePath = sourcePath,
-            ActiveUnitName = definition.StartUnitName,
+            ActiveStepName = definition.StartStepName,
             Status = SessionStatus.Active
         };
     }

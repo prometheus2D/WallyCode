@@ -8,8 +8,8 @@ namespace WallyCode.ConsoleApp.Commands;
 
 internal sealed class LoopCommandHandler
 {
-    private const string DefaultDefinitionName = "requirements";
-    private const string EmptySummaryMessage = "[no summary provided]";
+    private const string DefaultWorkflowName = "requirements";
+    private const string EmptySummaryMessage = "[no summary provided]" ;
 
     private readonly ProviderRegistry _providerRegistry;
     private readonly AppLogger _logger;
@@ -44,18 +44,18 @@ internal sealed class LoopCommandHandler
         _logger.Section("WallyCode Loop");
 
         Session session;
-        RoutingDefinition definition;
+        WorkflowDefinition definition;
         ILlmProvider provider;
 
         if (Session.Exists(sessionRoot))
         {
             session = Session.Load(sessionRoot);
-            _logger.LogAction("Loaded session", $"definition={session.DefinitionName}; status={session.Status}; iteration={session.IterationCount}");
-            var definitionName = options.Definition?.Trim() ?? session.DefinitionName;
-            if (definitionName != session.DefinitionName)
+            _logger.LogAction("Loaded session", $"workflow={session.WorkflowName}; status={session.Status}; iteration={session.IterationCount}");
+            var workflowName = options.Definition?.Trim() ?? session.WorkflowName;
+            if (workflowName != session.WorkflowName)
             {
                 throw new InvalidOperationException(
-                    $"Active session uses definition '{session.DefinitionName}'. Use --memory-root for a different one.");
+                    $"Active session uses workflow '{session.WorkflowName}'. Use --memory-root for a different one.");
             }
 
             if (Session.IsTerminal(session.Status))
@@ -77,13 +77,13 @@ internal sealed class LoopCommandHandler
             }
             else
             {
-                definition = RoutingDefinition.LoadByName(definitionName);
+                definition = WorkflowDefinition.LoadByName(workflowName);
                 provider = _providerRegistry.Get(session.ProviderName);
-                _logger.LogAction("Resuming session", $"definition={definition.Name}; provider={provider.Name}; iteration={session.IterationCount}");
+                _logger.LogAction("Resuming session", $"workflow={definition.Name}; provider={provider.Name}; iteration={session.IterationCount}");
                 _logger.Info($"Resuming session at iteration {session.IterationCount}.");
 
-                _logger.Info($"Definition: {definition.Name}");
-                _logger.Info($"Active unit: {session.ActiveUnitName}");
+                _logger.Info($"Workflow: {definition.Name}");
+                _logger.Info($"Active step: {session.ActiveStepName}");
                 _logger.Info($"Status: {session.Status}");
                 _logger.Info($"Session root: {sessionRoot}");
 
@@ -100,13 +100,13 @@ internal sealed class LoopCommandHandler
                 var runner = new Runner(provider, definition, sessionRoot, _logger);
                 var results = await runner.RunAsync(effectiveSteps, cancellationToken);
 
-                foreach (var r in results)
+                foreach (var result in results)
                 {
-                    _logger.Section($"Iteration {r.IterationNumber}");
-                    _logger.Info($"Selected keyword: {r.SelectedKeyword}");
-                    _logger.Info($"Summary: {FormatSummary(r.Summary)}");
-                    _logger.Info($"Next unit: {r.ActiveUnitName}");
-                    _logger.Info($"Status: {r.Status}");
+                    _logger.Section($"Iteration {result.IterationNumber}");
+                    _logger.Info($"Selected keyword: {result.SelectedKeyword}");
+                    _logger.Info($"Summary: {FormatSummary(result.Summary)}");
+                    _logger.Info($"Next step: {result.ActiveStepName}");
+                    _logger.Info($"Status: {result.Status}");
                 }
 
                 var finalResult = results.LastOrDefault();
@@ -132,14 +132,14 @@ internal sealed class LoopCommandHandler
             ? (string.IsNullOrWhiteSpace(settings.Model) ? provider.DefaultModel : settings.Model)
             : options.Model!.Trim();
 
-        definition = RoutingDefinition.LoadByName(options.Definition?.Trim() ?? DefaultDefinitionName);
+        definition = WorkflowDefinition.LoadByName(options.Definition?.Trim() ?? DefaultWorkflowName);
         session = Session.Start(definition, options.Goal!, provider.Name, model, projectRoot);
         session.Save(sessionRoot);
-        _logger.LogAction("Started session", $"definition={definition.Name}; provider={provider.Name}; model={model ?? "<default>"}; goal={session.Goal}");
-        _logger.Info($"Started session on definition '{definition.Name}'.");
+        _logger.LogAction("Started session", $"workflow={definition.Name}; provider={provider.Name}; model={model ?? "<default>"}; goal={session.Goal}");
+        _logger.Info($"Started session on workflow '{definition.Name}'.");
 
-        _logger.Info($"Definition: {definition.Name}");
-        _logger.Info($"Active unit: {session.ActiveUnitName}");
+        _logger.Info($"Workflow: {definition.Name}");
+        _logger.Info($"Active step: {session.ActiveStepName}");
         _logger.Info($"Status: {session.Status}");
         _logger.Info($"Session root: {sessionRoot}");
 
@@ -149,13 +149,13 @@ internal sealed class LoopCommandHandler
         var runnerNew = new Runner(provider, definition, sessionRoot, _logger);
         var resultsNew = await runnerNew.RunAsync(effectiveSteps, cancellationToken);
 
-        foreach (var r in resultsNew)
+        foreach (var result in resultsNew)
         {
-            _logger.Section($"Iteration {r.IterationNumber}");
-            _logger.Info($"Selected keyword: {r.SelectedKeyword}");
-            _logger.Info($"Summary: {FormatSummary(r.Summary)}");
-            _logger.Info($"Next unit: {r.ActiveUnitName}");
-            _logger.Info($"Status: {r.Status}");
+            _logger.Section($"Iteration {result.IterationNumber}");
+            _logger.Info($"Selected keyword: {result.SelectedKeyword}");
+            _logger.Info($"Summary: {FormatSummary(result.Summary)}");
+            _logger.Info($"Next step: {result.ActiveStepName}");
+            _logger.Info($"Status: {result.Status}");
         }
 
         var finalNewResult = resultsNew.LastOrDefault();

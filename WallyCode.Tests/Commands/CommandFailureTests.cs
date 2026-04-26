@@ -63,7 +63,7 @@ public class CommandFailureTests
     public async Task Loop_with_conflicting_session_definition_throws_a_clear_error()
     {
         using var workspace = TempWorkspace.Create();
-        var definition = RoutingDefinition.LoadByName("requirements");
+        var definition = WorkflowDefinition.LoadByName("requirements");
         var session = Session.Start(definition, "test goal", "mock-provider", "mock-default-model", workspace.RootPath);
         session.Save(Path.Combine(workspace.RootPath, ".wallycode"));
 
@@ -77,7 +77,7 @@ public class CommandFailureTests
             },
             CancellationToken.None));
 
-        Assert.Contains("Active session uses definition 'requirements'", exception.Message);
+        Assert.Contains("Active session uses workflow 'requirements'", exception.Message);
     }
 
     [Fact]
@@ -120,7 +120,7 @@ public class CommandFailureTests
         Assert.Equal(0, exitCode);
         var session = Session.Load(Path.Combine(workspace.RootPath, ".wallycode"));
         Assert.Equal(1, session.IterationCount);
-        Assert.Equal("collect_requirements", session.ActiveUnitName);
+        Assert.Equal("collect_requirements", session.ActiveStepName);
         Assert.Equal(1, provider.ConsumedCount);
     }
 
@@ -145,7 +145,7 @@ public class CommandFailureTests
     public async Task Resume_with_blocked_session_throws_a_clear_error()
     {
         using var workspace = TempWorkspace.Create();
-        var definition = RoutingDefinition.LoadByName("requirements");
+        var definition = WorkflowDefinition.LoadByName("requirements");
         var session = Session.Start(definition, "test goal", "mock-provider", "mock-default-model", workspace.RootPath);
         session.Status = SessionStatus.Blocked;
         session.Save(Path.Combine(workspace.RootPath, ".wallycode"));
@@ -166,7 +166,7 @@ public class CommandFailureTests
     public async Task Resume_with_terminal_session_throws_a_clear_error()
     {
         using var workspace = TempWorkspace.Create();
-        var definition = RoutingDefinition.LoadByName("requirements");
+        var definition = WorkflowDefinition.LoadByName("requirements");
         var session = Session.Start(definition, "test goal", "mock-provider", "mock-default-model", workspace.RootPath);
         session.Status = SessionStatus.Completed;
         session.Save(Path.Combine(workspace.RootPath, ".wallycode"));
@@ -193,7 +193,7 @@ public class CommandFailureTests
             Model = "mock-default-model"
         }.Save(workspace.RootPath);
 
-        var definition = RoutingDefinition.LoadByName("requirements");
+        var definition = WorkflowDefinition.LoadByName("requirements");
         var session = Session.Start(definition, "test goal", "mock-provider", "mock-default-model", workspace.RootPath);
         session.Save(Path.Combine(workspace.RootPath, ".wallycode"));
 
@@ -217,7 +217,7 @@ public class CommandFailureTests
 
         Assert.Equal(0, exitCode);
         var resumed = Session.Load(Path.Combine(workspace.RootPath, ".wallycode"));
-        Assert.Equal("produce_tasks", resumed.ActiveUnitName);
+        Assert.Equal("produce_tasks", resumed.ActiveStepName);
         Assert.Equal(1, resumed.IterationCount);
         provider.AssertConsumed();
     }
@@ -232,7 +232,7 @@ public class CommandFailureTests
             Model = "mock-default-model"
         }.Save(workspace.RootPath);
 
-        var definition = RoutingDefinition.LoadByName("requirements");
+        var definition = WorkflowDefinition.LoadByName("requirements");
         var session = Session.Start(definition, "test goal", "mock-provider", "mock-default-model", workspace.RootPath);
         session.Save(Path.Combine(workspace.RootPath, ".wallycode"));
 
@@ -264,7 +264,7 @@ public class CommandFailureTests
         Assert.Equal(0, exitCode);
         var resumed = Session.Load(Path.Combine(workspace.RootPath, ".wallycode"));
         Assert.Equal(1, resumed.IterationCount);
-        Assert.Equal("collect_requirements", resumed.ActiveUnitName);
+        Assert.Equal("collect_requirements", resumed.ActiveStepName);
         Assert.Equal(1, provider.ConsumedCount);
     }
 
@@ -385,7 +385,7 @@ public class CommandFailureTests
     public async Task Loop_with_blocked_session_and_no_response_warns_and_exits_cleanly()
     {
         using var workspace = TempWorkspace.Create();
-        var definition = RoutingDefinition.LoadByName("requirements");
+        var definition = WorkflowDefinition.LoadByName("requirements");
         var session = Session.Start(definition, "test goal", "mock-provider", "mock-default-model", workspace.RootPath);
         session.Status = SessionStatus.Blocked;
         session.Save(Path.Combine(workspace.RootPath, ".wallycode"));
@@ -448,7 +448,7 @@ public class CommandFailureTests
             Model = "mock-default-model"
         }.Save(workspace.RootPath);
 
-        var definition = RoutingDefinition.LoadByName("ask");
+        var definition = WorkflowDefinition.LoadByName("ask");
         var session = Session.Start(definition, "old goal", "mock-provider", "mock-default-model", workspace.RootPath);
         session.Status = SessionStatus.Completed;
         session.Save(sessionRoot);
