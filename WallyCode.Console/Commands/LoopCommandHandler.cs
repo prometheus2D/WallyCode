@@ -2,6 +2,7 @@ using WallyCode.ConsoleApp.Copilot;
 using WallyCode.ConsoleApp.Project;
 using WallyCode.ConsoleApp.Routing;
 using WallyCode.ConsoleApp.Runtime;
+using WallyCode.ConsoleApp.Sessions;
 
 namespace WallyCode.ConsoleApp.Commands;
 
@@ -42,13 +43,13 @@ internal sealed class LoopCommandHandler
 
         _logger.Section("WallyCode Loop");
 
-        RoutedSession session;
+        Session session;
         RoutingDefinition definition;
         ILlmProvider provider;
 
-        if (RoutedSession.Exists(sessionRoot))
+        if (Session.Exists(sessionRoot))
         {
-            session = RoutedSession.Load(sessionRoot);
+            session = Session.Load(sessionRoot);
             _logger.LogAction("Loaded session", $"definition={session.DefinitionName}; status={session.Status}; iteration={session.IterationCount}");
             var definitionName = options.Definition?.Trim() ?? session.DefinitionName;
             if (definitionName != session.DefinitionName)
@@ -57,9 +58,9 @@ internal sealed class LoopCommandHandler
                     $"Active session uses definition '{session.DefinitionName}'. Use --memory-root for a different one.");
             }
 
-            if (RoutedSession.IsTerminal(session.Status))
+            if (Session.IsTerminal(session.Status))
             {
-                var archivedPath = RoutedSession.ArchiveCompletedSession(sessionRoot);
+                var archivedPath = Session.ArchiveCompletedSession(sessionRoot);
                 _logger.LogAction("Archived terminal session", $"status={session.Status}; archivePath={archivedPath}");
                 _logger.Info($"Archived previous {session.Status} session to {archivedPath}.");
                 if (session.Status == SessionStatus.Error && !string.IsNullOrWhiteSpace(session.LastSummary))
@@ -96,7 +97,7 @@ internal sealed class LoopCommandHandler
                 await provider.EnsureReadyAsync(cancellationToken);
                 _logger.LogAction("Provider ready", $"provider={provider.Name}; model={session.Model ?? "<default>"}", verboseOnly: true);
 
-                var runner = new RoutedRunner(provider, definition, sessionRoot, _logger);
+                var runner = new Runner(provider, definition, sessionRoot, _logger);
                 var results = await runner.RunAsync(effectiveSteps, cancellationToken);
 
                 foreach (var r in results)
@@ -132,7 +133,7 @@ internal sealed class LoopCommandHandler
             : options.Model!.Trim();
 
         definition = RoutingDefinition.LoadByName(options.Definition?.Trim() ?? DefaultDefinitionName);
-        session = RoutedSession.Start(definition, options.Goal!, provider.Name, model, projectRoot);
+        session = Session.Start(definition, options.Goal!, provider.Name, model, projectRoot);
         session.Save(sessionRoot);
         _logger.LogAction("Started session", $"definition={definition.Name}; provider={provider.Name}; model={model ?? "<default>"}; goal={session.Goal}");
         _logger.Info($"Started session on definition '{definition.Name}'.");
@@ -145,7 +146,7 @@ internal sealed class LoopCommandHandler
         await provider.EnsureReadyAsync(cancellationToken);
         _logger.LogAction("Provider ready", $"provider={provider.Name}; model={model ?? "<default>"}", verboseOnly: true);
 
-        var runnerNew = new RoutedRunner(provider, definition, sessionRoot, _logger);
+        var runnerNew = new Runner(provider, definition, sessionRoot, _logger);
         var resultsNew = await runnerNew.RunAsync(effectiveSteps, cancellationToken);
 
         foreach (var r in resultsNew)

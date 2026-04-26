@@ -1,6 +1,7 @@
 using WallyCode.ConsoleApp.Project;
 using WallyCode.ConsoleApp.Routing;
 using WallyCode.ConsoleApp.Runtime;
+using WallyCode.ConsoleApp.Sessions;
 
 namespace WallyCode.ConsoleApp.Commands;
 
@@ -33,12 +34,12 @@ internal sealed class RespondCommandHandler
         _logger.ConfigureLogging(sessionRoot, loggingMode);
         _logger.LogAction("Resolved paths", $"projectRoot={projectRoot}; sessionRoot={sessionRoot}");
 
-        if (!RoutedSession.Exists(sessionRoot))
+        if (!Session.Exists(sessionRoot))
         {
             throw new InvalidOperationException($"No active session at {sessionRoot}.");
         }
 
-        var session = RoutedSession.Load(sessionRoot);
+        var session = Session.Load(sessionRoot);
         var response = options.Response.Trim();
         session.PendingResponses.Add(response);
         if (session.Status == SessionStatus.Blocked)

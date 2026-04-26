@@ -1,15 +1,16 @@
 using WallyCode.ConsoleApp.Routing;
+using WallyCode.ConsoleApp.Sessions;
 using WallyCode.Tests.TestInfrastructure;
 
 namespace WallyCode.Tests.Routing;
 
-public class RoutedSessionTests
+public class SessionTests
 {
     [Fact]
     public void Start_initializes_active_unit_to_definition_start()
     {
         var def = RoutingDefinition.LoadByName("requirements");
-        var session = RoutedSession.Start(def, "build", "mock-provider", "m", "/src");
+        var session = Session.Start(def, "build", "mock-provider", "m", "/src");
 
         Assert.Equal("requirements", session.DefinitionName);
         Assert.Equal("collect_requirements", session.ActiveUnitName);
@@ -22,13 +23,13 @@ public class RoutedSessionTests
     {
         using var temp = TempWorkspace.Create();
         var def = RoutingDefinition.LoadByName("requirements");
-        var session = RoutedSession.Start(def, "test goal", "mock-provider", "mock-default-model", temp.RootPath);
+        var session = Session.Start(def, "test goal", "mock-provider", "mock-default-model", temp.RootPath);
         session.IterationCount = 3;
         session.LastSelectedKeyword = "[CONTINUE]";
         session.PendingResponses.Add("hi");
         session.Save(temp.RootPath);
 
-        var loaded = RoutedSession.Load(temp.RootPath);
+        var loaded = Session.Load(temp.RootPath);
         Assert.Equal(3, loaded.IterationCount);
         Assert.Equal("[CONTINUE]", loaded.LastSelectedKeyword);
         Assert.Equal(new[] { "hi" }, loaded.PendingResponses);
@@ -38,7 +39,7 @@ public class RoutedSessionTests
     public void Exists_returns_false_when_no_session_file()
     {
         using var temp = TempWorkspace.Create();
-        Assert.False(RoutedSession.Exists(temp.RootPath));
+        Assert.False(Session.Exists(temp.RootPath));
     }
 
     [Fact]
@@ -46,20 +47,20 @@ public class RoutedSessionTests
     {
         using var temp = TempWorkspace.Create();
         var def = RoutingDefinition.LoadByName("requirements");
-        var session = RoutedSession.Start(def, "test goal", "mock-provider", "mock-default-model", temp.RootPath);
+        var session = Session.Start(def, "test goal", "mock-provider", "mock-default-model", temp.RootPath);
         session.Status = SessionStatus.Completed;
         session.Save(temp.RootPath);
         File.WriteAllText(Path.Combine(temp.RootPath, "transcript.log"), "history");
 
-        var archivePath = RoutedSession.ArchiveCompletedSession(temp.RootPath);
+        var archivePath = Session.ArchiveCompletedSession(temp.RootPath);
 
-        Assert.False(RoutedSession.Exists(temp.RootPath));
+        Assert.False(Session.Exists(temp.RootPath));
         Assert.True(Directory.Exists(archivePath));
-        Assert.StartsWith(RoutedSession.ArchiveRoot(temp.RootPath), archivePath, StringComparison.OrdinalIgnoreCase);
+        Assert.StartsWith(Session.ArchiveRoot(temp.RootPath), archivePath, StringComparison.OrdinalIgnoreCase);
         Assert.True(File.Exists(Path.Combine(archivePath, "session.json")));
         Assert.True(File.Exists(Path.Combine(archivePath, "transcript.log")));
 
-        var archived = RoutedSession.Load(archivePath);
+        var archived = Session.Load(archivePath);
         Assert.Equal(SessionStatus.Completed, archived.Status);
     }
 

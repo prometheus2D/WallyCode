@@ -4,6 +4,7 @@ using WallyCode.ConsoleApp.Copilot;
 using WallyCode.ConsoleApp.Project;
 using WallyCode.ConsoleApp.Routing;
 using WallyCode.ConsoleApp.Runtime;
+using WallyCode.ConsoleApp.Sessions;
 using WallyCode.Tests.TestInfrastructure;
 
 namespace WallyCode.Tests.Commands;
@@ -63,7 +64,7 @@ public class CommandFailureTests
     {
         using var workspace = TempWorkspace.Create();
         var definition = RoutingDefinition.LoadByName("requirements");
-        var session = RoutedSession.Start(definition, "test goal", "mock-provider", "mock-default-model", workspace.RootPath);
+        var session = Session.Start(definition, "test goal", "mock-provider", "mock-default-model", workspace.RootPath);
         session.Save(Path.Combine(workspace.RootPath, ".wallycode"));
 
         var handler = new LoopCommandHandler(NewRegistry(), new AppLogger());
@@ -117,7 +118,7 @@ public class CommandFailureTests
             CancellationToken.None);
 
         Assert.Equal(0, exitCode);
-        var session = RoutedSession.Load(Path.Combine(workspace.RootPath, ".wallycode"));
+        var session = Session.Load(Path.Combine(workspace.RootPath, ".wallycode"));
         Assert.Equal(1, session.IterationCount);
         Assert.Equal("collect_requirements", session.ActiveUnitName);
         Assert.Equal(1, provider.ConsumedCount);
@@ -145,7 +146,7 @@ public class CommandFailureTests
     {
         using var workspace = TempWorkspace.Create();
         var definition = RoutingDefinition.LoadByName("requirements");
-        var session = RoutedSession.Start(definition, "test goal", "mock-provider", "mock-default-model", workspace.RootPath);
+        var session = Session.Start(definition, "test goal", "mock-provider", "mock-default-model", workspace.RootPath);
         session.Status = SessionStatus.Blocked;
         session.Save(Path.Combine(workspace.RootPath, ".wallycode"));
 
@@ -166,7 +167,7 @@ public class CommandFailureTests
     {
         using var workspace = TempWorkspace.Create();
         var definition = RoutingDefinition.LoadByName("requirements");
-        var session = RoutedSession.Start(definition, "test goal", "mock-provider", "mock-default-model", workspace.RootPath);
+        var session = Session.Start(definition, "test goal", "mock-provider", "mock-default-model", workspace.RootPath);
         session.Status = SessionStatus.Completed;
         session.Save(Path.Combine(workspace.RootPath, ".wallycode"));
 
@@ -193,7 +194,7 @@ public class CommandFailureTests
         }.Save(workspace.RootPath);
 
         var definition = RoutingDefinition.LoadByName("requirements");
-        var session = RoutedSession.Start(definition, "test goal", "mock-provider", "mock-default-model", workspace.RootPath);
+        var session = Session.Start(definition, "test goal", "mock-provider", "mock-default-model", workspace.RootPath);
         session.Save(Path.Combine(workspace.RootPath, ".wallycode"));
 
         var provider = new MockLlmProvider([
@@ -215,7 +216,7 @@ public class CommandFailureTests
             CancellationToken.None);
 
         Assert.Equal(0, exitCode);
-        var resumed = RoutedSession.Load(Path.Combine(workspace.RootPath, ".wallycode"));
+        var resumed = Session.Load(Path.Combine(workspace.RootPath, ".wallycode"));
         Assert.Equal("produce_tasks", resumed.ActiveUnitName);
         Assert.Equal(1, resumed.IterationCount);
         provider.AssertConsumed();
@@ -232,7 +233,7 @@ public class CommandFailureTests
         }.Save(workspace.RootPath);
 
         var definition = RoutingDefinition.LoadByName("requirements");
-        var session = RoutedSession.Start(definition, "test goal", "mock-provider", "mock-default-model", workspace.RootPath);
+        var session = Session.Start(definition, "test goal", "mock-provider", "mock-default-model", workspace.RootPath);
         session.Save(Path.Combine(workspace.RootPath, ".wallycode"));
 
         var provider = new MockLlmProvider([
@@ -261,7 +262,7 @@ public class CommandFailureTests
             CancellationToken.None);
 
         Assert.Equal(0, exitCode);
-        var resumed = RoutedSession.Load(Path.Combine(workspace.RootPath, ".wallycode"));
+        var resumed = Session.Load(Path.Combine(workspace.RootPath, ".wallycode"));
         Assert.Equal(1, resumed.IterationCount);
         Assert.Equal("collect_requirements", resumed.ActiveUnitName);
         Assert.Equal(1, provider.ConsumedCount);
@@ -385,7 +386,7 @@ public class CommandFailureTests
     {
         using var workspace = TempWorkspace.Create();
         var definition = RoutingDefinition.LoadByName("requirements");
-        var session = RoutedSession.Start(definition, "test goal", "mock-provider", "mock-default-model", workspace.RootPath);
+        var session = Session.Start(definition, "test goal", "mock-provider", "mock-default-model", workspace.RootPath);
         session.Status = SessionStatus.Blocked;
         session.Save(Path.Combine(workspace.RootPath, ".wallycode"));
 
@@ -448,7 +449,7 @@ public class CommandFailureTests
         }.Save(workspace.RootPath);
 
         var definition = RoutingDefinition.LoadByName("ask");
-        var session = RoutedSession.Start(definition, "old goal", "mock-provider", "mock-default-model", workspace.RootPath);
+        var session = Session.Start(definition, "old goal", "mock-provider", "mock-default-model", workspace.RootPath);
         session.Status = SessionStatus.Completed;
         session.Save(sessionRoot);
         File.WriteAllText(Path.Combine(sessionRoot, "transcript.log"), "old transcript");
@@ -474,15 +475,15 @@ public class CommandFailureTests
             CancellationToken.None);
 
         Assert.Equal(0, exitCode);
-        Assert.True(RoutedSession.Exists(sessionRoot));
+        Assert.True(Session.Exists(sessionRoot));
 
-        var active = RoutedSession.Load(sessionRoot);
+        var active = Session.Load(sessionRoot);
         Assert.Equal("new goal", active.Goal);
         Assert.Equal(SessionStatus.Completed, active.Status);
 
-        var archiveRoot = RoutedSession.ArchiveRoot(sessionRoot);
+        var archiveRoot = Session.ArchiveRoot(sessionRoot);
         var archivedSessionFolder = Assert.Single(Directory.GetDirectories(archiveRoot));
-        var archived = RoutedSession.Load(archivedSessionFolder);
+        var archived = Session.Load(archivedSessionFolder);
         Assert.Equal("old goal", archived.Goal);
         Assert.True(File.Exists(Path.Combine(archivedSessionFolder, "transcript.log")));
         provider.AssertConsumed();

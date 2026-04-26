@@ -3,6 +3,7 @@ using System.Text.Json;
 using WallyCode.ConsoleApp.Copilot;
 using WallyCode.ConsoleApp.Project;
 using WallyCode.ConsoleApp.Runtime;
+using WallyCode.ConsoleApp.Sessions;
 
 namespace WallyCode.ConsoleApp.Routing;
 
@@ -16,7 +17,7 @@ internal sealed class IterationResult
     public required bool StopsInvocation { get; init; }
 }
 
-internal sealed class RoutedRunner
+internal sealed class Runner
 {
     private const string Continue = "[CONTINUE]";
     private const string AskUser = "[ASK_USER]";
@@ -29,7 +30,7 @@ internal sealed class RoutedRunner
     private readonly AppLogger? _logger;
     private readonly string _globalPrompt;
 
-    public RoutedRunner(ILlmProvider provider, RoutingDefinition definition, string sessionRoot, AppLogger? logger = null)
+    public Runner(ILlmProvider provider, RoutingDefinition definition, string sessionRoot, AppLogger? logger = null)
     {
         _provider = provider;
         _definition = definition;
@@ -40,13 +41,14 @@ internal sealed class RoutedRunner
 
     public async Task<IterationResult> RunOnceAsync(CancellationToken cancellationToken)
     {
-        var session = RoutedSession.Load(_sessionRoot);
+        var session = Session.Load(_sessionRoot);
 
         if (session.DefinitionName != _definition.Name)
         {
             throw new InvalidOperationException(
                 $"Session is on definition '{session.DefinitionName}' but '{_definition.Name}' was supplied.");
         }
+
         if (session.Status is SessionStatus.Completed or SessionStatus.Error)
         {
             throw new InvalidOperationException($"Session is {session.Status}; nothing to run.");
@@ -120,10 +122,11 @@ internal sealed class RoutedRunner
             results.Add(result);
             if (result.StopsInvocation) break;
         }
+
         return results;
     }
 
-    private static string BuildPrompt(RoutedSession session, LogicalUnit unit, string globalPrompt)
+    private static string BuildPrompt(Session session, LogicalUnit unit, string globalPrompt)
     {
         var sb = new StringBuilder();
         sb.AppendLine($"Goal: {session.Goal}");
@@ -133,10 +136,12 @@ internal sealed class RoutedRunner
             sb.AppendLine("Global prompt:");
             sb.AppendLine(globalPrompt);
         }
+
         if (!string.IsNullOrWhiteSpace(unit.Instructions))
         {
             sb.AppendLine($"Instructions: {unit.Instructions}");
         }
+
         sb.AppendLine("Keyword options:");
         foreach (var keyword in unit.AllowedKeywords)
         {
@@ -146,7 +151,10 @@ internal sealed class RoutedRunner
         if (session.PendingResponses.Count > 0)
         {
             sb.AppendLine("User responses since last run:");
-            foreach (var r in session.PendingResponses) sb.AppendLine($"  - {r}");
+            foreach (var response in session.PendingResponses)
+            {
+                sb.AppendLine($"  - {response}");
+            }
         }
 
         sb.AppendLine();
@@ -176,30 +184,38 @@ internal sealed class RoutedRunner
         var trimmed = rawOutput.Trim();
         if (trimmed.StartsWith("```"))
         {
-            var nl = trimmed.IndexOf('\n');
-            if (nl >= 0) trimmed = trimmed[(nl + 1)..];
-            var fence = trimmed.LastIndexOf("```", StringComparison.Ordinal);
-            if (fence >= 0) trimmed = trimmed[..fence];
+            var newlineIndex = trimmed.IndexOf('\n');
+            if (newlineIndex >= 0)
+            {
+                trimmed = trimmed[(newlineIndex + 1)..];
+            }
+
+            var fenceIndex = trimmed.LastIndexOf("```", StringComparison.Ordinal);
+            if (fenceIndex >= 0)
+            {
+                trimmed = trimmed[..fenceIndex];
+            }
+
             trimmed = trimmed.Trim();
         }
 
-        var first = trimmed.IndexOf('{');
-        var last = trimmed.LastIndexOf('}');
-        if (first < 0 || last <= first)
+        var firstBrace = trimmed.IndexOf('{');
+        var lastBrace = trimmed.LastIndexOf('}');
+        if (firstBrace < 0 || lastBrace <= firstBrace)
         {
             throw new InvalidOperationException("No JSON object found in provider output.");
         }
 
-        using var doc = JsonDocument.Parse(trimmed[first..(last + 1)]);
-        var root = doc.RootElement;
+        using var document = JsonDocument.Parse(trimmed[firstBrace..(lastBrace + 1)]);
+        var root = document.RootElement;
 
         if (!root.TryGetProperty("selectedKeyword", out var keywordElement) || keywordElement.ValueKind != JsonValueKind.String)
         {
             throw new InvalidOperationException("Provider output is missing 'selectedKeyword' string.");
         }
 
-        var summary = root.TryGetProperty("summary", out var s) && s.ValueKind == JsonValueKind.String
-            ? s.GetString() ?? string.Empty
+        var summary = root.TryGetProperty("summary", out var summaryElement) && summaryElement.ValueKind == JsonValueKind.String
+            ? summaryElement.GetString() ?? string.Empty
             : string.Empty;
 
         return (keywordElement.GetString()?.Trim() ?? string.Empty, summary);
@@ -211,6 +227,7 @@ internal sealed class RoutedRunner
         {
             return (target, SessionStatus.Active, false);
         }
+
         return keyword switch
         {
             Continue => (unit.Name, SessionStatus.Active, false),

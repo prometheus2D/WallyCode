@@ -3,6 +3,7 @@ using WallyCode.ConsoleApp.Copilot;
 using WallyCode.ConsoleApp.Project;
 using WallyCode.ConsoleApp.Routing;
 using WallyCode.ConsoleApp.Runtime;
+using WallyCode.ConsoleApp.Sessions;
 using WallyCode.Tests.TestInfrastructure;
 
 namespace WallyCode.Tests.Commands;
@@ -198,8 +199,8 @@ public class WorkingDirectoryBehaviorTests
 
     private static void AssertSessionExists(string runtimeRoot, string expectedSourcePath, string expectedDefinitionName)
     {
-        Assert.True(RoutedSession.Exists(runtimeRoot));
-        var session = RoutedSession.Load(runtimeRoot);
+        Assert.True(Session.Exists(runtimeRoot));
+        var session = Session.Load(runtimeRoot);
         Assert.Equal(expectedSourcePath, session.SourcePath);
         Assert.Equal(expectedDefinitionName, session.DefinitionName);
     }

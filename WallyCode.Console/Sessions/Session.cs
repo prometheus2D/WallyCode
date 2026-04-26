@@ -1,6 +1,7 @@
 using System.Text.Json;
+using WallyCode.ConsoleApp.Routing;
 
-namespace WallyCode.ConsoleApp.Routing;
+namespace WallyCode.ConsoleApp.Sessions;
 
 internal static class SessionStatus
 {
@@ -10,23 +11,27 @@ internal static class SessionStatus
     public const string Error = "error";
 }
 
-internal sealed class RoutedSession
+internal abstract class SessionBase
 {
-    public string DefinitionName { get; set; } = string.Empty;
     public string Goal { get; set; } = string.Empty;
     public string ProviderName { get; set; } = string.Empty;
     public string? Model { get; set; }
     public string SourcePath { get; set; } = string.Empty;
-    public string ActiveUnitName { get; set; } = string.Empty;
     public string Status { get; set; } = SessionStatus.Active;
     public string LastSelectedKeyword { get; set; } = string.Empty;
     public string LastSummary { get; set; } = string.Empty;
     public int IterationCount { get; set; }
     public List<string> PendingResponses { get; set; } = [];
+}
 
-    public static RoutedSession Start(RoutingDefinition definition, string goal, string providerName, string? model, string sourcePath)
+internal sealed class Session : SessionBase
+{
+    public string DefinitionName { get; set; } = string.Empty;
+    public string ActiveUnitName { get; set; } = string.Empty;
+
+    public static Session Start(RoutingDefinition definition, string goal, string providerName, string? model, string sourcePath)
     {
-        return new RoutedSession
+        return new Session
         {
             DefinitionName = definition.Name,
             Goal = goal.Trim(),
@@ -91,14 +96,15 @@ internal sealed class RoutedSession
         return archivePath;
     }
 
-    public static RoutedSession Load(string rootPath)
+    public static Session Load(string rootPath)
     {
         var path = FilePath(rootPath);
         if (!File.Exists(path))
         {
-            throw new InvalidOperationException($"No routed session at {path}.");
+            throw new InvalidOperationException($"No session at {path}.");
         }
-        return JsonSerializer.Deserialize<RoutedSession>(File.ReadAllText(path), JsonOptions.Default)
+
+        return JsonSerializer.Deserialize<Session>(File.ReadAllText(path), JsonOptions.Default)
             ?? throw new InvalidOperationException($"Session file is invalid: {path}");
     }
 

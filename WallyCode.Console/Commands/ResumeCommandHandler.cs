@@ -1,6 +1,7 @@
 using WallyCode.ConsoleApp.Project;
 using WallyCode.ConsoleApp.Routing;
 using WallyCode.ConsoleApp.Runtime;
+using WallyCode.ConsoleApp.Sessions;
 
 namespace WallyCode.ConsoleApp.Commands;
 
@@ -24,19 +25,19 @@ internal sealed class ResumeCommandHandler
         var projectRoot = ProjectSettings.ResolveProjectRoot(options.SourcePath);
         var sessionRoot = ProjectSettings.ResolveRuntimeRoot(projectRoot, options.MemoryRoot);
 
-        if (!RoutedSession.Exists(sessionRoot))
+        if (!Session.Exists(sessionRoot))
         {
             throw new InvalidOperationException(
-                $"No resumable session exists at {RoutedSession.FilePath(sessionRoot)}. Start one with: loop <goal>");
+                $"No resumable session exists at {Session.FilePath(sessionRoot)}. Start one with: loop <goal>");
         }
 
-        var session = RoutedSession.Load(sessionRoot);
+        var session = Session.Load(sessionRoot);
         if (session.Status == SessionStatus.Blocked)
         {
             throw new InvalidOperationException("Session is waiting for user input. Use 'respond' before 'resume'.");
         }
 
-        if (RoutedSession.IsTerminal(session.Status))
+        if (Session.IsTerminal(session.Status))
         {
             throw new InvalidOperationException(
                 $"Session is terminal with status '{session.Status}' and cannot be resumed. Start a new session with: loop <goal>");

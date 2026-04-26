@@ -1,16 +1,17 @@
 using WallyCode.ConsoleApp.Project;
 using WallyCode.ConsoleApp.Routing;
+using WallyCode.ConsoleApp.Sessions;
 using WallyCode.Tests.TestInfrastructure;
 
 namespace WallyCode.Tests.Routing;
 
-public class RoutedRunnerTests
+public class RunnerTests
 {
-    private static RoutedRunner NewRunner(string root, RoutingDefinition def, params MockInvocation[] script)
+    private static Runner NewRunner(string root, RoutingDefinition def, params MockInvocation[] script)
     {
-        var session = RoutedSession.Start(def, "test goal", "mock-provider", "mock-default-model", root);
+        var session = Session.Start(def, "test goal", "mock-provider", "mock-default-model", root);
         session.Save(root);
-        return new RoutedRunner(new MockLlmProvider(script), def, root);
+        return new Runner(new MockLlmProvider(script), def, root);
     }
 
     [Fact]
@@ -29,7 +30,7 @@ public class RoutedRunnerTests
         Assert.False(result.StopsInvocation);
         Assert.Equal("working", result.Summary);
 
-        var session = RoutedSession.Load(temp.RootPath);
+        var session = Session.Load(temp.RootPath);
         Assert.Equal(1, session.IterationCount);
         Assert.Equal("[CONTINUE]", session.LastSelectedKeyword);
     }
@@ -57,14 +58,14 @@ public class RoutedRunnerTests
     {
         using var temp = TempWorkspace.Create();
         var def = RoutingDefinition.LoadByName("requirements");
-        var session = RoutedSession.Start(def, "test goal", "mock-provider", "mock-default-model", temp.RootPath);
+        var session = Session.Start(def, "test goal", "mock-provider", "mock-default-model", temp.RootPath);
         if (keyword is "[DONE]" or "[ERROR]")
         {
             session.ActiveUnitName = "produce_tasks";
         }
         session.Save(temp.RootPath);
 
-        var runner = new RoutedRunner(
+        var runner = new Runner(
             new MockLlmProvider([new MockInvocation { RawOutput = $$"""{"selectedKeyword":"{{keyword}}","summary":"problem details"}""" }]),
             def, temp.RootPath);
 
@@ -72,7 +73,7 @@ public class RoutedRunnerTests
 
         Assert.Equal(expectedStatus, result.Status);
         Assert.True(result.StopsInvocation);
-        Assert.Equal("problem details", RoutedSession.Load(temp.RootPath).LastSummary);
+        Assert.Equal("problem details", Session.Load(temp.RootPath).LastSummary);
     }
 
     [Theory]
@@ -83,17 +84,17 @@ public class RoutedRunnerTests
     {
         using var temp = TempWorkspace.Create();
         var def = RoutingDefinition.LoadByName("requirements");
-        var session = RoutedSession.Start(def, "test goal", "mock-provider", "mock-default-model", temp.RootPath);
+        var session = Session.Start(def, "test goal", "mock-provider", "mock-default-model", temp.RootPath);
         session.ActiveUnitName = "produce_tasks";
         session.Save(temp.RootPath);
 
-        var runner = new RoutedRunner(
+        var runner = new Runner(
             new MockLlmProvider([new MockInvocation { RawOutput = $$"""{"selectedKeyword":"{{keyword}}"}""" }]),
             def, temp.RootPath);
 
         await Assert.ThrowsAsync<InvalidOperationException>(() => runner.RunOnceAsync(CancellationToken.None));
 
-        var persisted = RoutedSession.Load(temp.RootPath);
+        var persisted = Session.Load(temp.RootPath);
         Assert.Equal(SessionStatus.Error, persisted.Status);
         Assert.Equal("[ERROR]", persisted.LastSelectedKeyword);
         Assert.False(string.IsNullOrWhiteSpace(persisted.LastSummary));
@@ -111,7 +112,7 @@ public class RoutedRunnerTests
 
         await Assert.ThrowsAsync<InvalidOperationException>(() => runner.RunOnceAsync(CancellationToken.None));
 
-        var persisted = RoutedSession.Load(temp.RootPath);
+        var persisted = Session.Load(temp.RootPath);
         Assert.Equal(SessionStatus.Error, persisted.Status);
         Assert.Equal("[ERROR]", persisted.LastSelectedKeyword);
     }
@@ -121,17 +122,17 @@ public class RoutedRunnerTests
     {
         using var temp = TempWorkspace.Create();
         var def = RoutingDefinition.LoadByName("requirements");
-        RoutedSession.Start(def, "test goal", "mock-provider", "mock-default-model", temp.RootPath).Save(temp.RootPath);
+        Session.Start(def, "test goal", "mock-provider", "mock-default-model", temp.RootPath).Save(temp.RootPath);
 
         var provider = new MockLlmProvider([
             new MockInvocation { Exception = new InvalidOperationException("provider unreachable") }
         ]);
-        var runner = new RoutedRunner(provider, def, temp.RootPath);
+        var runner = new Runner(provider, def, temp.RootPath);
 
         var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => runner.RunOnceAsync(CancellationToken.None));
         Assert.Equal("provider unreachable", ex.Message);
 
-        var persisted = RoutedSession.Load(temp.RootPath);
+        var persisted = Session.Load(temp.RootPath);
         Assert.Equal(SessionStatus.Error, persisted.Status);
         Assert.Equal("[ERROR]", persisted.LastSelectedKeyword);
         Assert.Equal("provider unreachable", persisted.LastSummary);
@@ -156,9 +157,9 @@ public class RoutedRunnerTests
     {
         using var temp = TempWorkspace.Create();
         var def = RoutingDefinition.LoadByName("requirements");
-        var session = RoutedSession.Start(def, "test goal", "mock-provider", "mock-default-model", temp.RootPath);
+        var session = Session.Start(def, "test goal", "mock-provider", "mock-default-model", temp.RootPath);
         session.Save(temp.RootPath);
-        var runner = new RoutedRunner(
+        var runner = new Runner(
             new MockLlmProvider([
                 new MockInvocation { RawOutput = """{"selectedKeyword":"[CONTINUE]"}""" },
                 new MockInvocation { RawOutput = """{"selectedKeyword":"[ASK_USER]"}""" },
@@ -176,19 +177,19 @@ public class RoutedRunnerTests
     {
         using var temp = TempWorkspace.Create();
         var def = RoutingDefinition.LoadByName("requirements");
-        var session = RoutedSession.Start(def, "test goal", "mock-provider", "mock-default-model", temp.RootPath);
+        var session = Session.Start(def, "test goal", "mock-provider", "mock-default-model", temp.RootPath);
         session.PendingResponses.Add("user said csv");
         session.Save(temp.RootPath);
 
         var provider = new MockLlmProvider([
             new MockInvocation { RawOutput = """{"selectedKeyword":"[CONTINUE]"}""" }
         ]);
-        var runner = new RoutedRunner(provider, def, temp.RootPath);
+        var runner = new Runner(provider, def, temp.RootPath);
 
         await runner.RunOnceAsync(CancellationToken.None);
 
         Assert.Contains("user said csv", provider.Requests[0].Prompt);
-        Assert.Empty(RoutedSession.Load(temp.RootPath).PendingResponses);
+        Assert.Empty(Session.Load(temp.RootPath).PendingResponses);
     }
 
     [Fact]
@@ -199,8 +200,8 @@ public class RoutedRunnerTests
         var provider = new MockLlmProvider([
             new MockInvocation { RawOutput = """{"selectedKeyword":"[CONTINUE]"}""" }
         ]);
-        var runner = new RoutedRunner(provider, def, temp.RootPath);
-        RoutedSession.Start(def, "test goal", "mock-provider", "mock-default-model", temp.RootPath).Save(temp.RootPath);
+        var runner = new Runner(provider, def, temp.RootPath);
+        Session.Start(def, "test goal", "mock-provider", "mock-default-model", temp.RootPath).Save(temp.RootPath);
 
         await runner.RunOnceAsync(CancellationToken.None);
 
@@ -216,8 +217,8 @@ public class RoutedRunnerTests
         var provider = new MockLlmProvider([
             new MockInvocation { RawOutput = """{"selectedKeyword":"[CONTINUE]"}""" }
         ]);
-        var runner = new RoutedRunner(provider, def, temp.RootPath);
-        RoutedSession.Start(def, "test goal", "mock-provider", "mock-default-model", temp.RootPath).Save(temp.RootPath);
+        var runner = new Runner(provider, def, temp.RootPath);
+        Session.Start(def, "test goal", "mock-provider", "mock-default-model", temp.RootPath).Save(temp.RootPath);
 
         await runner.RunOnceAsync(CancellationToken.None);
 
@@ -233,8 +234,8 @@ public class RoutedRunnerTests
         var provider = new MockLlmProvider([
             new MockInvocation { RawOutput = """{"selectedKeyword":"[CONTINUE]"}""" }
         ]);
-        var runner = new RoutedRunner(provider, def, temp.RootPath);
-        RoutedSession.Start(def, "test goal", "mock-provider", "mock-default-model", temp.RootPath).Save(temp.RootPath);
+        var runner = new Runner(provider, def, temp.RootPath);
+        Session.Start(def, "test goal", "mock-provider", "mock-default-model", temp.RootPath).Save(temp.RootPath);
 
         await runner.RunOnceAsync(CancellationToken.None);
 
@@ -255,8 +256,8 @@ public class RoutedRunnerTests
         var provider = new MockLlmProvider([
             new MockInvocation { RawOutput = """{"selectedKeyword":"[CONTINUE]"}""" }
         ]);
-        var runner = new RoutedRunner(provider, def, temp.RootPath);
-        RoutedSession.Start(def, "test goal", "mock-provider", "mock-default-model", temp.RootPath).Save(temp.RootPath);
+        var runner = new Runner(provider, def, temp.RootPath);
+        Session.Start(def, "test goal", "mock-provider", "mock-default-model", temp.RootPath).Save(temp.RootPath);
 
         await runner.RunOnceAsync(CancellationToken.None);
 
@@ -269,11 +270,11 @@ public class RoutedRunnerTests
     {
         using var temp = TempWorkspace.Create();
         var def = RoutingDefinition.LoadByName("requirements");
-        var session = RoutedSession.Start(def, "test goal", "mock-provider", "mock-default-model", temp.RootPath);
+        var session = Session.Start(def, "test goal", "mock-provider", "mock-default-model", temp.RootPath);
         session.DefinitionName = "other";
         session.Save(temp.RootPath);
 
-        var runner = new RoutedRunner(new MockLlmProvider([]), def, temp.RootPath);
+        var runner = new Runner(new MockLlmProvider([]), def, temp.RootPath);
         await Assert.ThrowsAsync<InvalidOperationException>(() => runner.RunOnceAsync(CancellationToken.None));
     }
 }
