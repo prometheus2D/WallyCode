@@ -1,6 +1,6 @@
-using WallyCode.ConsoleApp.Routing;
+using WallyCode.ConsoleApp.Workflow;
 
-namespace WallyCode.Tests.Routing;
+namespace WallyCode.Tests.Workflow;
 
 public class WorkflowDefinitionTests
 {

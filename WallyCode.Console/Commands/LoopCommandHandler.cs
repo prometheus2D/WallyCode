@@ -1,15 +1,15 @@
 using WallyCode.ConsoleApp.Copilot;
 using WallyCode.ConsoleApp.Project;
-using WallyCode.ConsoleApp.Routing;
 using WallyCode.ConsoleApp.Runtime;
 using WallyCode.ConsoleApp.Sessions;
+using WallyCode.ConsoleApp.Workflow;
 
 namespace WallyCode.ConsoleApp.Commands;
 
 internal sealed class LoopCommandHandler
 {
     private const string DefaultWorkflowName = "requirements";
-    private const string EmptySummaryMessage = "[no summary provided]" ;
+    private const string EmptySummaryMessage = "[no summary provided]";
 
     private readonly ProviderRegistry _providerRegistry;
     private readonly AppLogger _logger;

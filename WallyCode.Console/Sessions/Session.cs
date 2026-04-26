@@ -1,5 +1,5 @@
 using System.Text.Json;
-using WallyCode.ConsoleApp.Routing;
+using WallyCode.ConsoleApp.Workflow;
 
 namespace WallyCode.ConsoleApp.Sessions;
 
@@ -104,13 +104,13 @@ internal sealed class Session : SessionBase
             throw new InvalidOperationException($"No session at {path}.");
         }
 
-        return JsonSerializer.Deserialize<Session>(File.ReadAllText(path), JsonOptions.Default)
+        return JsonSerializer.Deserialize<Session>(File.ReadAllText(path), SessionJson.Default)
             ?? throw new InvalidOperationException($"Session file is invalid: {path}");
     }
 
     public void Save(string rootPath)
     {
         Directory.CreateDirectory(rootPath);
-        File.WriteAllText(FilePath(rootPath), JsonSerializer.Serialize(this, JsonOptions.Default));
+        File.WriteAllText(FilePath(rootPath), JsonSerializer.Serialize(this, SessionJson.Default));
     }
 }

@@ -1,6 +1,6 @@
 using System.Text.Json;
 
-namespace WallyCode.ConsoleApp.Routing;
+namespace WallyCode.ConsoleApp.Workflow;
 
 internal static class StepExecutionKind
 {
@@ -149,7 +149,7 @@ internal sealed class WorkflowDefinition
 
     public static WorkflowDefinition LoadByName(string workflowName)
     {
-        return RoutingCatalog.LoadFromBaseDirectory().GetDefinition(workflowName);
+        return WorkflowCatalog.LoadFromBaseDirectory().GetDefinition(workflowName);
     }
 
     public static WorkflowDefinition LoadFromJson(string json)
@@ -205,13 +205,13 @@ internal sealed class WorkflowDefinition
     }
 }
 
-internal sealed class RoutingCatalog
+internal sealed class WorkflowCatalog
 {
     private readonly Dictionary<string, WorkflowDefinition> _definitions;
     private readonly Dictionary<string, SharedWorkflowStepDefinition> _sharedSteps;
     private readonly Dictionary<string, KeywordDefinition> _keywords;
 
-    private RoutingCatalog(
+    private WorkflowCatalog(
         Dictionary<string, WorkflowDefinition> definitions,
         Dictionary<string, SharedWorkflowStepDefinition> sharedSteps,
         Dictionary<string, KeywordDefinition> keywords)
@@ -221,17 +221,17 @@ internal sealed class RoutingCatalog
         _keywords = keywords;
     }
 
-    public static RoutingCatalog LoadFromBaseDirectory()
+    public static WorkflowCatalog LoadFromBaseDirectory()
     {
-        var routingRoot = Path.Combine(AppContext.BaseDirectory, "Routing");
-        return LoadFromDirectory(routingRoot);
+        var workflowRoot = Path.Combine(AppContext.BaseDirectory, "Workflow");
+        return LoadFromDirectory(workflowRoot);
     }
 
-    public static RoutingCatalog LoadFromDirectory(string routingRoot)
+    public static WorkflowCatalog LoadFromDirectory(string workflowRoot)
     {
-        var definitionsPath = Path.Combine(routingRoot, "Definitions");
-        var stepsPath = Path.Combine(routingRoot, "Units");
-        var keywordsPath = Path.Combine(routingRoot, "Keywords");
+        var definitionsPath = Path.Combine(workflowRoot, "Definitions");
+        var stepsPath = Path.Combine(workflowRoot, "Steps");
+        var keywordsPath = Path.Combine(workflowRoot, "Keywords");
 
         var keywords = Directory.Exists(keywordsPath)
             ? Directory.GetFiles(keywordsPath, "*.json", SearchOption.AllDirectories)
@@ -275,7 +275,7 @@ internal sealed class RoutingCatalog
                 .ToDictionary(definition => definition.Name, StringComparer.Ordinal)
             : new Dictionary<string, WorkflowDefinition>(StringComparer.Ordinal);
 
-        var catalog = new RoutingCatalog(definitions, sharedSteps, keywords);
+        var catalog = new WorkflowCatalog(definitions, sharedSteps, keywords);
         catalog.ResolveAndValidate();
         return catalog;
     }

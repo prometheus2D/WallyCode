@@ -12,15 +12,15 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Content Include="Routing\Definitions\**\*">
+    <Content Include="Workflow\Definitions\**\*">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
     </Content>
-    <Content Include="Routing\Units\**\*">
+    <Content Include="Workflow\Steps\**\*">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
     </Content>
-    <Content Include="Routing\Keywords\**\*">
+    <Content Include="Workflow\Keywords\**\*">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
     </Content>

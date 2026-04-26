@@ -5,7 +5,7 @@ using WallyCode.ConsoleApp.Project;
 using WallyCode.ConsoleApp.Runtime;
 using WallyCode.ConsoleApp.Sessions;
 
-namespace WallyCode.ConsoleApp.Routing;
+namespace WallyCode.ConsoleApp.Workflow;
 
 internal sealed class IterationResult
 {
