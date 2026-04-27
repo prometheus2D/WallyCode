@@ -1,4 +1,0 @@
-{
-  "id": "[ERROR]",
-  "description": "Use when the current logical unit cannot continue because of an unrecoverable problem. Put the user-visible reason in the summary."
-}

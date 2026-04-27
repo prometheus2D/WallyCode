@@ -1,0 +1,12 @@
+{
+  "name": "tasks",
+  "startStepName": "produce_tasks",
+  "stepRefs": [
+    {
+      "ref": "produce_tasks"
+    },
+    {
+      "ref": "execute_tasks"
+    }
+  ]
+}

@@ -1,0 +1,4 @@
+{
+  "id": "[ASK_USER]",
+  "description": "Pause and ask the user for missing information or a decision before continuing."
+}

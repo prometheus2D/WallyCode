@@ -1,0 +1,13 @@
+{
+  "id": "collect_requirements",
+  "instructions": "Clarify the user's goal, constraints, and expected outcome. Stay in this step until the requirements are clear enough to proceed.",
+  "allowedKeywords": [
+    "[CONTINUE]",
+    "[ASK_USER]",
+    "[REQUIREMENTS_READY]",
+    "[ERROR]"
+  ],
+  "transitions": {
+    "[REQUIREMENTS_READY]": "produce_tasks"
+  }
+}

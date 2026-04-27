@@ -1,0 +1,14 @@
+{
+  "id": "produce_tasks",
+  "instructions": "Break the clarified work into concrete implementation tasks. Stay in this step until the task list is ready.",
+  "allowedKeywords": [
+    "[CONTINUE]",
+    "[ASK_USER]",
+    "[TASKS_READY]",
+    "[DONE]",
+    "[ERROR]"
+  ],
+  "transitions": {
+    "[TASKS_READY]": "execute_tasks"
+  }
+}

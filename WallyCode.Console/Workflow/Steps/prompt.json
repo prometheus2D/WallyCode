@@ -1,0 +1,8 @@
+{
+  "id": "prompt",
+  "instructions": "Handle the user's request in a single step using the workflow's specific instructions.",
+  "allowedKeywords": [
+    "[DONE]",
+    "[ERROR]"
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "id": "execute_tasks",
+  "instructions": "Execute the planned tasks and verify the requested work is complete before finishing.",
+  "allowedKeywords": [
+    "[CONTINUE]",
+    "[ASK_USER]",
+    "[DONE]",
+    "[ERROR]"
+  ]
+}

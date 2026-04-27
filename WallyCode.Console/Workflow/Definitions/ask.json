@@ -1,0 +1,24 @@
+{
+  "name": "ask",
+  "startStepName": "prompt",
+  "steps": [
+    {
+      "name": "prompt",
+      "instructions": "Do not change files. Answer the user's request directly and concisely based on the current workspace.",
+      "allowedKeywords": [
+        "[DONE]",
+        "[ERROR]"
+      ],
+      "keywordOptions": [
+        {
+          "keyword": "[DONE]",
+          "description": "The answer is complete and ready to return to the user."
+        },
+        {
+          "keyword": "[ERROR]",
+          "description": "An unrecoverable problem prevented completing the answer."
+        }
+      ]
+    }
+  ]
+}

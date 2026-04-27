@@ -1,0 +1,24 @@
+{
+  "name": "act",
+  "startStepName": "prompt",
+  "steps": [
+    {
+      "name": "prompt",
+      "instructions": "You may change files to complete the user's request. Make the smallest correct change set and preserve existing behavior unless the request requires otherwise.",
+      "allowedKeywords": [
+        "[DONE]",
+        "[ERROR]"
+      ],
+      "keywordOptions": [
+        {
+          "keyword": "[DONE]",
+          "description": "The requested implementation work is complete."
+        },
+        {
+          "keyword": "[ERROR]",
+          "description": "An unrecoverable problem prevented completing the implementation."
+        }
+      ]
+    }
+  ]
+}

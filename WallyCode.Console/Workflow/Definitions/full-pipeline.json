@@ -1,0 +1,15 @@
+{
+  "name": "full-pipeline",
+  "startStepName": "collect_requirements",
+  "stepRefs": [
+    {
+      "ref": "collect_requirements"
+    },
+    {
+      "ref": "produce_tasks"
+    },
+    {
+      "ref": "execute_tasks"
+    }
+  ]
+}
