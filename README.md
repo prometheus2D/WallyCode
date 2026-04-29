@@ -49,20 +49,62 @@ wallycode provider gh-copilot-gpt5 --refresh --source C:\src\MyRepo
 
 ---
 
+## Development mode
+
+Use development mode when you are modifying WallyCode itself and want to run the current source build instead of an installed executable.
+
+```powershell
+dotnet restore WallyCode.sln
+dotnet build WallyCode.sln
+dotnet test WallyCode.sln
+dotnet run --project WallyCode.Console -- help
+```
+
+Point the local build at this repository with `--source .`. Keep development sessions isolated with an ignored `.wallycode-dev` memory root:
+
+```powershell
+dotnet run --project WallyCode.Console -- setup --directory .
+dotnet run --project WallyCode.Console -- ask "Explain the workflow command surface." --source . --memory-root .wallycode-dev --log --verbose
+dotnet run --project WallyCode.Console -- act "Update the README tutorial links." --source . --memory-root .wallycode-dev --log --verbose
+```
+
+For repeated commands while editing:
+
+```powershell
+dotnet run --project WallyCode.Console -- shell --source . --memory-root .wallycode-dev --log --verbose
+```
+
+See [readmes/development-mode.md](readmes/development-mode.md) for the full development-mode workflow.
+
+---
+
+## Tutorial readmes
+
+Task-focused guides live under [readmes/README.md](readmes/README.md):
+
+- [Setup and providers](readmes/setup.md)
+- [Ask workflow](readmes/ask.md)
+- [Act workflow](readmes/act.md)
+- [Definitions and steps](readmes/definitions.md)
+- [Development mode](readmes/development-mode.md)
+- [Stepwise workflows](readmes/stepwise.md)
+
+---
+
 ## Mental model
 
 Repo-scoped. `--source` selects which repo's config/state is used.
 
-- `wallycode.json` ? repo configuration (default provider/model, etc.)
-- `.wallycode\session.json` ? active session
-- `.wallycode\archive\...` ? completed sessions
-- `--memory-root <path>` ? override session state location for parallel sessions against the same repo
+- `wallycode.json` -> repo configuration (default provider/model, etc.)
+- `.wallycode\session.json` -> active session
+- `.wallycode\archive\...` -> completed sessions
+- `--memory-root <path>` -> override session state location for parallel sessions against the same repo
 
 Session lifecycle inside `loop`:
-- no active session ? `goal` is required, `--provider`/`--model` apply at start
-- active session ? omit `goal` to continue
-- blocked ? `respond`, then `loop`
-- terminal ? archived automatically before a new one starts
+- no active session -> `goal` is required, `--provider`/`--model` apply at start
+- active session -> omit `goal` to continue
+- blocked -> `respond`, then `loop`
+- terminal -> archived automatically before a new one starts
 
 Control keywords (shared):
 - `[CONTINUE]` stay in current unit
@@ -86,12 +128,12 @@ Initializes `wallycode.json` and `.wallycode`. `--vs-build` resolves the target 
 ```powershell
 wallycode provider [name] [--set] [--models] [--refresh] [--model <model>] [--source <path>]
 ```
-- no `name` ? list providers
-- `name --set` ? set repo default provider
-- `name --models` ? list models
-- `name --refresh` ? refresh stored model catalog
-- `name --model <model>` ? set repo default model
-- `name` omitted for `--models|--refresh|--model` ? uses repo default provider
+- no `name` -> list providers
+- `name --set` -> set repo default provider
+- `name --models` -> list models
+- `name --refresh` -> refresh stored model catalog
+- `name --model <model>` -> set repo default model
+- `name` omitted for `--models|--refresh|--model` -> uses repo default provider
 
 ### `loop`
 ```powershell
@@ -114,9 +156,9 @@ wallycode respond <response> [--source <path>] [--memory-root <path>] [--log] [-
 
 ## Failure modes
 
-- Provider unavailable ? `wallycode provider --source <repo>`; verify external tooling is installed/authenticated
-- No active session ? start with `wallycode loop "<goal>" --source <repo>`
-- Blocked ? `respond` then `loop`
-- `[ERROR]` ? inspect logged summary; adjust goal/definition/workspace and retry
-- Wrong repo / session ? verify `--source` and `--memory-root`
+- Provider unavailable -> `wallycode provider --source <repo>`; verify external tooling is installed/authenticated
+- No active session -> start with `wallycode loop "<goal>" --source <repo>`
+- Blocked -> `respond` then `loop`
+- `[ERROR]` -> inspect logged summary; adjust goal/definition/workspace and retry
+- Wrong repo / session -> verify `--source` and `--memory-root`
 
