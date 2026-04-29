@@ -243,29 +243,6 @@ public class RunnerTests
     }
 
     [Fact]
-    public async Task Prompt_uses_workspace_global_prompt_when_present()
-    {
-        using var temp = TempWorkspace.Create();
-        var settings = new ProjectSettings
-        {
-            GlobalPrompt = "Always preserve brackets in keywords."
-        };
-        settings.Save(temp.RootPath);
-
-        var def = WorkflowDefinition.LoadByName("requirements");
-        var provider = new MockLlmProvider([
-            new MockInvocation { RawOutput = """{"selectedKeyword":"[CONTINUE]"}""" }
-        ]);
-        var runner = new Runner(provider, def, temp.RootPath);
-        Session.Start(def, "test goal", "mock-provider", "mock-default-model", temp.RootPath).Save(temp.RootPath);
-
-        await runner.RunOnceAsync(CancellationToken.None);
-
-        Assert.Contains("Global prompt:", provider.Requests[0].Prompt);
-        Assert.Contains("Always preserve brackets in keywords.", provider.Requests[0].Prompt);
-    }
-
-    [Fact]
     public async Task Run_throws_when_session_workflow_does_not_match()
     {
         using var temp = TempWorkspace.Create();

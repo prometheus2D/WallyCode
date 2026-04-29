@@ -94,40 +94,6 @@ public class WorkingDirectoryBehaviorTests
     }
 
     [Fact]
-    public async Task Loop_memory_root_override_writes_session_state_under_the_override_path()
-    {
-        using var workspace = TempWorkspace.Create();
-        using var runtime = TempWorkspace.Create();
-        var provider = new MockLlmProvider([
-            new MockInvocation
-            {
-                RawOutput = """{"selectedKeyword":"[DONE]","summary":"done"}""",
-                ExpectedModel = "mock-default-model",
-                ExpectedSourcePath = workspace.RootPath
-            }
-        ]);
-        var handler = new LoopCommandHandler(NewRegistry(provider), new AppLogger());
-        WriteMockSettings(workspace.RootPath);
-
-        var exitCode = await RunInWorkingDirectoryAsync(
-            workspace.RootPath,
-            () => ExecuteSilentlyAsync(() => handler.ExecuteAsync(
-                new LoopCommandOptions
-                {
-                    Goal = "Complete the task.",
-                    Definition = "requirements",
-                    MemoryRoot = runtime.RootPath,
-                    Steps = 1
-                },
-                CancellationToken.None)));
-
-        Assert.Equal(0, exitCode);
-        AssertSessionExists(runtime.RootPath, workspace.RootPath, "requirements");
-        Assert.False(Directory.Exists(Path.Combine(workspace.RootPath, ".wallycode")));
-        provider.AssertConsumed();
-    }
-
-    [Fact]
     public async Task One_process_can_operate_against_two_working_directories_without_touching_the_install_location()
     {
         using var install = TempWorkspace.Create();

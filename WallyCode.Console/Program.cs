@@ -20,10 +20,14 @@ internal static class Program
 		return await RunAsync(args, cancellationTokenSource.Token);
 	}
 
-	internal static async Task<int> RunAsync(string[] args, CancellationToken cancellationToken, string? appDirectoryPath = null)
+	internal static async Task<int> RunAsync(
+		string[] args,
+		CancellationToken cancellationToken,
+		string? appDirectoryPath = null,
+		ProviderRegistry? providerRegistry = null)
 	{
 		var logger = new AppLogger();
-		var providerRegistry = ProviderRegistry.Create(logger);
+		providerRegistry ??= ProviderRegistry.Create(logger);
 		ConfigureInvocationLogging(args, logger);
 
 		var parser = new Parser(settings =>
