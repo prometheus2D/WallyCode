@@ -39,7 +39,7 @@ public class RunnerTests
     public async Task Transition_keyword_moves_to_target_step()
     {
         using var temp = TempWorkspace.Create();
-        var def = WorkflowDefinition.LoadByName("requirements");
+        var def = WorkflowDefinition.LoadByName("full-pipeline");
         var runner = NewRunner(temp.RootPath, def,
             new MockInvocation { RawOutput = """{"selectedKeyword":"[REQUIREMENTS_READY]"}""" });
 
@@ -57,7 +57,7 @@ public class RunnerTests
     public async Task Terminal_keywords_update_status_and_stop(string keyword, string expectedStatus)
     {
         using var temp = TempWorkspace.Create();
-        var def = WorkflowDefinition.LoadByName("requirements");
+        var def = WorkflowDefinition.LoadByName("full-pipeline");
         var session = Session.Start(def, "test goal", "mock-provider", "mock-default-model", temp.RootPath);
         if (keyword is "[DONE]" or "[ERROR]")
         {
@@ -83,7 +83,7 @@ public class RunnerTests
     public async Task Invalid_keyword_throws(string keyword)
     {
         using var temp = TempWorkspace.Create();
-        var def = WorkflowDefinition.LoadByName("requirements");
+        var def = WorkflowDefinition.LoadByName("full-pipeline");
         var session = Session.Start(def, "test goal", "mock-provider", "mock-default-model", temp.RootPath);
         session.ActiveStepName = "produce_tasks";
         session.Save(temp.RootPath);
@@ -205,7 +205,7 @@ public class RunnerTests
 
         await runner.RunOnceAsync(CancellationToken.None);
 
-        Assert.Contains("Keyword options:", provider.Requests[0].Prompt);
+        Assert.Contains("Transition options:", provider.Requests[0].Prompt);
         Assert.Contains("[REQUIREMENTS_READY]:", provider.Requests[0].Prompt);
     }
 

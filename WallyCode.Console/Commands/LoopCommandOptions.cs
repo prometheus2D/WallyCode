@@ -2,14 +2,17 @@ using CommandLine;
 
 namespace WallyCode.ConsoleApp.Commands;
 
-[Verb("loop", HelpText = "Runs the workflow engine against a workflow definition.")]
+[Verb("loop", HelpText = "Runs the workflow engine starting from a workflow step.")]
 internal sealed class LoopCommandOptions
 {
     [Value(0, MetaName = "goal", Required = false, HelpText = "Goal for a new session. Omit to continue the active session.")]
     public string? Goal { get; set; }
 
-    [Option("definition", HelpText = "Workflow definition name. Defaults to 'requirements'.")]
+    [Option("definition", HelpText = "Compatibility alias for --start-step. Defaults to 'collect_requirements'.")]
     public string? Definition { get; set; }
+
+    [Option("start-step", HelpText = "Workflow step name to start. Defaults to 'collect_requirements'.")]
+    public string? StartStepName { get; set; }
 
     [Option("provider", HelpText = "Optional provider override.")]
     public string? Provider { get; set; }
@@ -36,4 +39,7 @@ internal sealed class LoopCommandOptions
     public bool Verbose { get; set; }
 
     public int GetEffectiveSteps() => Step ? 1 : Steps;
+
+    public string? GetRequestedStartStepName() =>
+        string.IsNullOrWhiteSpace(StartStepName) ? Definition : StartStepName;
 }

@@ -1,0 +1,14 @@
+{
+  "id": "ask",
+  "instructions": "Do not change files. Answer the user's request directly and concisely based on the current workspace.",
+  "transitions": [
+    {
+      "keyword": "[DONE]",
+      "description": "The answer is complete and ready to return to the user."
+    },
+    {
+      "keyword": "[ERROR]",
+      "description": "An unrecoverable problem prevented completing the answer."
+    }
+  ]
+}

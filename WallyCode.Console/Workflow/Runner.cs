@@ -142,7 +142,7 @@ internal sealed class Runner
             sb.AppendLine($"Instructions: {step.Instructions}");
         }
 
-        sb.AppendLine("Keyword options:");
+        sb.AppendLine("Transition options:");
         foreach (var keyword in step.AllowedKeywords)
         {
             sb.AppendLine($"  - {keyword}: {step.DescribeKeyword(keyword)}");
@@ -158,10 +158,10 @@ internal sealed class Runner
         }
 
         sb.AppendLine();
-        sb.AppendLine("Choose the keyword that best matches the next action based on the keyword option descriptions.");
+        sb.AppendLine("Choose exactly one transition keyword that best matches the next action based on the transition descriptions.");
         sb.AppendLine("If an unrecoverable problem occurred, select [ERROR].");
         sb.AppendLine("Respond with strict JSON: { \"selectedKeyword\": \"[ONE_OF_ALLOWED]\", \"summary\": \"...\" }");
-        sb.AppendLine("selectedKeyword must be one of the allowed keywords above exactly as written, including brackets. Output JSON only.");
+        sb.AppendLine("selectedKeyword must be one of the allowed transition keywords above exactly as written, including brackets. Output JSON only.");
         sb.AppendLine("When selecting [ERROR], put the user-visible reason in summary.");
         return sb.ToString();
     }
@@ -223,18 +223,21 @@ internal sealed class Runner
 
     private static (string nextStep, string status, bool stops) ApplyKeyword(WorkflowStep step, string keyword)
     {
-        if (step.Transitions.TryGetValue(keyword, out var target))
+        var transition = step.FindTransition(keyword);
+        if (!string.IsNullOrWhiteSpace(transition?.NextStep))
         {
-            return (target, SessionStatus.Active, false);
+            return (transition.NextStep, SessionStatus.Active, false);
         }
 
-        return keyword switch
+        var builtInResult = keyword switch
         {
             Continue => (step.Name, SessionStatus.Active, false),
             AskUser => (step.Name, SessionStatus.Blocked, true),
             Done => (step.Name, SessionStatus.Completed, true),
             Error => (step.Name, SessionStatus.Error, true),
-            _ => throw new InvalidOperationException($"Keyword '{keyword}' has no transition and is not a built-in.")
+            _ => ((string nextStep, string status, bool stops)?)null
         };
+
+        return builtInResult ?? (step.Name, SessionStatus.Completed, true);
     }
 }

@@ -8,7 +8,7 @@ namespace WallyCode.ConsoleApp.Commands;
 
 internal sealed class LoopCommandHandler
 {
-    private const string DefaultWorkflowName = "requirements";
+    private const string DefaultStartStepName = "collect_requirements";
     private const string EmptySummaryMessage = "[no summary provided]";
 
     private readonly ProviderRegistry _providerRegistry;
@@ -51,11 +51,14 @@ internal sealed class LoopCommandHandler
         {
             session = Session.Load(sessionRoot);
             _logger.LogAction("Loaded session", $"workflow={session.WorkflowName}; status={session.Status}; iteration={session.IterationCount}");
-            var workflowName = options.Definition?.Trim() ?? session.WorkflowName;
+            var workflowName = options.GetRequestedStartStepName()?.Trim();
+            workflowName = string.IsNullOrWhiteSpace(workflowName)
+                ? session.WorkflowName
+                : WorkflowDefinition.NormalizeStartStepName(workflowName);
             if (workflowName != session.WorkflowName)
             {
                 throw new InvalidOperationException(
-                    $"Active session uses workflow '{session.WorkflowName}'. Use --memory-root for a different one.");
+                    $"Active session started from step '{session.WorkflowName}'. Use --memory-root for a different one.");
             }
 
             if (Session.IsTerminal(session.Status))
@@ -82,7 +85,7 @@ internal sealed class LoopCommandHandler
                 _logger.LogAction("Resuming session", $"workflow={definition.Name}; provider={provider.Name}; iteration={session.IterationCount}");
                 _logger.Info($"Resuming session at iteration {session.IterationCount}.");
 
-                _logger.Info($"Workflow: {definition.Name}");
+                _logger.Info($"Start step: {definition.Name}");
                 _logger.Info($"Active step: {session.ActiveStepName}");
                 _logger.Info($"Status: {session.Status}");
                 _logger.Info($"Session root: {sessionRoot}");
@@ -123,7 +126,7 @@ internal sealed class LoopCommandHandler
 
         if (string.IsNullOrWhiteSpace(options.Goal))
         {
-            throw new InvalidOperationException("No active session. Start one with: loop <goal> [--definition <name>]");
+                    throw new InvalidOperationException("No active session. Start one with: loop <goal> [--start-step <name>]");
         }
 
         var providerName = string.IsNullOrWhiteSpace(options.Provider) ? settings.Provider : options.Provider!.Trim();
@@ -132,13 +135,13 @@ internal sealed class LoopCommandHandler
             ? (string.IsNullOrWhiteSpace(settings.Model) ? provider.DefaultModel : settings.Model)
             : options.Model!.Trim();
 
-        definition = WorkflowDefinition.LoadByName(options.Definition?.Trim() ?? DefaultWorkflowName);
+        definition = WorkflowDefinition.LoadByName(options.GetRequestedStartStepName()?.Trim() ?? DefaultStartStepName);
         session = Session.Start(definition, options.Goal!, provider.Name, model, projectRoot);
         session.Save(sessionRoot);
-        _logger.LogAction("Started session", $"workflow={definition.Name}; provider={provider.Name}; model={model ?? "<default>"}; goal={session.Goal}");
-        _logger.Info($"Started session on workflow '{definition.Name}'.");
+        _logger.LogAction("Started session", $"startStep={definition.Name}; provider={provider.Name}; model={model ?? "<default>"}; goal={session.Goal}");
+        _logger.Info($"Started session at step '{definition.Name}'.");
 
-        _logger.Info($"Workflow: {definition.Name}");
+        _logger.Info($"Start step: {definition.Name}");
         _logger.Info($"Active step: {session.ActiveStepName}");
         _logger.Info($"Status: {session.Status}");
         _logger.Info($"Session root: {sessionRoot}");

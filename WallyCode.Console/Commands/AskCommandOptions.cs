@@ -2,7 +2,7 @@ using CommandLine;
 
 namespace WallyCode.ConsoleApp.Commands;
 
-[Verb("ask", HelpText = "Shortcut for loop --definition ask.")]
+[Verb("ask", HelpText = "Shortcut for loop --start-step ask.")]
 internal sealed class AskCommandOptions
 {
     [Value(0, MetaName = "goal", Required = false, HelpText = "Goal for a new ask session. Omit to continue the active session.")]
@@ -32,7 +32,7 @@ internal sealed class AskCommandOptions
     public LoopCommandOptions ToLoopOptions() => new()
     {
         Goal = Goal,
-        Definition = "ask",
+        StartStepName = "ask",
         Provider = Provider,
         Model = Model,
         SourcePath = SourcePath,

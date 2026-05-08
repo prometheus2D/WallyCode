@@ -1,13 +1,23 @@
 {
   "id": "collect_requirements",
   "instructions": "Clarify the user's goal, constraints, and expected outcome. Stay in this step until the requirements are clear enough to proceed.",
-  "allowedKeywords": [
-    "[CONTINUE]",
-    "[ASK_USER]",
-    "[REQUIREMENTS_READY]",
-    "[ERROR]"
-  ],
-  "transitions": {
-    "[REQUIREMENTS_READY]": "produce_tasks"
-  }
+  "transitions": [
+    {
+      "keyword": "[CONTINUE]",
+      "description": "Continue working in the current step because more progress is needed before transitioning or stopping."
+    },
+    {
+      "keyword": "[ASK_USER]",
+      "description": "Ask the user for input that is required before progress can continue."
+    },
+    {
+      "keyword": "[REQUIREMENTS_READY]",
+      "description": "The requirements are sufficiently clear to move on to task planning.",
+      "nextStep": "produce_tasks"
+    },
+    {
+      "keyword": "[ERROR]",
+      "description": "An unrecoverable problem prevented collecting requirements."
+    }
+  ]
 }

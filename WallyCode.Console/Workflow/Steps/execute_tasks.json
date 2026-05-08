@@ -1,10 +1,22 @@
 {
   "id": "execute_tasks",
   "instructions": "Execute the planned tasks and verify the requested work is complete before finishing.",
-  "allowedKeywords": [
-    "[CONTINUE]",
-    "[ASK_USER]",
-    "[DONE]",
-    "[ERROR]"
+  "transitions": [
+    {
+      "keyword": "[CONTINUE]",
+      "description": "Continue working in the current step because more progress is needed before transitioning or stopping."
+    },
+    {
+      "keyword": "[ASK_USER]",
+      "description": "Ask the user for input that is required before progress can continue."
+    },
+    {
+      "keyword": "[DONE]",
+      "description": "The workflow goal is complete and no further steps are required."
+    },
+    {
+      "keyword": "[ERROR]",
+      "description": "An unrecoverable problem prevented executing tasks."
+    }
   ]
 }

@@ -12,7 +12,7 @@ public class SessionTests
         var def = WorkflowDefinition.LoadByName("requirements");
         var session = Session.Start(def, "build", "mock-provider", "m", "/src");
 
-        Assert.Equal("requirements", session.WorkflowName);
+        Assert.Equal("collect_requirements", session.WorkflowName);
         Assert.Equal("collect_requirements", session.ActiveStepName);
         Assert.Equal(SessionStatus.Active, session.Status);
         Assert.Equal(0, session.IterationCount);
@@ -65,28 +65,26 @@ public class SessionTests
     }
 
     [Fact]
-    public void LoadByName_returns_ask_definition_from_json()
+    public void LoadByName_returns_ask_step_from_json()
     {
         var definition = WorkflowDefinition.LoadByName("ask");
 
         Assert.Equal("ask", definition.Name);
-        Assert.Equal("prompt", definition.StartStepName);
-        Assert.Single(definition.Steps);
-        Assert.Equal("prompt", definition.Steps[0].Name);
-        Assert.Contains("Do not change files", definition.Steps[0].Instructions);
-        Assert.Equal(["[DONE]", "[ERROR]"], definition.Steps[0].AllowedKeywords);
+        Assert.Equal("ask", definition.StartStepName);
+        var step = definition.GetStep("ask");
+        Assert.Contains("Do not change files", step.Instructions);
+        Assert.Equal(new[] { "[DONE]", "[ERROR]" }, step.AllowedKeywords);
     }
 
     [Fact]
-    public void LoadByName_returns_act_definition_from_json()
+    public void LoadByName_returns_act_step_from_json()
     {
         var definition = WorkflowDefinition.LoadByName("act");
 
         Assert.Equal("act", definition.Name);
-        Assert.Equal("prompt", definition.StartStepName);
-        Assert.Single(definition.Steps);
-        Assert.Equal("prompt", definition.Steps[0].Name);
-        Assert.Contains("You may change files", definition.Steps[0].Instructions);
-        Assert.Equal(["[DONE]", "[ERROR]"], definition.Steps[0].AllowedKeywords);
+        Assert.Equal("act", definition.StartStepName);
+        var step = definition.GetStep("act");
+        Assert.Contains("You may change files", step.Instructions);
+        Assert.Equal(new[] { "[DONE]", "[ERROR]" }, step.AllowedKeywords);
     }
 }

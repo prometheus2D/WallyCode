@@ -8,35 +8,22 @@ internal static class StepExecutionKind
     public const string Script = "script";
 }
 
-internal sealed class KeywordDefinition
-{
-    public string Id { get; set; } = string.Empty;
-    public string Description { get; set; } = string.Empty;
-
-    public void Validate()
-    {
-        if (string.IsNullOrWhiteSpace(Id))
-        {
-            throw new InvalidOperationException("Keyword definition id is required.");
-        }
-
-        if (string.IsNullOrWhiteSpace(Description))
-        {
-            throw new InvalidOperationException($"Keyword definition '{Id}' must have a description.");
-        }
-    }
-}
-
-internal sealed class KeywordOption
+internal sealed class WorkflowTransition
 {
     public string Keyword { get; set; } = string.Empty;
     public string? Description { get; set; }
+    public string? NextStep { get; set; }
 
     public void Validate(string ownerName)
     {
         if (string.IsNullOrWhiteSpace(Keyword))
         {
-            throw new InvalidOperationException($"Workflow step '{ownerName}' contains a keyword option with no keyword.");
+            throw new InvalidOperationException($"Workflow step '{ownerName}' contains a transition with no keyword.");
+        }
+
+        if (string.IsNullOrWhiteSpace(Description))
+        {
+            throw new InvalidOperationException($"Workflow step '{ownerName}' transition '{Keyword}' must have a description.");
         }
     }
 }
@@ -45,18 +32,20 @@ internal class WorkflowStep
 {
     public string Name { get; set; } = string.Empty;
     public string Instructions { get; set; } = string.Empty;
-    public List<string> AllowedKeywords { get; set; } = [];
-    public List<KeywordOption> KeywordOptions { get; set; } = [];
-    public Dictionary<string, string> Transitions { get; set; } = new(StringComparer.Ordinal);
+    public List<WorkflowTransition> Transitions { get; set; } = [];
     public string ExecutionKind { get; set; } = StepExecutionKind.Provider;
     public string? ScriptPath { get; set; }
 
     public string QualifiedName(string workflowName) => $"{workflowName}/{Name}";
 
+    public IReadOnlyList<string> AllowedKeywords => [.. Transitions.Select(transition => transition.Keyword)];
+
+    public WorkflowTransition? FindTransition(string keyword) =>
+        Transitions.FirstOrDefault(transition => string.Equals(transition.Keyword, keyword, StringComparison.Ordinal));
+
     public string DescribeKeyword(string keyword)
     {
-        var option = KeywordOptions.FirstOrDefault(x => string.Equals(x.Keyword, keyword, StringComparison.Ordinal));
-        return option?.Description ?? string.Empty;
+        return FindTransition(keyword)?.Description ?? string.Empty;
     }
 
     public void ValidateShape(string ownerName)
@@ -83,38 +72,18 @@ internal class WorkflowStep
             throw new InvalidOperationException($"Step '{ownerName}/{Name}' uses executionKind 'script' but has no scriptPath.");
         }
 
-        var describedKeywords = new HashSet<string>(StringComparer.Ordinal);
-        foreach (var option in KeywordOptions)
+        if (Transitions.Count == 0)
         {
-            option.Validate($"{ownerName}/{Name}");
-            if (!describedKeywords.Add(option.Keyword))
-            {
-                throw new InvalidOperationException($"Step '{ownerName}/{Name}' has duplicate keyword option '{option.Keyword}'.");
-            }
-            if (string.IsNullOrWhiteSpace(option.Description))
-            {
-                throw new InvalidOperationException($"Step '{ownerName}/{Name}' keyword '{option.Keyword}' must have a description.");
-            }
+            throw new InvalidOperationException($"Workflow step '{ownerName}/{Name}' must declare at least one transition.");
         }
 
-        foreach (var keyword in AllowedKeywords)
+        var transitionKeywords = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var transition in Transitions)
         {
-            if (!describedKeywords.Contains(keyword))
+            transition.Validate($"{ownerName}/{Name}");
+            if (!transitionKeywords.Add(transition.Keyword))
             {
-                throw new InvalidOperationException($"Step '{ownerName}/{Name}' allowed keyword '{keyword}' must have a keyword option description.");
-            }
-        }
-
-        foreach (var transitionKey in Transitions.Keys)
-        {
-            if (!AllowedKeywords.Contains(transitionKey))
-            {
-                throw new InvalidOperationException($"Step '{Name}' transition '{transitionKey}' is not in allowedKeywords.");
-            }
-
-            if (!describedKeywords.Contains(transitionKey))
-            {
-                throw new InvalidOperationException($"Step '{ownerName}/{Name}' transition keyword '{transitionKey}' must have a keyword option description.");
+                throw new InvalidOperationException($"Step '{ownerName}/{Name}' has duplicate transition keyword '{transition.Keyword}'.");
             }
         }
     }
@@ -125,23 +94,11 @@ internal sealed class SharedWorkflowStepDefinition : WorkflowStep
     public string Id { get; set; } = string.Empty;
 }
 
-internal sealed class StepReference
-{
-    public string Ref { get; set; } = string.Empty;
-    public string? Name { get; set; }
-    public string? PromptAddon { get; set; }
-    public Dictionary<string, string> TransitionOverrides { get; set; } = new(StringComparer.Ordinal);
-    public List<KeywordOption> KeywordOptionOverrides { get; set; } = [];
-    public string? ExecutionKind { get; set; }
-    public string? ScriptPath { get; set; }
-}
-
 internal sealed class WorkflowDefinition
 {
     public string Name { get; set; } = string.Empty;
     public string StartStepName { get; set; } = string.Empty;
     public List<WorkflowStep> Steps { get; set; } = [];
-    public List<StepReference> StepRefs { get; set; } = [];
 
     public WorkflowStep GetStep(string name) =>
         Steps.FirstOrDefault(step => step.Name == name)
@@ -151,6 +108,8 @@ internal sealed class WorkflowDefinition
     {
         return WorkflowCatalog.LoadFromBaseDirectory().GetDefinition(workflowName);
     }
+
+    public static string NormalizeStartStepName(string name) => WorkflowCatalog.ResolveStartStepName(name);
 
     public static WorkflowDefinition LoadFromJson(string json)
     {
@@ -189,9 +148,9 @@ internal sealed class WorkflowDefinition
 
         foreach (var step in Steps)
         {
-            foreach (var (_, target) in step.Transitions)
+            foreach (var target in step.Transitions.Select(transition => transition.NextStep).Where(target => !string.IsNullOrWhiteSpace(target)))
             {
-                if (target.Contains('/', StringComparison.Ordinal))
+                if (target!.Contains('/', StringComparison.Ordinal))
                 {
                     continue;
                 }
@@ -207,18 +166,11 @@ internal sealed class WorkflowDefinition
 
 internal sealed class WorkflowCatalog
 {
-    private readonly Dictionary<string, WorkflowDefinition> _definitions;
     private readonly Dictionary<string, SharedWorkflowStepDefinition> _sharedSteps;
-    private readonly Dictionary<string, KeywordDefinition> _keywords;
 
-    private WorkflowCatalog(
-        Dictionary<string, WorkflowDefinition> definitions,
-        Dictionary<string, SharedWorkflowStepDefinition> sharedSteps,
-        Dictionary<string, KeywordDefinition> keywords)
+    private WorkflowCatalog(Dictionary<string, SharedWorkflowStepDefinition> sharedSteps)
     {
-        _definitions = definitions;
         _sharedSteps = sharedSteps;
-        _keywords = keywords;
     }
 
     public static WorkflowCatalog LoadFromBaseDirectory()
@@ -229,21 +181,7 @@ internal sealed class WorkflowCatalog
 
     public static WorkflowCatalog LoadFromDirectory(string workflowRoot)
     {
-        var definitionsPath = Path.Combine(workflowRoot, "Definitions");
         var stepsPath = Path.Combine(workflowRoot, "Steps");
-        var keywordsPath = Path.Combine(workflowRoot, "Keywords");
-
-        var keywords = Directory.Exists(keywordsPath)
-            ? Directory.GetFiles(keywordsPath, "*.json", SearchOption.AllDirectories)
-                .Select(path => JsonSerializer.Deserialize<KeywordDefinition>(File.ReadAllText(path), JsonOptions.Default)
-                    ?? throw new InvalidOperationException($"Keyword definition JSON is invalid: {path}"))
-                .ToDictionary(keyword => keyword.Id, StringComparer.Ordinal)
-            : new Dictionary<string, KeywordDefinition>(StringComparer.Ordinal);
-
-        foreach (var keyword in keywords.Values)
-        {
-            keyword.Validate();
-        }
 
         var sharedSteps = Directory.Exists(stepsPath)
             ? Directory.GetFiles(stepsPath, "*.json", SearchOption.AllDirectories)
@@ -264,168 +202,63 @@ internal sealed class WorkflowCatalog
                 step.Name = step.Id;
             }
 
-            ApplyKeywordDefinitions(step, keywords, $"shared:{step.Id}");
             step.ValidateShape($"shared:{step.Id}");
         }
 
-        var definitions = Directory.Exists(definitionsPath)
-            ? Directory.GetFiles(definitionsPath, "*.json", SearchOption.AllDirectories)
-                .Select(path => JsonSerializer.Deserialize<WorkflowDefinition>(File.ReadAllText(path), JsonOptions.Default)
-                    ?? throw new InvalidOperationException($"Workflow definition JSON is invalid: {path}"))
-                .ToDictionary(definition => definition.Name, StringComparer.Ordinal)
-            : new Dictionary<string, WorkflowDefinition>(StringComparer.Ordinal);
-
-        var catalog = new WorkflowCatalog(definitions, sharedSteps, keywords);
+        var catalog = new WorkflowCatalog(sharedSteps);
         catalog.ResolveAndValidate();
         return catalog;
     }
 
-    public WorkflowDefinition GetDefinition(string name) =>
-        _definitions.TryGetValue(name, out var definition)
-            ? definition
-            : throw new InvalidOperationException($"Workflow definition '{name}' not found.");
+    public WorkflowDefinition GetDefinition(string name)
+    {
+        var startStepName = ResolveStartStepName(name);
+        if (!_sharedSteps.ContainsKey(startStepName))
+        {
+            throw new InvalidOperationException($"Workflow step '{name}' not found.");
+        }
+
+        var definition = new WorkflowDefinition
+        {
+            Name = startStepName,
+            StartStepName = startStepName,
+            Steps = [.. _sharedSteps.Values.Select(CloneSharedStep)]
+        };
+        definition.Validate();
+        return definition;
+    }
 
     private void ResolveAndValidate()
     {
-        foreach (var definition in _definitions.Values)
-        {
-            var resolvedSteps = new List<WorkflowStep>();
-            var names = new HashSet<string>(StringComparer.Ordinal);
-
-            foreach (var stepRef in definition.StepRefs)
-            {
-                if (string.IsNullOrWhiteSpace(stepRef.Ref))
-                {
-                    throw new InvalidOperationException($"Workflow definition '{definition.Name}' contains an empty step ref.");
-                }
-
-                if (!_sharedSteps.TryGetValue(stepRef.Ref, out var shared))
-                {
-                    throw new InvalidOperationException($"Workflow definition '{definition.Name}' references unknown shared step '{stepRef.Ref}'.");
-                }
-
-                var resolved = ResolveReferencedStep(shared, stepRef);
-                if (!names.Add(resolved.Name))
-                {
-                    throw new InvalidOperationException($"Workflow definition '{definition.Name}' has duplicate step '{resolved.Name}'.");
-                }
-
-                resolvedSteps.Add(resolved);
-            }
-
-            foreach (var step in definition.Steps)
-            {
-                ApplyKeywordDefinitions(step, _keywords, definition.Name);
-                step.ValidateShape(definition.Name);
-                if (!names.Add(step.Name))
-                {
-                    throw new InvalidOperationException($"Workflow definition '{definition.Name}' has duplicate step '{step.Name}'.");
-                }
-
-                resolvedSteps.Add(step);
-            }
-
-            definition.Steps = resolvedSteps;
-            definition.Validate();
-        }
-
-        var qualifiedNames = _definitions.Values
-            .SelectMany(definition => definition.Steps.Select(step => step.QualifiedName(definition.Name)))
+        var stepNames = _sharedSteps.Values
+            .Select(step => step.Name)
             .ToHashSet(StringComparer.Ordinal);
 
-        foreach (var definition in _definitions.Values)
+        foreach (var step in _sharedSteps.Values)
         {
-            foreach (var step in definition.Steps)
+            foreach (var target in step.Transitions.Select(transition => transition.NextStep).Where(target => !string.IsNullOrWhiteSpace(target)))
             {
-                foreach (var (_, target) in step.Transitions)
+                if (target!.Contains('/', StringComparison.Ordinal))
                 {
-                    if (target.Contains('/', StringComparison.Ordinal) && !qualifiedNames.Contains(target))
-                    {
-                        throw new InvalidOperationException($"Step '{definition.Name}/{step.Name}' transition targets unknown step '{target}'.");
-                    }
+                    continue;
+                }
+
+                if (!stepNames.Contains(target))
+                {
+                    throw new InvalidOperationException($"Step '{step.Name}' transition targets unknown step '{target}'.");
                 }
             }
         }
     }
 
-    private static void ApplyKeywordDefinitions(WorkflowStep step, IReadOnlyDictionary<string, KeywordDefinition> keywords, string ownerName)
+    internal static string ResolveStartStepName(string name)
     {
-        var optionsByKeyword = step.KeywordOptions.ToDictionary(option => option.Keyword, StringComparer.Ordinal);
-        var resolvedOptions = new List<KeywordOption>();
-
-        foreach (var keyword in step.AllowedKeywords)
+        return name switch
         {
-            optionsByKeyword.TryGetValue(keyword, out var option);
-            if (option is null)
-            {
-                option = new KeywordOption { Keyword = keyword };
-            }
-
-            if (string.IsNullOrWhiteSpace(option.Description))
-            {
-                if (!keywords.TryGetValue(keyword, out var keywordDefinition))
-                {
-                    throw new InvalidOperationException($"Step '{ownerName}/{step.Name}' keyword '{keyword}' has no description and no shared keyword definition.");
-                }
-
-                option.Description = keywordDefinition.Description;
-            }
-
-            resolvedOptions.Add(new KeywordOption { Keyword = keyword, Description = option.Description });
-        }
-
-        step.KeywordOptions = resolvedOptions;
-    }
-
-    private static WorkflowStep ResolveReferencedStep(SharedWorkflowStepDefinition shared, StepReference stepRef)
-    {
-        var resolved = CloneSharedStep(shared);
-
-        if (!string.IsNullOrWhiteSpace(stepRef.Name))
-        {
-            resolved.Name = stepRef.Name;
-        }
-
-        if (!string.IsNullOrWhiteSpace(stepRef.PromptAddon))
-        {
-            resolved.Instructions = string.IsNullOrWhiteSpace(resolved.Instructions)
-                ? stepRef.PromptAddon.Trim()
-                : $"{resolved.Instructions.Trim()}\n\n{stepRef.PromptAddon.Trim()}";
-        }
-
-        foreach (var option in stepRef.KeywordOptionOverrides)
-        {
-            option.Validate($"shared:{shared.Id}");
-            var existing = resolved.KeywordOptions.FirstOrDefault(x => string.Equals(x.Keyword, option.Keyword, StringComparison.Ordinal));
-            if (existing is null)
-            {
-                throw new InvalidOperationException($"Workflow definition reference '{shared.Id}' cannot override unknown keyword '{option.Keyword}'.");
-            }
-
-            existing.Description = option.Description;
-        }
-
-        foreach (var (keyword, target) in stepRef.TransitionOverrides)
-        {
-            if (!resolved.AllowedKeywords.Contains(keyword))
-            {
-                throw new InvalidOperationException($"Workflow definition reference '{shared.Id}' cannot override transition for unknown keyword '{keyword}'.");
-            }
-
-            resolved.Transitions[keyword] = target;
-        }
-
-        if (!string.IsNullOrWhiteSpace(stepRef.ExecutionKind))
-        {
-            resolved.ExecutionKind = stepRef.ExecutionKind;
-        }
-
-        if (!string.IsNullOrWhiteSpace(stepRef.ScriptPath))
-        {
-            resolved.ScriptPath = stepRef.ScriptPath;
-        }
-
-        return resolved;
+            "requirements" or "full-pipeline" => "collect_requirements",
+            "tasks" => "produce_tasks",
+            _ => name
+        };
     }
 
     private static WorkflowStep CloneSharedStep(SharedWorkflowStepDefinition shared)
@@ -434,12 +267,15 @@ internal sealed class WorkflowCatalog
         {
             Name = shared.Name,
             Instructions = shared.Instructions,
-            AllowedKeywords = [.. shared.AllowedKeywords],
-            KeywordOptions =
+            Transitions =
             [
-                .. shared.KeywordOptions.Select(option => new KeywordOption { Keyword = option.Keyword, Description = option.Description })
+                .. shared.Transitions.Select(transition => new WorkflowTransition
+                {
+                    Keyword = transition.Keyword,
+                    Description = transition.Description,
+                    NextStep = transition.NextStep
+                })
             ],
-            Transitions = new Dictionary<string, string>(shared.Transitions, StringComparer.Ordinal),
             ExecutionKind = shared.ExecutionKind,
             ScriptPath = shared.ScriptPath
         };

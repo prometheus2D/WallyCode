@@ -16,8 +16,7 @@ public class WorkflowDefinitionTests
                 new WorkflowStep
                 {
                     Name = "u",
-                    AllowedKeywords = ["[DONE]"],
-                    KeywordOptions = [new() { Keyword = "[DONE]", Description = "Complete the flow." }]
+                    Transitions = [new() { Keyword = "[DONE]", Description = "Complete the flow." }]
                 }
             ]
         };
@@ -36,8 +35,7 @@ public class WorkflowDefinitionTests
                 new WorkflowStep
                 {
                     Name = "u",
-                    AllowedKeywords = ["[DONE]"],
-                    KeywordOptions = [new() { Keyword = "[DONE]", Description = "Complete the flow." }]
+                    Transitions = [new() { Keyword = "[DONE]", Description = "Complete the flow." }]
                 }
             ]
         };
@@ -56,9 +54,7 @@ public class WorkflowDefinitionTests
                 new WorkflowStep
                 {
                     Name = "u",
-                    AllowedKeywords = ["[NEXT]"],
-                    KeywordOptions = [new() { Keyword = "[NEXT]", Description = "Move to the next step." }],
-                    Transitions = new() { ["[NEXT]"] = "ghost" }
+                    Transitions = [new() { Keyword = "[NEXT]", Description = "Move to the next step.", NextStep = "ghost" }]
                 }
             ]
         };
@@ -66,7 +62,7 @@ public class WorkflowDefinitionTests
     }
 
     [Fact]
-    public void Validate_rejects_transition_key_not_in_allowed_keywords()
+    public void Validate_rejects_duplicate_transition_keywords()
     {
         var def = new WorkflowDefinition
         {
@@ -77,9 +73,11 @@ public class WorkflowDefinitionTests
                 new WorkflowStep
                 {
                     Name = "u",
-                    AllowedKeywords = ["[DONE]"],
-                    KeywordOptions = [new() { Keyword = "[DONE]", Description = "Complete the flow." }],
-                    Transitions = new() { ["[NEXT]"] = "u" }
+                    Transitions =
+                    [
+                        new() { Keyword = "[DONE]", Description = "Complete the flow." },
+                        new() { Keyword = "[DONE]", Description = "Complete the flow again." }
+                    ]
                 }
             ]
         };
@@ -87,13 +85,13 @@ public class WorkflowDefinitionTests
     }
 
     [Fact]
-    public void Validate_rejects_allowed_keyword_without_description()
+    public void Validate_rejects_transition_without_description()
     {
         var def = new WorkflowDefinition
         {
             Name = "x",
             StartStepName = "u",
-            Steps = [new WorkflowStep { Name = "u", AllowedKeywords = ["[DONE]"] }]
+            Steps = [new WorkflowStep { Name = "u", Transitions = [new() { Keyword = "[DONE]" }] }]
         };
 
         Assert.Throws<InvalidOperationException>(() => def.Validate());
@@ -102,13 +100,25 @@ public class WorkflowDefinitionTests
     [Theory]
     [InlineData("ask")]
     [InlineData("act")]
-    [InlineData("requirements")]
-    [InlineData("tasks")]
-    [InlineData("full-pipeline")]
-    public void Shipped_definitions_load_and_validate(string name)
+    [InlineData("collect_requirements")]
+    [InlineData("produce_tasks")]
+    [InlineData("execute_tasks")]
+    public void Shipped_steps_load_and_validate(string name)
     {
         var def = WorkflowDefinition.LoadByName(name);
         Assert.Equal(name, def.Name);
         Assert.Contains(def.Steps, step => step.Name == def.StartStepName);
+    }
+
+    [Theory]
+    [InlineData("requirements", "collect_requirements")]
+    [InlineData("tasks", "produce_tasks")]
+    [InlineData("full-pipeline", "collect_requirements")]
+    public void Legacy_definition_names_resolve_to_start_steps(string legacyName, string startStep)
+    {
+        var def = WorkflowDefinition.LoadByName(legacyName);
+
+        Assert.Equal(startStep, def.Name);
+        Assert.Equal(startStep, def.StartStepName);
     }
 }

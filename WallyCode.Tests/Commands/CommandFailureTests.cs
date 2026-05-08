@@ -77,7 +77,7 @@ public class CommandFailureTests
             },
             CancellationToken.None));
 
-        Assert.Contains("Active session uses workflow 'requirements'", exception.Message);
+        Assert.Contains("Active session started from step 'collect_requirements'", exception.Message);
     }
 
     [Fact]
@@ -110,7 +110,7 @@ public class CommandFailureTests
             new LoopCommandOptions
             {
                 Goal = "new goal",
-                Definition = "requirements",
+                StartStepName = "collect_requirements",
                 SourcePath = workspace.RootPath,
                 Steps = 5,
                 Step = true
@@ -193,7 +193,7 @@ public class CommandFailureTests
             Model = "mock-default-model"
         }.Save(workspace.RootPath);
 
-        var definition = WorkflowDefinition.LoadByName("requirements");
+        var definition = WorkflowDefinition.LoadByName("full-pipeline");
         var session = Session.Start(definition, "test goal", "mock-provider", "mock-default-model", workspace.RootPath);
         session.Save(Path.Combine(workspace.RootPath, ".wallycode"));
 

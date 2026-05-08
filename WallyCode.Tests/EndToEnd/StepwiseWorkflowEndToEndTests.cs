@@ -48,7 +48,7 @@ public class StepwiseWorkflowEndToEndTests
     }
 
     [Fact]
-    public async Task Requirements_workflow_steps_through_continue_ask_respond_resume_done()
+    public async Task Requirements_workflow_steps_through_continue_ask_respond_resume_ready()
     {
         using var workspace = TempWorkspace.Create();
         WriteMockProviderSettings(workspace.RootPath);
@@ -68,18 +68,11 @@ public class StepwiseWorkflowEndToEndTests
                 RawOutput = """{"selectedKeyword":"[ASK_USER]","summary":"need clarification"}""",
                 ExpectedSourcePath = workspace.RootPath
             },
-            // step 3: resume --step (after respond) -> REQUIREMENTS_READY transitions to produce_tasks
+        // step 3: resume --step (after respond) -> REQUIREMENTS_READY moves to task planning
             new MockInvocation
             {
                 Label = "step-3-ready",
                 RawOutput = """{"selectedKeyword":"[REQUIREMENTS_READY]","summary":"requirements ready"}""",
-                ExpectedSourcePath = workspace.RootPath
-            },
-            // step 4: resume --step on produce_tasks -> DONE (terminal)
-            new MockInvocation
-            {
-                Label = "step-4-done",
-                RawOutput = """{"selectedKeyword":"[DONE]","summary":"all tasks produced"}""",
                 ExpectedSourcePath = workspace.RootPath
             }
         ]);
@@ -88,7 +81,7 @@ public class StepwiseWorkflowEndToEndTests
         var sessionRoot = Path.Combine(workspace.RootPath, ".wallycode");
 
         // 1. start the session with --step
-        var step1 = await harness.InvokeAsync("loop", "Build a CSV importer.", "--definition", "requirements", "--step");
+        var step1 = await harness.InvokeAsync("loop", "Build a CSV importer.", "--start-step", "collect_requirements", "--step");
         step1.AssertSucceeded();
         Assert.Contains("Selected keyword: [CONTINUE]", step1.Output);
         var afterStep1 = Session.Load(sessionRoot);
@@ -115,23 +108,17 @@ public class StepwiseWorkflowEndToEndTests
         Assert.Equal(SessionStatus.Active, afterRespond.Status);
         Assert.Contains("use comma-separated values", afterRespond.PendingResponses);
 
-        // 4. resume --step -> REQUIREMENTS_READY transitions to produce_tasks
+        // 4. resume --step -> REQUIREMENTS_READY moves to task planning
         var step3 = await harness.InvokeAsync("resume", "--step");
         step3.AssertSucceeded();
         Assert.Contains("Selected keyword: [REQUIREMENTS_READY]", step3.Output);
         var afterStep3 = Session.Load(sessionRoot);
         Assert.Equal("produce_tasks", afterStep3.ActiveStepName);
+        Assert.Equal(SessionStatus.Active, afterStep3.Status);
         Assert.Empty(afterStep3.PendingResponses);
 
         // and the prompt for step 3 should have included the user's pending response
         Assert.Contains(provider.Requests, r => r.Prompt.Contains("use comma-separated values"));
-
-        // 5. resume --step -> DONE (terminal)
-        var step4 = await harness.InvokeAsync("resume", "--step");
-        step4.AssertSucceeded();
-        Assert.Contains("Selected keyword: [DONE]", step4.Output);
-        var afterStep4 = Session.Load(sessionRoot);
-        Assert.Equal(SessionStatus.Completed, afterStep4.Status);
 
         provider.AssertConsumed();
     }
@@ -246,11 +233,11 @@ public class StepwiseWorkflowEndToEndTests
         using var harness = CliHarness.Create(workspace.RootPath, provider);
         var sessionRoot = Path.Combine(workspace.RootPath, ".wallycode");
 
-        var step1 = await harness.InvokeAsync("loop", "Implement feature X.", "--definition", "tasks", "--step");
+        var step1 = await harness.InvokeAsync("loop", "Implement feature X.", "--start-step", "produce_tasks", "--step");
         step1.AssertSucceeded();
         Assert.Contains("Selected keyword: [TASKS_READY]", step1.Output);
         var afterStep1 = Session.Load(sessionRoot);
-        Assert.Equal("tasks", afterStep1.WorkflowName);
+        Assert.Equal("produce_tasks", afterStep1.WorkflowName);
         Assert.Equal("execute_tasks", afterStep1.ActiveStepName);
         Assert.Equal(SessionStatus.Active, afterStep1.Status);
 
@@ -296,10 +283,10 @@ public class StepwiseWorkflowEndToEndTests
         using var harness = CliHarness.Create(workspace.RootPath, provider);
         var sessionRoot = Path.Combine(workspace.RootPath, ".wallycode");
 
-        var step1 = await harness.InvokeAsync("loop", "End-to-end pipeline goal.", "--definition", "full-pipeline", "--step");
+        var step1 = await harness.InvokeAsync("loop", "End-to-end pipeline goal.", "--start-step", "collect_requirements", "--step");
         step1.AssertSucceeded();
         var afterStep1 = Session.Load(sessionRoot);
-        Assert.Equal("full-pipeline", afterStep1.WorkflowName);
+        Assert.Equal("collect_requirements", afterStep1.WorkflowName);
         Assert.Equal("produce_tasks", afterStep1.ActiveStepName);
 
         var step2 = await harness.InvokeAsync("resume", "--step");
