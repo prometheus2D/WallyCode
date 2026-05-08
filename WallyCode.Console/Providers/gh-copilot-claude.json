@@ -1,10 +1,10 @@
 {
   "name": "gh-copilot-claude",
   "kind": "gh-copilot-cli",
-  "description": "GitHub Copilot CLI using Claude Sonnet 4.",
-  "defaultModel": "claude-sonnet-4",
-  "preferredCheapModel": "claude-sonnet-4",
+  "description": "GitHub Copilot CLI using Claude Haiku 4.5.",
+  "defaultModel": "claude-haiku-4.5",
+  "preferredCheapModel": "claude-haiku-4.5",
   "supportedModels": [
-    "claude-sonnet-4"
+    "claude-haiku-4.5"
   ]
 }

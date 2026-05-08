@@ -1,0 +1,10 @@
+{
+  "name": "gh-copilot-gpt",
+  "kind": "gh-copilot-cli",
+  "description": "GitHub Copilot CLI using GPT-4.1.",
+  "defaultModel": "gpt-4.1",
+  "preferredCheapModel": "gpt-4.1",
+  "supportedModels": [
+    "gpt-4.1"
+  ]
+}
