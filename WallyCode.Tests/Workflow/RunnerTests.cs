@@ -20,11 +20,11 @@ public class RunnerTests
         using var temp = TempWorkspace.Create();
         var def = WorkflowDefinition.LoadByName("requirements");
         var runner = NewRunner(temp.RootPath, def,
-            new MockInvocation { RawOutput = """{"selectedKeyword":"[CONTINUE]","summary":"working"}""" });
+            new MockInvocation { RawOutput = """{"selectedStep":"collect_requirements","summary":"working"}""" });
 
         var result = await runner.RunOnceAsync(CancellationToken.None);
 
-        Assert.Equal("[CONTINUE]", result.SelectedKeyword);
+        Assert.Equal("collect_requirements", result.SelectedStep);
         Assert.Equal("collect_requirements", result.ActiveStepName);
         Assert.Equal(SessionStatus.Active, result.Status);
         Assert.False(result.StopsInvocation);
@@ -32,16 +32,16 @@ public class RunnerTests
 
         var session = Session.Load(temp.RootPath);
         Assert.Equal(1, session.IterationCount);
-        Assert.Equal("[CONTINUE]", session.LastSelectedKeyword);
+        Assert.Equal("collect_requirements", session.LastSelectedStep);
     }
 
     [Fact]
-    public async Task Transition_keyword_moves_to_target_step()
+    public async Task Selected_next_step_moves_to_target_step()
     {
         using var temp = TempWorkspace.Create();
         var def = WorkflowDefinition.LoadByName("full-pipeline");
         var runner = NewRunner(temp.RootPath, def,
-            new MockInvocation { RawOutput = """{"selectedKeyword":"[REQUIREMENTS_READY]"}""" });
+            new MockInvocation { RawOutput = """{"selectedStep":"produce_tasks"}""" });
 
         var result = await runner.RunOnceAsync(CancellationToken.None);
 
@@ -51,22 +51,22 @@ public class RunnerTests
     }
 
     [Theory]
-    [InlineData("[ASK_USER]", SessionStatus.Blocked)]
-    [InlineData("[DONE]", SessionStatus.Completed)]
-    [InlineData("[ERROR]", SessionStatus.Error)]
-    public async Task Terminal_keywords_update_status_and_stop(string keyword, string expectedStatus)
+    [InlineData("ask_user", SessionStatus.Blocked)]
+    [InlineData("done", SessionStatus.Completed)]
+    [InlineData("error", SessionStatus.Error)]
+    public async Task Terminal_selections_update_status_and_stop(string selectedStep, string expectedStatus)
     {
         using var temp = TempWorkspace.Create();
         var def = WorkflowDefinition.LoadByName("full-pipeline");
         var session = Session.Start(def, "test goal", "mock-provider", "mock-default-model", temp.RootPath);
-        if (keyword is "[DONE]" or "[ERROR]")
+        if (selectedStep is "done" or "error")
         {
             session.ActiveStepName = "produce_tasks";
         }
         session.Save(temp.RootPath);
 
         var runner = new Runner(
-            new MockLlmProvider([new MockInvocation { RawOutput = $$"""{"selectedKeyword":"{{keyword}}","summary":"problem details"}""" }]),
+            new MockLlmProvider([new MockInvocation { RawOutput = $$"""{"selectedStep":"{{selectedStep}}","summary":"problem details"}""" }]),
             def, temp.RootPath);
 
         var result = await runner.RunOnceAsync(CancellationToken.None);
@@ -80,7 +80,7 @@ public class RunnerTests
     [InlineData("DONE")]
     [InlineData("[BOGUS]")]
     [InlineData("[FAIL]")]
-    public async Task Invalid_keyword_throws(string keyword)
+    public async Task Invalid_selected_step_throws(string selectedStep)
     {
         using var temp = TempWorkspace.Create();
         var def = WorkflowDefinition.LoadByName("full-pipeline");
@@ -89,21 +89,21 @@ public class RunnerTests
         session.Save(temp.RootPath);
 
         var runner = new Runner(
-            new MockLlmProvider([new MockInvocation { RawOutput = $$"""{"selectedKeyword":"{{keyword}}"}""" }]),
+            new MockLlmProvider([new MockInvocation { RawOutput = $$"""{"selectedStep":"{{selectedStep}}"}""" }]),
             def, temp.RootPath);
 
         await Assert.ThrowsAsync<InvalidOperationException>(() => runner.RunOnceAsync(CancellationToken.None));
 
         var persisted = Session.Load(temp.RootPath);
         Assert.Equal(SessionStatus.Error, persisted.Status);
-        Assert.Equal("[ERROR]", persisted.LastSelectedKeyword);
+        Assert.Equal("error", persisted.LastSelectedStep);
         Assert.False(string.IsNullOrWhiteSpace(persisted.LastSummary));
     }
 
     [Theory]
     [InlineData("not json")]
     [InlineData("{}")]
-    public async Task Malformed_or_missing_keyword_json_throws(string rawOutput)
+    public async Task Malformed_or_missing_selected_step_json_throws(string rawOutput)
     {
         using var temp = TempWorkspace.Create();
         var def = WorkflowDefinition.LoadByName("requirements");
@@ -114,7 +114,7 @@ public class RunnerTests
 
         var persisted = Session.Load(temp.RootPath);
         Assert.Equal(SessionStatus.Error, persisted.Status);
-        Assert.Equal("[ERROR]", persisted.LastSelectedKeyword);
+        Assert.Equal("error", persisted.LastSelectedStep);
     }
 
     [Fact]
@@ -134,7 +134,7 @@ public class RunnerTests
 
         var persisted = Session.Load(temp.RootPath);
         Assert.Equal(SessionStatus.Error, persisted.Status);
-        Assert.Equal("[ERROR]", persisted.LastSelectedKeyword);
+        Assert.Equal("error", persisted.LastSelectedStep);
         Assert.Equal("provider unreachable", persisted.LastSummary);
         Assert.Equal(1, persisted.IterationCount);
         Assert.Empty(persisted.PendingResponses);
@@ -146,14 +146,14 @@ public class RunnerTests
         using var temp = TempWorkspace.Create();
         var def = WorkflowDefinition.LoadByName("requirements");
         var runner = NewRunner(temp.RootPath, def,
-            new MockInvocation { RawOutput = "```json\n{\"selectedKeyword\":\"[CONTINUE]\"}\n```" });
+            new MockInvocation { RawOutput = "```json\n{\"selectedStep\":\"collect_requirements\"}\n```" });
 
         var result = await runner.RunOnceAsync(CancellationToken.None);
-        Assert.Equal("[CONTINUE]", result.SelectedKeyword);
+        Assert.Equal("collect_requirements", result.SelectedStep);
     }
 
     [Fact]
-    public async Task Run_steps_stops_on_blocking_keyword()
+    public async Task Run_steps_stops_on_blocking_selection()
     {
         using var temp = TempWorkspace.Create();
         var def = WorkflowDefinition.LoadByName("requirements");
@@ -161,9 +161,9 @@ public class RunnerTests
         session.Save(temp.RootPath);
         var runner = new Runner(
             new MockLlmProvider([
-                new MockInvocation { RawOutput = """{"selectedKeyword":"[CONTINUE]"}""" },
-                new MockInvocation { RawOutput = """{"selectedKeyword":"[ASK_USER]"}""" },
-                new MockInvocation { RawOutput = """{"selectedKeyword":"[CONTINUE]"}""" }
+                new MockInvocation { RawOutput = """{"selectedStep":"collect_requirements"}""" },
+                new MockInvocation { RawOutput = """{"selectedStep":"ask_user"}""" },
+                new MockInvocation { RawOutput = """{"selectedStep":"collect_requirements"}""" }
             ]),
             def, temp.RootPath);
 
@@ -182,7 +182,7 @@ public class RunnerTests
         session.Save(temp.RootPath);
 
         var provider = new MockLlmProvider([
-            new MockInvocation { RawOutput = """{"selectedKeyword":"[CONTINUE]"}""" }
+            new MockInvocation { RawOutput = """{"selectedStep":"collect_requirements"}""" }
         ]);
         var runner = new Runner(provider, def, temp.RootPath);
 
@@ -193,36 +193,40 @@ public class RunnerTests
     }
 
     [Fact]
-    public async Task Prompt_includes_keyword_descriptions()
+    public async Task Prompt_includes_step_transitions()
     {
         using var temp = TempWorkspace.Create();
         var def = WorkflowDefinition.LoadByName("requirements");
         var provider = new MockLlmProvider([
-            new MockInvocation { RawOutput = """{"selectedKeyword":"[CONTINUE]"}""" }
+            new MockInvocation { RawOutput = """{"selectedStep":"collect_requirements"}""" }
         ]);
         var runner = new Runner(provider, def, temp.RootPath);
         Session.Start(def, "test goal", "mock-provider", "mock-default-model", temp.RootPath).Save(temp.RootPath);
 
         await runner.RunOnceAsync(CancellationToken.None);
 
-        Assert.Contains("Transition options:", provider.Requests[0].Prompt);
-        Assert.Contains("[REQUIREMENTS_READY]:", provider.Requests[0].Prompt);
+        Assert.Contains("Step transitions:", provider.Requests[0].Prompt);
+        Assert.Contains("collect_requirements:", provider.Requests[0].Prompt);
+        Assert.Contains("produce_tasks:", provider.Requests[0].Prompt);
     }
 
     [Fact]
-    public async Task Prompt_mentions_error_keyword_guidance()
+    public async Task Prompt_includes_terminal_error_outcome_guidance()
     {
         using var temp = TempWorkspace.Create();
         var def = WorkflowDefinition.LoadByName("requirements");
         var provider = new MockLlmProvider([
-            new MockInvocation { RawOutput = """{"selectedKeyword":"[CONTINUE]"}""" }
+            new MockInvocation { RawOutput = """{"selectedStep":"collect_requirements"}""" }
         ]);
         var runner = new Runner(provider, def, temp.RootPath);
         Session.Start(def, "test goal", "mock-provider", "mock-default-model", temp.RootPath).Save(temp.RootPath);
 
         await runner.RunOnceAsync(CancellationToken.None);
 
-        Assert.Contains("select [ERROR]", provider.Requests[0].Prompt);
+        Assert.Contains("Terminal outcomes:", provider.Requests[0].Prompt);
+        Assert.Contains("These outcomes stop this invocation and do not target workflow steps.", provider.Requests[0].Prompt);
+        Assert.Contains("error:", provider.Requests[0].Prompt);
+        Assert.Contains("Put the user-visible reason in summary", provider.Requests[0].Prompt);
         Assert.DoesNotContain("[FAIL]", provider.Requests[0].Prompt);
     }
 
@@ -232,7 +236,7 @@ public class RunnerTests
         using var temp = TempWorkspace.Create();
         var def = WorkflowDefinition.LoadByName("requirements");
         var provider = new MockLlmProvider([
-            new MockInvocation { RawOutput = """{"selectedKeyword":"[CONTINUE]"}""" }
+            new MockInvocation { RawOutput = """{"selectedStep":"collect_requirements"}""" }
         ]);
         var runner = new Runner(provider, def, temp.RootPath);
         Session.Start(def, "test goal", "mock-provider", "mock-default-model", temp.RootPath).Save(temp.RootPath);

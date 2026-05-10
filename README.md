@@ -32,7 +32,7 @@ wallycode loop "What does this project do?" --definition ask --source C:\src\MyR
 wallycode loop "Refactor the routing code." --definition act --source C:\src\MyRepo
 ```
 
-Run several transitions in one call, or isolate session state:
+Run several routed steps in one call, or isolate session state:
 
 ```powershell
 wallycode loop "Review repo structure." --steps 3 --source C:\src\MyRepo --log --verbose
@@ -106,13 +106,12 @@ Session lifecycle inside `loop`:
 - blocked -> `respond`, then `loop`
 - terminal -> archived automatically before a new one starts
 
-Control keywords (shared):
-- `[CONTINUE]` stay in current unit
-- `[ASK_USER]` block until `respond`
-- `[DONE]` complete workflow
-- `[ERROR]` stop; reason goes in `summary`
-
-Workflow-specific routing keywords (e.g. `[REQUIREMENTS_READY]`, `[TASKS_READY]`) move between units.
+The provider returns a `selectedStep` from the allowed step options in the prompt:
+- the current step name continues that step
+- a configured JSON transition moves to its `targetStepName`
+- `ask_user` blocks until `respond`
+- `done` completes the workflow
+- `error` stops; reason goes in `summary`
 
 ---
 
@@ -150,7 +149,7 @@ wallycode respond <response> [--source <path>] [--memory-root <path>] [--log] [-
 
 ## Observability
 
-`--log --verbose` on `loop` traces prompt text, raw provider output, selected keyword, next unit, session status, and `[ERROR]` reason. Use `--steps 1` while tuning prompts or routing.
+`--log --verbose` on `loop` traces prompt text, raw provider output, selected step, next step, session status, and `error` reason. Use `--steps 1` while tuning prompts or routing.
 
 ---
 
@@ -159,6 +158,6 @@ wallycode respond <response> [--source <path>] [--memory-root <path>] [--log] [-
 - Provider unavailable -> `wallycode provider --source <repo>`; verify external tooling is installed/authenticated
 - No active session -> start with `wallycode loop "<goal>" --source <repo>`
 - Blocked -> `respond` then `loop`
-- `[ERROR]` -> inspect logged summary; adjust goal/definition/workspace and retry
+- `error` -> inspect logged summary; adjust goal/definition/workspace and retry
 - Wrong repo / session -> verify `--source` and `--memory-root`
 

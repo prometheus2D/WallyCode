@@ -3,25 +3,14 @@
   "instructions": "Break the clarified work into concrete implementation tasks. Stay in this step until the task list is ready.",
   "transitions": [
     {
-      "keyword": "[CONTINUE]",
-      "description": "Continue working in the current step because more progress is needed before transitioning or stopping."
+      "selection": "produce_tasks",
+      "description": "Continue refining the implementation task list in the current step.",
+      "targetStepName": "produce_tasks"
     },
     {
-      "keyword": "[ASK_USER]",
-      "description": "Ask the user for input that is required before progress can continue."
-    },
-    {
-      "keyword": "[TASKS_READY]",
-      "description": "The task plan is ready and execution can begin.",
-      "nextStep": "execute_tasks"
-    },
-    {
-      "keyword": "[DONE]",
-      "description": "The workflow goal is complete and no further steps are required."
-    },
-    {
-      "keyword": "[ERROR]",
-      "description": "An unrecoverable problem prevented producing tasks."
+      "selection": "execute_tasks",
+      "description": "The task list is ready and implementation should begin.",
+      "targetStepName": "execute_tasks"
     }
   ]
 }

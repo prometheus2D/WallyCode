@@ -6,16 +6,15 @@ Workflow definitions are WallyCode entry points selected by `loop --definition <
 
 - `WallyCode.Console/Workflow/Definitions/*.json` defines named workflows.
 - `WallyCode.Console/Workflow/Steps/*.json` defines reusable shared steps.
-- `WallyCode.Console/Workflow/Keywords/*.json` defines shared keyword descriptions.
 
-The project file copies all three folders to build and publish output, so JSON edits are available to the console app after a build.
+The project file copies workflow step JSON to build and publish output, so edits are available to the console app after a build.
 
 ## Built-in definitions
 
 | Definition | Start step | Purpose |
 | --- | --- | --- |
-| `ask` | `prompt` | Answer a question without intending to edit files. |
-| `act` | `prompt` | Complete a file-changing implementation request. |
+| `ask` | `ask` | Answer a question without intending to edit files. |
+| `act` | `act` | Complete a file-changing implementation request. |
 | `requirements` | `collect_requirements` | Clarify requirements, produce tasks, then execute. This is the default for `loop`. |
 | `tasks` | `produce_tasks` | Start at task production, then execute. |
 | `full-pipeline` | `collect_requirements` | Run the full requirements-to-execution flow. |
@@ -33,24 +32,25 @@ If an active session exists, it is tied to the workflow definition it started wi
 
 ## Add or change a definition
 
-1. Add or edit a JSON file under `WallyCode.Console/Workflow/Definitions`.
-2. Reuse shared steps with `stepRefs`, or define inline `steps` when the behavior is specific to that definition.
-3. Give each step an `allowedKeywords` list.
-4. Add `transitions` for keywords that move to another step.
-5. Keep built-in control keywords predictable: `[CONTINUE]`, `[ASK_USER]`, `[DONE]`, and `[ERROR]`.
-6. Run `dotnet test WallyCode.sln`.
+1. Add or edit shared step JSON under `WallyCode.Console/Workflow/Steps`.
+2. Put step instructions in `instructions`.
+3. Put direct step routes in `transitions`. Each JSON transition must set `targetStepName` to another step defined by a loadable JSON file.
+4. Run `dotnet test WallyCode.sln`.
 
 Example shape:
 
 ```json
 {
-  "name": "example",
-  "startStepName": "collect_requirements",
-  "stepRefs": [
-    { "ref": "collect_requirements" },
-    { "ref": "produce_tasks" }
+  "id": "collect_requirements",
+  "instructions": "Clarify the user's goal, constraints, and expected outcome.",
+  "transitions": [
+    {
+      "selection": "produce_tasks",
+      "description": "Requirements are clear enough to break the work into tasks.",
+      "targetStepName": "produce_tasks"
+    }
   ]
 }
 ```
 
-For a shared step, make sure every transition target is a step present in the resolved definition.
+At runtime, the provider returns `selectedStep`. Selecting the current step continues, selecting a JSON-defined transition moves to its `targetStepName`, `ask_user` blocks for `respond`, `done` completes, and `error` stops with the summary as the reason. `ask_user`, `done`, and `error` are built-in terminal outcomes, not JSON transitions.

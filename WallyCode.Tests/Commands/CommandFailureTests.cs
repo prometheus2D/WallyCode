@@ -93,13 +93,13 @@ public class CommandFailureTests
         var provider = new MockLlmProvider([
             new MockInvocation
             {
-                RawOutput = """{"selectedKeyword":"[CONTINUE]","summary":"first"}""",
+                RawOutput = """{"selectedStep":"collect_requirements","summary":"first"}""",
                 ExpectedModel = "mock-default-model",
                 ExpectedSourcePath = workspace.RootPath
             },
             new MockInvocation
             {
-                RawOutput = """{"selectedKeyword":"[CONTINUE]","summary":"second"}""",
+                RawOutput = """{"selectedStep":"collect_requirements","summary":"second"}""",
                 ExpectedModel = "mock-default-model",
                 ExpectedSourcePath = workspace.RootPath
             }
@@ -200,7 +200,7 @@ public class CommandFailureTests
         var provider = new MockLlmProvider([
             new MockInvocation
             {
-                RawOutput = """{"selectedKeyword":"[REQUIREMENTS_READY]","summary":"moving forward"}""",
+                RawOutput = """{"selectedStep":"produce_tasks","summary":"moving forward"}""",
                 ExpectedModel = "mock-default-model",
                 ExpectedSourcePath = workspace.RootPath
             }
@@ -239,13 +239,13 @@ public class CommandFailureTests
         var provider = new MockLlmProvider([
             new MockInvocation
             {
-                RawOutput = """{"selectedKeyword":"[CONTINUE]","summary":"first"}""",
+                RawOutput = """{"selectedStep":"collect_requirements","summary":"first"}""",
                 ExpectedModel = "mock-default-model",
                 ExpectedSourcePath = workspace.RootPath
             },
             new MockInvocation
             {
-                RawOutput = """{"selectedKeyword":"[CONTINUE]","summary":"second"}""",
+                RawOutput = """{"selectedStep":"collect_requirements","summary":"second"}""",
                 ExpectedModel = "mock-default-model",
                 ExpectedSourcePath = workspace.RootPath
             }
@@ -416,7 +416,7 @@ public class CommandFailureTests
         var provider = new MockLlmProvider([
             new MockInvocation
             {
-                RawOutput = """{"selectedKeyword":"[DONE]","summary":""}""",
+                RawOutput = """{"selectedStep":"done","summary":""}""",
                 ExpectedModel = "mock-default-model",
                 ExpectedSourcePath = workspace.RootPath
             }
@@ -457,7 +457,7 @@ public class CommandFailureTests
         var provider = new MockLlmProvider([
             new MockInvocation
             {
-                RawOutput = """{"selectedKeyword":"[DONE]","summary":"done again"}""",
+                RawOutput = """{"selectedStep":"done","summary":"done again"}""",
                 ExpectedModel = "mock-default-model",
                 ExpectedSourcePath = workspace.RootPath
             }

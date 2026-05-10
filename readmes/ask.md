@@ -8,7 +8,7 @@ Use `ask` when you want WallyCode to answer a question against a repo without in
 wallycode loop "..." --definition ask
 ```
 
-The `ask` definition has one step named `prompt`. Its instructions tell the provider not to change files, and its allowed outcomes are `[DONE]` and `[ERROR]`.
+The `ask` workflow starts at the `ask` step. Its instructions tell the provider not to change files, and it can finish with `done` or fail with `error`.
 
 ## Basic usage
 

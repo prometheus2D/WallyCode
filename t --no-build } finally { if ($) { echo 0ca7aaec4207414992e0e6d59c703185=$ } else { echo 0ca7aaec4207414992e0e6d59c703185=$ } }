@@ -1,0 +1,162 @@
+[1mdiff --git a/README.md b/README.md[m
+[1mindex 367cd93..f9aeffc 100644[m
+[1m--- a/README.md[m
+[1m+++ b/README.md[m
+[36m@@ -32,7 +32,7 @@[m [mwallycode loop "What does this project do?" --definition ask --source C:\src\MyR[m
+ wallycode loop "Refactor the routing code." --definition act --source C:\src\MyRepo[m
+ ```[m
+ [m
+[31m-Run several transitions in one call, or isolate session state:[m
+[32m+[m[32mRun several routed steps in one call, or isolate session state:[m
+ [m
+ ```powershell[m
+ wallycode loop "Review repo structure." --steps 3 --source C:\src\MyRepo --log --verbose[m
+[36m@@ -106,13 +106,12 @@[m [mSession lifecycle inside `loop`:[m
+ - blocked -> `respond`, then `loop`[m
+ - terminal -> archived automatically before a new one starts[m
+ [m
+[31m-Control keywords (shared):[m
+[31m-- `[CONTINUE]` stay in current unit[m
+[31m-- `[ASK_USER]` block until `respond`[m
+[31m-- `[DONE]` complete workflow[m
+[31m-- `[ERROR]` stop; reason goes in `summary`[m
+[31m-[m
+[31m-Workflow-specific routing keywords (e.g. `[REQUIREMENTS_READY]`, `[TASKS_READY]`) move between units.[m
+[32m+[m[32mThe provider returns a `selectedStep` from the allowed step options in the prompt:[m
+[32m+[m[32m- the current step name continues that step[m
+[32m+[m[32m- a configured JSON transition moves to its `targetStepName`[m
+[32m+[m[32m- `ask_user` blocks until `respond`[m
+[32m+[m[32m- `done` completes the workflow[m
+[32m+[m[32m- `error` stops; reason goes in `summary`[m
+ [m
+ ---[m
+ [m
+[36m@@ -150,7 +149,7 @@[m [mwallycode respond <response> [--source <path>] [--memory-root <path>] [--log] [-[m
+ [m
+ ## Observability[m
+ [m
+[31m-`--log --verbose` on `loop` traces prompt text, raw provider output, selected keyword, next unit, session status, and `[ERROR]` reason. Use `--steps 1` while tuning prompts or routing.[m
+[32m+[m[32m`--log --verbose` on `loop` traces prompt text, raw provider output, selected step, next step, session status, and `error` reason. Use `--steps 1` while tuning prompts or routing.[m
+ [m
+ ---[m
+ [m
+[36m@@ -159,6 +158,6 @@[m [mwallycode respond <response> [--source <path>] [--memory-root <path>] [--log] [-[m
+ - Provider unavailable -> `wallycode provider --source <repo>`; verify external tooling is installed/authenticated[m
+ - No active session -> start with `wallycode loop "<goal>" --source <repo>`[m
+ - Blocked -> `respond` then `loop`[m
+[31m-- `[ERROR]` -> inspect logged summary; adjust goal/definition/workspace and retry[m
+[32m+[m[32m- `error` -> inspect logged summary; adjust goal/definition/workspace and retry[m
+ - Wrong repo / session -> verify `--source` and `--memory-root`[m
+ [m
+[1mdiff --git a/WallyCode.Console/Workflow/Runner.cs b/WallyCode.Console/Workflow/Runner.cs[m
+[1mindex a9d7d78..bf276ec 100644[m
+[1m--- a/WallyCode.Console/Workflow/Runner.cs[m
+[1m+++ b/WallyCode.Console/Workflow/Runner.cs[m
+[36m@@ -10,7 +10,7 @@[m [mnamespace WallyCode.ConsoleApp.Workflow;[m
+ internal sealed class IterationResult[m
+ {[m
+     public required int IterationNumber { get; init; }[m
+[31m-    public required string SelectedKeyword { get; init; }[m
+[32m+[m[32m    public required string SelectedStep { get; init; }[m
+     public required string Summary { get; init; }[m
+     public required string ActiveStepName { get; init; }[m
+     public required string Status { get; init; }[m
+[36m@@ -19,10 +19,9 @@[m [minternal sealed class IterationResult[m
+ [m
+ internal sealed class Runner[m
+ {[m
+[31m-    private const string Continue = "[CONTINUE]";[m
+[31m-    private const string AskUser = "[ASK_USER]";[m
+[31m-    private const string Done = "[DONE]";[m
+[31m-    private const string Error = "[ERROR]";[m
+[32m+[m[32m    private const string AskUser = "ask_user";[m
+[32m+[m[32m    private const string Done = "done";[m
+[32m+[m[32m    private const string Error = "error";[m
+ [m
+     private readonly ILlmProvider _provider;[m
+     private readonly WorkflowDefinition _definition;[m
+[36m@@ -54,7 +53,7 @@[m [minternal sealed class Runner[m
+             throw new InvalidOperationException($"Session is {session.Status}; nothing to run.");[m
+         }[m
+ [m
+[31m-        string keyword;[m
+[32m+[m[32m        string selectedStep;[m
+         string summary;[m
+         string nextStep;[m
+         string status;[m
+[36m@@ -72,20 +71,20 @@[m [minternal sealed class Runner[m
+ [m
+             _logger?.LogExchange("IN", $"iteration {session.IterationCount + 1} response ({step.Name})", rawOutput);[m
+ [m
+[31m-            (keyword, summary) = ParseOutput(rawOutput);[m
+[32m+[m[32m            (selectedStep, summary) = ParseOutput(rawOutput);[m
+ [m
+[31m-            if (!step.AllowedKeywords.Contains(keyword))[m
+[32m+[m[32m            if (!GetAllowedSelections(step).Contains(selectedStep, StringComparer.Ordinal))[m
+             {[m
+                 throw new InvalidOperationException([m
+[31m-                    $"Provider returned keyword '{keyword}' which is not allowed for step '{step.Name}'.");[m
+[32m+[m[32m                    $"Provider returned selected step '{selectedStep}' which is not allowed for step '{step.Name}'.");[m
+             }[m
+ [m
+[31m-            (nextStep, status, stops) = ApplyKeyword(step, keyword);[m
+[32m+[m[32m            (nextStep, status, stops) = ApplySelection(step, selectedStep);[m
+         }[m
+         catch (Exception ex) when (ex is not OperationCanceledException)[m
+         {[m
+             session.IterationCount++;[m
+[31m-            session.LastSelectedKeyword = Error;[m
+[32m+[m[32m            session.LastSelectedStep = Error;[m
+             session.LastSummary = ex.Message;[m
+             session.Status = SessionStatus.Error;[m
+             session.PendingResponses.Clear();[m
+[36m@@ -94,7 +93,7 @@[m [minternal sealed class Runner[m
+         }[m
+ [m
+         session.IterationCount++;[m
+[31m-        session.LastSelectedKeyword = keyword;[m
+[32m+[m[32m        session.LastSelectedStep = selectedStep;[m
+         session.LastSummary = summary;[m
+         session.ActiveStepName = nextStep;[m
+         session.Status = status;[m
+[36m@@ -104,7 +103,7 @@[m [minternal sealed class Runner[m
+         return new IterationResult[m
+         {[m
+             IterationNumber = session.IterationCount,[m
+[31m-            SelectedKeyword = keyword,[m
+[32m+[m[32m            SelectedStep = selectedStep,[m
+             Summary = summary,[m
+             ActiveStepName = nextStep,[m
+             Status = status,[m
+[36m@@ -126,7 +125,7 @@[m [minternal sealed class Runner[m
+         return results;[m
+     }[m
+ [m
+[31m-    private static string BuildPrompt(Session session, WorkflowStep step, string globalPrompt)[m
+[32m+[m[32m    private string BuildPrompt(Session session, WorkflowStep step, string globalPrompt)[m
+     {[m
+         var sb = new StringBuilder();[m
+         sb.AppendLine($"Goal: {session.Goal}");[m
+[36m@@ -142,10 +141,14 @@[m [minternal sealed class Runner[m
+             sb.AppendLine($"Instructions: {step.Instructions}");[m
+         }[m
+ [m
+[31m-        sb.AppendLine("Transition options:");[m
+[31m-        foreach (var keyword in step.AllowedKeywords)[m
+[32m+[m[32m        sb.AppendLine("Step options:");[m
+[32m+[m[32m        foreach (var transition in step.Transitions)[m
+         {[m
+[31m-            sb.AppendLine($"  - {keyword}: {step.DescribeKeyword(keyword)}");[m
+[32m+[m[32m            sb.AppendLine($"  - {transition.Selection}: {DescribeTransition(step, transition)}");[m
+[32m+[m[32m        }[m
+[32m+[m[32m        foreach (var terminalOutcome in GetTerminalOutcomes())[m
+[32m+[m[32m        {[m
+[32m+[m[32m            sb.AppendLine($"  - {terminalOutcome.Selection}: {terminalOutcome.Description}");[m
+         }[m
+ [m
+         if (session.PendingResponses.Count > 0)[m
+[36m@@ -158,14 +161,47 @@[m [minternal sealed class Runner[m
+         }[m
+ [m
+         sb.AppendLine();[m
+[31m-        sb.AppendLine("Choose exactly one transition keyword that best matches the next action base

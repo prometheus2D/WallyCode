@@ -10,7 +10,7 @@ namespace WallyCode.ConsoleApp.Workflow;
 internal sealed class IterationResult
 {
     public required int IterationNumber { get; init; }
-    public required string SelectedKeyword { get; init; }
+    public required string SelectedStep { get; init; }
     public required string Summary { get; init; }
     public required string ActiveStepName { get; init; }
     public required string Status { get; init; }
@@ -19,10 +19,9 @@ internal sealed class IterationResult
 
 internal sealed class Runner
 {
-    private const string Continue = "[CONTINUE]";
-    private const string AskUser = "[ASK_USER]";
-    private const string Done = "[DONE]";
-    private const string Error = "[ERROR]";
+    private const string AskUser = "ask_user";
+    private const string Done = "done";
+    private const string Error = "error";
 
     private readonly ILlmProvider _provider;
     private readonly WorkflowDefinition _definition;
@@ -54,7 +53,7 @@ internal sealed class Runner
             throw new InvalidOperationException($"Session is {session.Status}; nothing to run.");
         }
 
-        string keyword;
+        string selectedStep;
         string summary;
         string nextStep;
         string status;
@@ -72,20 +71,20 @@ internal sealed class Runner
 
             _logger?.LogExchange("IN", $"iteration {session.IterationCount + 1} response ({step.Name})", rawOutput);
 
-            (keyword, summary) = ParseOutput(rawOutput);
+            (selectedStep, summary) = ParseOutput(rawOutput);
 
-            if (!step.AllowedKeywords.Contains(keyword))
+            if (!GetAllowedSelections(step).Contains(selectedStep, StringComparer.Ordinal))
             {
                 throw new InvalidOperationException(
-                    $"Provider returned keyword '{keyword}' which is not allowed for step '{step.Name}'.");
+                    $"Provider returned selected step '{selectedStep}' which is not allowed for step '{step.Name}'.");
             }
 
-            (nextStep, status, stops) = ApplyKeyword(step, keyword);
+            (nextStep, status, stops) = ApplySelection(step, selectedStep);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             session.IterationCount++;
-            session.LastSelectedKeyword = Error;
+            session.LastSelectedStep = Error;
             session.LastSummary = ex.Message;
             session.Status = SessionStatus.Error;
             session.PendingResponses.Clear();
@@ -94,7 +93,7 @@ internal sealed class Runner
         }
 
         session.IterationCount++;
-        session.LastSelectedKeyword = keyword;
+        session.LastSelectedStep = selectedStep;
         session.LastSummary = summary;
         session.ActiveStepName = nextStep;
         session.Status = status;
@@ -104,7 +103,7 @@ internal sealed class Runner
         return new IterationResult
         {
             IterationNumber = session.IterationCount,
-            SelectedKeyword = keyword,
+            SelectedStep = selectedStep,
             Summary = summary,
             ActiveStepName = nextStep,
             Status = status,
@@ -126,7 +125,7 @@ internal sealed class Runner
         return results;
     }
 
-    private static string BuildPrompt(Session session, WorkflowStep step, string globalPrompt)
+    private string BuildPrompt(Session session, WorkflowStep step, string globalPrompt)
     {
         var sb = new StringBuilder();
         sb.AppendLine($"Goal: {session.Goal}");
@@ -142,10 +141,17 @@ internal sealed class Runner
             sb.AppendLine($"Instructions: {step.Instructions}");
         }
 
-        sb.AppendLine("Transition options:");
-        foreach (var keyword in step.AllowedKeywords)
+        sb.AppendLine("Step transitions:");
+        foreach (var transition in step.Transitions)
         {
-            sb.AppendLine($"  - {keyword}: {step.DescribeKeyword(keyword)}");
+            sb.AppendLine($"  - {transition.Selection}: {DescribeTransition(step, transition)}");
+        }
+
+        sb.AppendLine("Terminal outcomes:");
+        sb.AppendLine("These outcomes stop this invocation and do not target workflow steps.");
+        foreach (var terminalOutcome in GetTerminalOutcomes())
+        {
+            sb.AppendLine($"  - {terminalOutcome.Selection}: {terminalOutcome.Description}");
         }
 
         if (session.PendingResponses.Count > 0)
@@ -158,12 +164,45 @@ internal sealed class Runner
         }
 
         sb.AppendLine();
-        sb.AppendLine("Choose exactly one transition keyword that best matches the next action based on the transition descriptions.");
-        sb.AppendLine("If an unrecoverable problem occurred, select [ERROR].");
-        sb.AppendLine("Respond with strict JSON: { \"selectedKeyword\": \"[ONE_OF_ALLOWED]\", \"summary\": \"...\" }");
-        sb.AppendLine("selectedKeyword must be one of the allowed transition keywords above exactly as written, including brackets. Output JSON only.");
-        sb.AppendLine("When selecting [ERROR], put the user-visible reason in summary.");
+        sb.AppendLine("Choose exactly one step transition or terminal outcome that best matches what should happen next.");
+        sb.AppendLine("Respond with strict JSON: { \"selectedStep\": \"ONE_OF_ALLOWED\", \"summary\": \"...\" }");
+        sb.AppendLine("selectedStep must be one of the allowed selections above exactly as written. Output JSON only.");
         return sb.ToString();
+    }
+
+    private IReadOnlyList<string> GetAllowedSelections(WorkflowStep step)
+    {
+        return [.. step.Transitions.Select(transition => transition.Selection), .. GetTerminalOutcomes().Select(outcome => outcome.Selection)];
+    }
+
+    private static IReadOnlyList<(string Selection, string Description)> GetTerminalOutcomes()
+    {
+        return
+        [
+            (AskUser, "Ask the user for input that is required before progress can continue."),
+            (Done, "The user's goal is complete and no further steps are required."),
+            (Error, "An unrecoverable problem prevented the workflow from continuing. Put the user-visible reason in summary.")
+        ];
+    }
+
+    private string DescribeTransition(WorkflowStep step, WorkflowTransition transition)
+    {
+        if (!string.IsNullOrWhiteSpace(transition.Description))
+        {
+            return transition.Description;
+        }
+
+        if (!string.IsNullOrWhiteSpace(transition.TargetStepName))
+        {
+            var nextStep = _definition.GetStep(transition.TargetStepName);
+            return string.IsNullOrWhiteSpace(nextStep.Instructions)
+                ? $"Move to the '{transition.TargetStepName}' step."
+                : $"Move to the '{transition.TargetStepName}' step: {nextStep.Instructions}";
+        }
+
+        return string.Equals(transition.Status, SessionStatus.Active, StringComparison.Ordinal)
+            ? $"Remain on the '{step.Name}' step."
+            : $"Set workflow status to '{transition.Status}'.";
     }
 
     private static string LoadGlobalPrompt(string sessionRoot)
@@ -174,7 +213,7 @@ internal sealed class Runner
             : ProjectSettings.Load(projectRoot).GlobalPrompt ?? string.Empty;
     }
 
-    private static (string keyword, string summary) ParseOutput(string rawOutput)
+    private static (string selectedStep, string summary) ParseOutput(string rawOutput)
     {
         if (string.IsNullOrWhiteSpace(rawOutput))
         {
@@ -209,35 +248,38 @@ internal sealed class Runner
         using var document = JsonDocument.Parse(trimmed[firstBrace..(lastBrace + 1)]);
         var root = document.RootElement;
 
-        if (!root.TryGetProperty("selectedKeyword", out var keywordElement) || keywordElement.ValueKind != JsonValueKind.String)
+        if (!root.TryGetProperty("selectedStep", out var selectedStepElement) || selectedStepElement.ValueKind != JsonValueKind.String)
         {
-            throw new InvalidOperationException("Provider output is missing 'selectedKeyword' string.");
+            throw new InvalidOperationException("Provider output is missing 'selectedStep' string.");
         }
 
         var summary = root.TryGetProperty("summary", out var summaryElement) && summaryElement.ValueKind == JsonValueKind.String
             ? summaryElement.GetString() ?? string.Empty
             : string.Empty;
 
-        return (keywordElement.GetString()?.Trim() ?? string.Empty, summary);
+        return (selectedStepElement.GetString()?.Trim() ?? string.Empty, summary);
     }
 
-    private static (string nextStep, string status, bool stops) ApplyKeyword(WorkflowStep step, string keyword)
+    private static (string nextStep, string status, bool stops) ApplySelection(WorkflowStep step, string selectedStep)
     {
-        var transition = step.FindTransition(keyword);
-        if (!string.IsNullOrWhiteSpace(transition?.NextStep))
+        if (string.Equals(selectedStep, AskUser, StringComparison.Ordinal))
         {
-            return (transition.NextStep, SessionStatus.Active, false);
+            return (step.Name, SessionStatus.Blocked, true);
         }
 
-        var builtInResult = keyword switch
+        if (string.Equals(selectedStep, Done, StringComparison.Ordinal))
         {
-            Continue => (step.Name, SessionStatus.Active, false),
-            AskUser => (step.Name, SessionStatus.Blocked, true),
-            Done => (step.Name, SessionStatus.Completed, true),
-            Error => (step.Name, SessionStatus.Error, true),
-            _ => ((string nextStep, string status, bool stops)?)null
-        };
+            return (step.Name, SessionStatus.Completed, true);
+        }
 
-        return builtInResult ?? (step.Name, SessionStatus.Completed, true);
+        if (string.Equals(selectedStep, Error, StringComparison.Ordinal))
+        {
+            return (step.Name, SessionStatus.Error, true);
+        }
+
+        var transition = step.Transitions.FirstOrDefault(transition => string.Equals(transition.Selection, selectedStep, StringComparison.Ordinal))
+            ?? throw new InvalidOperationException($"Selected step '{selectedStep}' is not allowed for step '{step.Name}'.");
+
+        return (transition.TargetStepName ?? step.Name, transition.Status, transition.StopsInvocation);
     }
 }

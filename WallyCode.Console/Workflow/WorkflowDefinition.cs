@@ -10,20 +10,37 @@ internal static class StepExecutionKind
 
 internal sealed class WorkflowTransition
 {
-    public string Keyword { get; set; } = string.Empty;
-    public string? Description { get; set; }
-    public string? NextStep { get; set; }
+    public string Selection { get; set; } = string.Empty;
+    public string Description { get; set; } = string.Empty;
+    public string? TargetStepName { get; set; }
+    public string Status { get; set; } = "active";
+    public bool StopsInvocation { get; set; }
 
-    public void Validate(string ownerName)
+    public void ValidateShape(string ownerName, string stepName)
     {
-        if (string.IsNullOrWhiteSpace(Keyword))
+        if (string.IsNullOrWhiteSpace(Selection))
         {
-            throw new InvalidOperationException($"Workflow step '{ownerName}' contains a transition with no keyword.");
+            throw new InvalidOperationException($"Step '{ownerName}/{stepName}' contains a transition with no selection.");
         }
 
-        if (string.IsNullOrWhiteSpace(Description))
+        if (string.IsNullOrWhiteSpace(Status))
         {
-            throw new InvalidOperationException($"Workflow step '{ownerName}' transition '{Keyword}' must have a description.");
+            Status = "active";
+        }
+
+        if (Status is not "active" and not "blocked" and not "completed" and not "error")
+        {
+            throw new InvalidOperationException($"Step '{ownerName}/{stepName}' transition '{Selection}' has unsupported status '{Status}'.");
+        }
+
+        if (string.IsNullOrWhiteSpace(TargetStepName))
+        {
+            throw new InvalidOperationException($"Step '{ownerName}/{stepName}' transition '{Selection}' must target a declared step.");
+        }
+
+        if (!string.Equals(Status, "active", StringComparison.Ordinal) || StopsInvocation)
+        {
+            throw new InvalidOperationException($"Step '{ownerName}/{stepName}' transition '{Selection}' must be an active step route. Terminal outcomes are built in.");
         }
     }
 }
@@ -37,16 +54,6 @@ internal class WorkflowStep
     public string? ScriptPath { get; set; }
 
     public string QualifiedName(string workflowName) => $"{workflowName}/{Name}";
-
-    public IReadOnlyList<string> AllowedKeywords => [.. Transitions.Select(transition => transition.Keyword)];
-
-    public WorkflowTransition? FindTransition(string keyword) =>
-        Transitions.FirstOrDefault(transition => string.Equals(transition.Keyword, keyword, StringComparison.Ordinal));
-
-    public string DescribeKeyword(string keyword)
-    {
-        return FindTransition(keyword)?.Description ?? string.Empty;
-    }
 
     public void ValidateShape(string ownerName)
     {
@@ -72,18 +79,14 @@ internal class WorkflowStep
             throw new InvalidOperationException($"Step '{ownerName}/{Name}' uses executionKind 'script' but has no scriptPath.");
         }
 
-        if (Transitions.Count == 0)
-        {
-            throw new InvalidOperationException($"Workflow step '{ownerName}/{Name}' must declare at least one transition.");
-        }
-
-        var transitionKeywords = new HashSet<string>(StringComparer.Ordinal);
+        var selections = new HashSet<string>(StringComparer.Ordinal);
         foreach (var transition in Transitions)
         {
-            transition.Validate($"{ownerName}/{Name}");
-            if (!transitionKeywords.Add(transition.Keyword))
+            transition.ValidateShape(ownerName, Name);
+
+            if (!selections.Add(transition.Selection))
             {
-                throw new InvalidOperationException($"Step '{ownerName}/{Name}' has duplicate transition keyword '{transition.Keyword}'.");
+                throw new InvalidOperationException($"Step '{ownerName}/{Name}' has duplicate transition selection '{transition.Selection}'.");
             }
         }
     }
@@ -148,16 +151,11 @@ internal sealed class WorkflowDefinition
 
         foreach (var step in Steps)
         {
-            foreach (var target in step.Transitions.Select(transition => transition.NextStep).Where(target => !string.IsNullOrWhiteSpace(target)))
+            foreach (var target in step.Transitions.Select(transition => transition.TargetStepName).Where(target => !string.IsNullOrWhiteSpace(target)))
             {
-                if (target!.Contains('/', StringComparison.Ordinal))
+                if (!stepNames.Contains(target!))
                 {
-                    continue;
-                }
-
-                if (!stepNames.Contains(target))
-                {
-                    throw new InvalidOperationException($"Step '{step.Name}' transition targets unknown step '{target}'.");
+                    throw new InvalidOperationException($"Step '{step.Name}' targets unknown transition step '{target}'.");
                 }
             }
         }
@@ -168,7 +166,8 @@ internal sealed class WorkflowCatalog
 {
     private readonly Dictionary<string, SharedWorkflowStepDefinition> _sharedSteps;
 
-    private WorkflowCatalog(Dictionary<string, SharedWorkflowStepDefinition> sharedSteps)
+    private WorkflowCatalog(
+        Dictionary<string, SharedWorkflowStepDefinition> sharedSteps)
     {
         _sharedSteps = sharedSteps;
     }
@@ -197,10 +196,7 @@ internal sealed class WorkflowCatalog
                 throw new InvalidOperationException("Shared workflow step id is required.");
             }
 
-            if (string.IsNullOrWhiteSpace(step.Name))
-            {
-                step.Name = step.Id;
-            }
+            step.Name = step.Id;
 
             step.ValidateShape($"shared:{step.Id}");
         }
@@ -230,22 +226,13 @@ internal sealed class WorkflowCatalog
 
     private void ResolveAndValidate()
     {
-        var stepNames = _sharedSteps.Values
-            .Select(step => step.Name)
-            .ToHashSet(StringComparer.Ordinal);
-
         foreach (var step in _sharedSteps.Values)
         {
-            foreach (var target in step.Transitions.Select(transition => transition.NextStep).Where(target => !string.IsNullOrWhiteSpace(target)))
+            foreach (var target in step.Transitions.Select(transition => transition.TargetStepName).Where(target => !string.IsNullOrWhiteSpace(target)))
             {
-                if (target!.Contains('/', StringComparison.Ordinal))
+                if (!_sharedSteps.ContainsKey(target!))
                 {
-                    continue;
-                }
-
-                if (!stepNames.Contains(target))
-                {
-                    throw new InvalidOperationException($"Step '{step.Name}' transition targets unknown step '{target}'.");
+                    throw new InvalidOperationException($"Step '{step.Name}' targets unknown transition step '{target}'. Transitions must target a loadable shared step id.");
                 }
             }
         }
@@ -267,17 +254,21 @@ internal sealed class WorkflowCatalog
         {
             Name = shared.Name,
             Instructions = shared.Instructions,
-            Transitions =
-            [
-                .. shared.Transitions.Select(transition => new WorkflowTransition
-                {
-                    Keyword = transition.Keyword,
-                    Description = transition.Description,
-                    NextStep = transition.NextStep
-                })
-            ],
+            Transitions = [.. shared.Transitions.Select(CloneTransition)],
             ExecutionKind = shared.ExecutionKind,
             ScriptPath = shared.ScriptPath
+        };
+    }
+
+    private static WorkflowTransition CloneTransition(WorkflowTransition transition)
+    {
+        return new WorkflowTransition
+        {
+            Selection = transition.Selection,
+            Description = transition.Description,
+            TargetStepName = transition.TargetStepName,
+            Status = transition.Status,
+            StopsInvocation = transition.StopsInvocation
         };
     }
 }

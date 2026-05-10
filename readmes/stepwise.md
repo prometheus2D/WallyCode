@@ -27,7 +27,7 @@ wallycode loop "Review repo structure." --definition requirements --steps 3 --so
 
 ## Respond to a blocked session
 
-When the provider selects `[ASK_USER]`, the session is blocked. Save a response, then continue:
+When the provider selects `ask_user`, the session is blocked. Save a response, then continue:
 
 ```powershell
 wallycode respond "Use SQLite and keep the API synchronous for now." --source C:\src\MyRepo --log --verbose
@@ -38,7 +38,7 @@ The response is included in the next prompt and then cleared from pending respon
 
 ## Useful logging
 
-Use `--log --verbose` while tuning definitions or prompts. Logs include prompt text, raw provider output, selected keyword, next step, and final session status.
+Use `--log --verbose` while tuning definitions or prompts. Logs include prompt text, raw provider output, selected step, next step, and final session status.
 
 ## Isolate experiments
 

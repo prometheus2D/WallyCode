@@ -18,7 +18,7 @@ public class WorkingDirectoryBehaviorTests
         var provider = new MockLlmProvider([
             new MockInvocation
             {
-                RawOutput = """{"selectedKeyword":"[DONE]","summary":"done"}""",
+                RawOutput = """{"selectedStep":"done","summary":"done"}""",
                 ExpectedModel = "mock-default-model",
                 ExpectedSourcePath = workspace.RootPath
             }
@@ -45,7 +45,7 @@ public class WorkingDirectoryBehaviorTests
         var provider = new MockLlmProvider([
             new MockInvocation
             {
-                RawOutput = """{"selectedKeyword":"[DONE]","summary":"done"}""",
+                RawOutput = """{"selectedStep":"done","summary":"done"}""",
                 ExpectedModel = "mock-default-model",
                 ExpectedSourcePath = sourceWorkspace.RootPath
             }
@@ -73,7 +73,7 @@ public class WorkingDirectoryBehaviorTests
         var provider = new MockLlmProvider([
             new MockInvocation
             {
-                RawOutput = """{"selectedKeyword":"[DONE]","summary":"done"}""",
+                RawOutput = """{"selectedStep":"done","summary":"done"}""",
                 ExpectedModel = "mock-default-model",
                 ExpectedSourcePath = workspace.RootPath
             }
@@ -102,13 +102,13 @@ public class WorkingDirectoryBehaviorTests
         var provider = new MockLlmProvider([
             new MockInvocation
             {
-                RawOutput = """{"selectedKeyword":"[DONE]","summary":"first result"}""",
+                RawOutput = """{"selectedStep":"done","summary":"first result"}""",
                 ExpectedModel = "mock-default-model",
                 ExpectedSourcePath = workspaceA.RootPath
             },
             new MockInvocation
             {
-                RawOutput = """{"selectedKeyword":"[DONE]","summary":"second result"}""",
+                RawOutput = """{"selectedStep":"done","summary":"second result"}""",
                 ExpectedModel = "mock-default-model",
                 ExpectedSourcePath = workspaceB.RootPath
             }

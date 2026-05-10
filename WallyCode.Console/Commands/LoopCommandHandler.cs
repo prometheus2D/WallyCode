@@ -106,7 +106,7 @@ internal sealed class LoopCommandHandler
                 foreach (var result in results)
                 {
                     _logger.Section($"Iteration {result.IterationNumber}");
-                    _logger.Info($"Selected keyword: {result.SelectedKeyword}");
+                    _logger.Info($"Selected step: {result.SelectedStep}");
                     _logger.Info($"Summary: {FormatSummary(result.Summary)}");
                     _logger.Info($"Next step: {result.ActiveStepName}");
                     _logger.Info($"Status: {result.Status}");
@@ -155,7 +155,7 @@ internal sealed class LoopCommandHandler
         foreach (var result in resultsNew)
         {
             _logger.Section($"Iteration {result.IterationNumber}");
-            _logger.Info($"Selected keyword: {result.SelectedKeyword}");
+            _logger.Info($"Selected step: {result.SelectedStep}");
             _logger.Info($"Summary: {FormatSummary(result.Summary)}");
             _logger.Info($"Next step: {result.ActiveStepName}");
             _logger.Info($"Status: {result.Status}");

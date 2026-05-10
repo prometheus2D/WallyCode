@@ -18,7 +18,7 @@ internal abstract class SessionBase
     public string? Model { get; set; }
     public string SourcePath { get; set; } = string.Empty;
     public string Status { get; set; } = SessionStatus.Active;
-    public string LastSelectedKeyword { get; set; } = string.Empty;
+    public string LastSelectedStep { get; set; } = string.Empty;
     public string LastSummary { get; set; } = string.Empty;
     public int IterationCount { get; set; }
     public List<string> PendingResponses { get; set; } = [];

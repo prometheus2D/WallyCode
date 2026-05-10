@@ -21,10 +21,4 @@
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
     </Content>
   </ItemGroup>
-
-  <ItemGroup>
-    <Folder Include="Workflow\Definitions\" />
-    <Folder Include="Workflow\Keywords\" />
-  </ItemGroup>
-
 </Project>

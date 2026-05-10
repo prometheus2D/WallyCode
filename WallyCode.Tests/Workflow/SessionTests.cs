@@ -25,13 +25,13 @@ public class SessionTests
         var def = WorkflowDefinition.LoadByName("requirements");
         var session = Session.Start(def, "test goal", "mock-provider", "mock-default-model", temp.RootPath);
         session.IterationCount = 3;
-        session.LastSelectedKeyword = "[CONTINUE]";
+        session.LastSelectedStep = "collect_requirements";
         session.PendingResponses.Add("hi");
         session.Save(temp.RootPath);
 
         var loaded = Session.Load(temp.RootPath);
         Assert.Equal(3, loaded.IterationCount);
-        Assert.Equal("[CONTINUE]", loaded.LastSelectedKeyword);
+        Assert.Equal("collect_requirements", loaded.LastSelectedStep);
         Assert.Equal(new[] { "hi" }, loaded.PendingResponses);
     }
 
@@ -73,7 +73,8 @@ public class SessionTests
         Assert.Equal("ask", definition.StartStepName);
         var step = definition.GetStep("ask");
         Assert.Contains("Do not change files", step.Instructions);
-        Assert.Equal(new[] { "[DONE]", "[ERROR]" }, step.AllowedKeywords);
+        Assert.Contains(step.Transitions, transition => transition.Selection == "ask" && transition.TargetStepName == "ask");
+        Assert.DoesNotContain(step.Transitions, transition => transition.Selection is "ask_user" or "done" or "error");
     }
 
     [Fact]
@@ -85,6 +86,7 @@ public class SessionTests
         Assert.Equal("act", definition.StartStepName);
         var step = definition.GetStep("act");
         Assert.Contains("You may change files", step.Instructions);
-        Assert.Equal(new[] { "[DONE]", "[ERROR]" }, step.AllowedKeywords);
+        Assert.Contains(step.Transitions, transition => transition.Selection == "act" && transition.TargetStepName == "act");
+        Assert.DoesNotContain(step.Transitions, transition => transition.Selection is "ask_user" or "done" or "error");
     }
 }
