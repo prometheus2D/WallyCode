@@ -8,6 +8,38 @@ internal static class StepExecutionKind
     public const string Script = "script";
 }
 
+internal sealed class WorkflowTransitionGuard
+{
+    public string? SelectedStep { get; set; }
+    public Dictionary<string, string> MemoryEquals { get; set; } = [];
+    public List<string> MemoryExists { get; set; } = [];
+    public List<string> MemoryMissing { get; set; } = [];
+
+    public void ValidateShape(string ownerName, string stepName, string selection)
+    {
+        ValidateMemoryKeys(ownerName, stepName, selection, MemoryEquals.Keys, nameof(MemoryEquals));
+        ValidateMemoryKeys(ownerName, stepName, selection, MemoryExists, nameof(MemoryExists));
+        ValidateMemoryKeys(ownerName, stepName, selection, MemoryMissing, nameof(MemoryMissing));
+    }
+
+    private static void ValidateMemoryKeys(string ownerName, string stepName, string selection, IEnumerable<string> keys, string propertyName)
+    {
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var key in keys)
+        {
+            if (string.IsNullOrWhiteSpace(key))
+            {
+                throw new InvalidOperationException($"Step '{ownerName}/{stepName}' transition '{selection}' contains an empty {propertyName} key.");
+            }
+
+            if (!seen.Add(key))
+            {
+                throw new InvalidOperationException($"Step '{ownerName}/{stepName}' transition '{selection}' contains duplicate {propertyName} key '{key}'.");
+            }
+        }
+    }
+}
+
 internal class WorkflowTransition
 {
     public string Selection { get; set; } = string.Empty;
@@ -15,6 +47,7 @@ internal class WorkflowTransition
     public string? TargetStepName { get; set; }
     public string Status { get; set; } = "active";
     public bool StopsInvocation { get; set; }
+    public WorkflowTransitionGuard? Guard { get; set; }
 
     public void ValidateShape(string ownerName, string stepName)
     {
@@ -27,6 +60,8 @@ internal class WorkflowTransition
         {
             Status = "active";
         }
+
+        Guard?.ValidateShape(ownerName, stepName, Selection);
 
         if (Status is not "active" and not "blocked" and not "completed" and not "error")
         {
@@ -65,6 +100,8 @@ internal class WorkflowStep
     public List<WorkflowTransition> Transitions { get; set; } = [];
     public string ExecutionKind { get; set; } = StepExecutionKind.Provider;
     public string? ScriptPath { get; set; }
+    public string? ScriptArguments { get; set; }
+    public int? TimeoutSeconds { get; set; }
 
     public string QualifiedName(string workflowName) => $"{workflowName}/{Name}";
 
@@ -351,7 +388,9 @@ internal sealed class WorkflowCatalog
             TransitionIds = [.. shared.TransitionIds],
             Transitions = [.. shared.Transitions.Select(CloneTransition)],
             ExecutionKind = shared.ExecutionKind,
-            ScriptPath = shared.ScriptPath
+            ScriptPath = shared.ScriptPath,
+            ScriptArguments = shared.ScriptArguments,
+            TimeoutSeconds = shared.TimeoutSeconds
         };
     }
 
@@ -363,8 +402,22 @@ internal sealed class WorkflowCatalog
             Description = transition.Description,
             TargetStepName = transition.TargetStepName,
             Status = transition.Status,
-            StopsInvocation = transition.StopsInvocation
+            StopsInvocation = transition.StopsInvocation,
+            Guard = CloneGuard(transition.Guard)
         };
+    }
+
+    private static WorkflowTransitionGuard? CloneGuard(WorkflowTransitionGuard? guard)
+    {
+        return guard is null
+            ? null
+            : new WorkflowTransitionGuard
+            {
+                SelectedStep = guard.SelectedStep,
+                MemoryEquals = new Dictionary<string, string>(guard.MemoryEquals, StringComparer.Ordinal),
+                MemoryExists = [.. guard.MemoryExists],
+                MemoryMissing = [.. guard.MemoryMissing]
+            };
     }
 }
 

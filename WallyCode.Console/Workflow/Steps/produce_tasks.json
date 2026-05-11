@@ -1,6 +1,7 @@
 {
   "id": "produce_tasks",
-  "instructions": "Break the clarified work into concrete implementation tasks. Stay in this step until the task list is ready.",
+  "executionKind": "provider",
+  "instructions": "Break the clarified work into concrete implementation tasks. Stay in this step until the task list is ready. When ready, write tasks as durable context.",
   "readsMemory": ["requirements"],
   "writesMemory": ["tasks"],
   "transitionIds": ["continue", "to_execute_tasks"]

@@ -100,8 +100,8 @@ internal sealed class LoopCommandHandler
                 await provider.EnsureReadyAsync(cancellationToken);
                 _logger.LogAction("Provider ready", $"provider={provider.Name}; model={session.Model ?? "<default>"}", verboseOnly: true);
 
-                var runner = new Runner(provider, definition, sessionRoot, _logger);
-                var results = await runner.RunAsync(effectiveSteps, cancellationToken);
+                var orchestrator = CreateOrchestrator(provider, definition, sessionRoot);
+                var results = await orchestrator.RunAsync(effectiveSteps, cancellationToken);
 
                 foreach (var result in results)
                 {
@@ -118,6 +118,8 @@ internal sealed class LoopCommandHandler
                     _logger.Warning($"Error: {finalResult.Summary}");
                 }
 
+                WarnIfUntilCompleteHitCap(options, effectiveSteps, results.Count, finalResult);
+
                 _logger.Success($"Run complete after {results.Count} iteration(s).");
                 _logger.LogAction("Invocation completed", $"iterations={results.Count}; finalStatus={finalResult?.Status ?? session.Status}");
                 return 0;
@@ -126,7 +128,7 @@ internal sealed class LoopCommandHandler
 
         if (string.IsNullOrWhiteSpace(options.Goal))
         {
-                    throw new InvalidOperationException("No active session. Start one with: loop <goal> [--start-step <name>]");
+            throw new InvalidOperationException("No active session. Start one with: loop <goal> [--start-step <name>]");
         }
 
         var providerName = string.IsNullOrWhiteSpace(options.Provider) ? settings.Provider : options.Provider!.Trim();
@@ -149,8 +151,8 @@ internal sealed class LoopCommandHandler
         await provider.EnsureReadyAsync(cancellationToken);
         _logger.LogAction("Provider ready", $"provider={provider.Name}; model={model ?? "<default>"}", verboseOnly: true);
 
-        var runnerNew = new Runner(provider, definition, sessionRoot, _logger);
-        var resultsNew = await runnerNew.RunAsync(effectiveSteps, cancellationToken);
+        var orchestratorNew = CreateOrchestrator(provider, definition, sessionRoot);
+        var resultsNew = await orchestratorNew.RunAsync(effectiveSteps, cancellationToken);
 
         foreach (var result in resultsNew)
         {
@@ -167,6 +169,8 @@ internal sealed class LoopCommandHandler
             _logger.Warning($"Error: {finalNewResult.Summary}");
         }
 
+        WarnIfUntilCompleteHitCap(options, effectiveSteps, resultsNew.Count, finalNewResult);
+
         _logger.Success($"Run complete after {resultsNew.Count} iteration(s).");
         _logger.LogAction("Invocation completed", $"iterations={resultsNew.Count}; finalStatus={finalNewResult?.Status ?? session.Status}");
         return 0;
@@ -177,5 +181,22 @@ internal sealed class LoopCommandHandler
         return string.IsNullOrWhiteSpace(summary)
             ? EmptySummaryMessage
             : summary;
+    }
+
+    private WorkflowOrchestrator CreateOrchestrator(ILlmProvider provider, WorkflowDefinition definition, string sessionRoot)
+    {
+        return new WorkflowOrchestrator(
+            definition,
+            sessionRoot,
+            [new ProviderStepExecutor(provider, _logger), new ScriptStepExecutor(_logger)],
+            _logger);
+    }
+
+    private void WarnIfUntilCompleteHitCap(LoopCommandOptions options, int effectiveSteps, int resultCount, IterationResult? finalResult)
+    {
+        if (options.UntilComplete && resultCount >= effectiveSteps && finalResult?.StopsInvocation != true)
+        {
+            _logger.Warning($"Reached --until-complete safety cap ({effectiveSteps} iterations). Run resume --until-complete to continue.");
+        }
     }
 }

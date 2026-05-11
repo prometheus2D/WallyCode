@@ -17,6 +17,9 @@ internal sealed class ResumeCommandOptions
     [Option("step", HelpText = "Runs exactly one iteration in this invocation.")]
     public bool Step { get; set; }
 
+    [Option("until-complete", HelpText = "Runs until the workflow stops, blocks, errors, or reaches the safety cap of 20 iterations.")]
+    public bool UntilComplete { get; set; }
+
     [Option("log", HelpText = "Enable transcript logging for this invocation.")]
     public bool Log { get; set; }
 
@@ -31,10 +34,11 @@ internal sealed class ResumeCommandOptions
             MemoryRoot = MemoryRoot,
             Steps = Steps,
             Step = Step,
+            UntilComplete = UntilComplete,
             Log = Log,
             Verbose = Verbose
         };
     }
 
-    public int GetEffectiveSteps() => Step ? 1 : Steps;
+    public int GetEffectiveSteps() => Step ? 1 : UntilComplete ? LoopCommandOptions.UntilCompleteStepLimit : Steps;
 }

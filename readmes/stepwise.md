@@ -42,10 +42,18 @@ Use `--log --verbose` while tuning definitions or prompts. Logs include prompt t
 
 Each completed iteration also writes the current session state to `sessions/session-000N.json` under the runtime root. The active `session.json` remains the latest state used by the next command.
 
+The workflow engine is orchestrated: the active step is executed by a step executor, explicit guards and derived handoff requirements are checked, memory updates are filtered through `writesMemory`, and then the latest session plus a versioned snapshot are saved.
+
 ## Isolate experiments
 
 An active session owns its workflow definition. Use `--memory-root` to keep experiments separate:
 
 ```powershell
 wallycode loop "Try an alternate task flow." --definition tasks --step --source C:\src\MyRepo --memory-root C:\temp\wally-tasks
+```
+
+Use `--until-complete` when you want WallyCode to keep running bounded iterations until a step selects `stop`, `ask_user`, or `error`:
+
+```powershell
+wallycode act "Fix these code problems: <paste problems here>" --until-complete --source C:\src\MyRepo --log --verbose
 ```

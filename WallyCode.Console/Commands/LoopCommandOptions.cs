@@ -5,6 +5,8 @@ namespace WallyCode.ConsoleApp.Commands;
 [Verb("loop", HelpText = "Runs the workflow engine starting from a workflow step.")]
 internal sealed class LoopCommandOptions
 {
+    public const int UntilCompleteStepLimit = 20;
+
     [Value(0, MetaName = "goal", Required = false, HelpText = "Goal for a new session. Omit to continue the active session.")]
     public string? Goal { get; set; }
 
@@ -32,13 +34,16 @@ internal sealed class LoopCommandOptions
     [Option("step", HelpText = "Runs exactly one iteration in this invocation.")]
     public bool Step { get; set; }
 
+    [Option("until-complete", HelpText = "Runs until the workflow stops, blocks, errors, or reaches the safety cap of 20 iterations.")]
+    public bool UntilComplete { get; set; }
+
     [Option("log", HelpText = "Enable transcript logging for this invocation.")]
     public bool Log { get; set; }
 
     [Option("verbose", HelpText = "Enable verbose transcript logging for this invocation.")]
     public bool Verbose { get; set; }
 
-    public int GetEffectiveSteps() => Step ? 1 : Steps;
+    public int GetEffectiveSteps() => Step ? 1 : UntilComplete ? UntilCompleteStepLimit : Steps;
 
     public string? GetRequestedStartStepName() =>
         string.IsNullOrWhiteSpace(StartStepName) ? Definition : StartStepName;

@@ -1,6 +1,7 @@
 {
   "id": "collect_requirements",
-  "instructions": "Clarify the user's goal, constraints, and expected outcome. Stay in this step until the requirements are clear enough to proceed.",
+  "executionKind": "provider",
+  "instructions": "Clarify the user's goal, constraints, and expected outcome. Stay in this step until the requirements are clear enough to proceed. When ready, write requirements as durable context.",
   "writesMemory": ["requirements"],
   "transitionIds": ["continue", "to_produce_tasks"]
 }

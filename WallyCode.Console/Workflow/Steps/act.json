@@ -1,6 +1,8 @@
 {
   "id": "act",
-  "instructions": "You may change files to complete the user's request. Make the smallest correct change set and preserve existing behavior unless the request requires otherwise.",
+  "executionKind": "provider",
+  "instructions": "You may change files to complete the user's request. Make the smallest correct change set and preserve existing behavior unless the request requires otherwise. If review feedback is present, address it. When changes are ready for review, write implementation as durable context describing what changed and choose review_changes. Choose continue only when more implementation work is needed before review.",
+  "readsMemory": ["review"],
   "writesMemory": ["implementation"],
-  "transitionIds": ["continue", "stop"]
+  "transitionIds": ["continue", "to_review_changes"]
 }

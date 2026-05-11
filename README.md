@@ -21,7 +21,7 @@ wallycode loop --source C:\src\MyRepo --log --verbose
 If the session blocks for input:
 
 ```powershell
-wallycode respond "Focus on routing and tests." --source C:\src\MyRepo
+wallycode respond "Focus on routing and docs." --source C:\src\MyRepo
 wallycode loop --source C:\src\MyRepo --log --verbose
 ```
 
@@ -36,6 +36,7 @@ Run several routed steps in one call, or isolate session state:
 
 ```powershell
 wallycode loop "Review repo structure." --steps 3 --source C:\src\MyRepo --log --verbose
+wallycode act "Fix these code problems: ..." --until-complete --source C:\src\MyRepo --log --verbose
 wallycode loop "Analyze docs." --source C:\src\MyRepo --memory-root C:\temp\wally-session-a
 ```
 
@@ -56,7 +57,6 @@ Use development mode when you are modifying WallyCode itself and want to run the
 ```powershell
 dotnet restore WallyCode.sln
 dotnet build WallyCode.sln
-dotnet test WallyCode.sln
 dotnet run --project WallyCode.Console -- help
 ```
 
@@ -114,9 +114,18 @@ The provider returns a `selectedStep` from the allowed step options in the promp
 - `ask_user` blocks until `respond`
 - `error` stops; reason goes in `summary`
 
+For implementation work, `act` uses an implementation/review loop. The `act` step makes changes and writes `implementation`; `review_changes` reads that summary, reviews the workspace, and either chooses `stop`, `continue`, `ask_user`, or routes back to `act` with `review` feedback.
+
 Steps live under `WallyCode.Console/Workflow/Steps`, reusable transitions live under `WallyCode.Console/Workflow/Transitions`, and each step opts into routes with `transitionIds`.
 
-Steps can also return a top-level `memory` object. The runner merges that object into session memory, stores it in `session.json`, and injects declared memory keys into later step prompts.
+Steps can also return a top-level `memory` object. The orchestrator merges that object into session memory, stores it in `session.json`, and injects declared memory keys into later step prompts.
+
+Workflow execution is orchestrated in layers:
+
+- `WorkflowOrchestrator` owns one deterministic session iteration.
+- Step executors run the active step. Provider steps call the LLM; script steps run deterministic local scripts.
+- `TransitionResolver` checks explicit guarded transitions first, then uses the LLM-selected transition and enforces derived handoff memory requirements.
+- Session memory is filtered through each step's `writesMemory` contract before persistence.
 
 ---
 
@@ -142,8 +151,11 @@ wallycode provider [name] [--set] [--models] [--refresh] [--model <model>] [--so
 ### `loop`
 ```powershell
 wallycode loop [goal] [--definition <name>] [--provider <name>] [--model <model>]
-               [--source <path>] [--memory-root <path>] [--steps <n>] [--log] [--verbose]
+               [--source <path>] [--memory-root <path>] [--steps <n>] [--until-complete]
+               [--log] [--verbose]
 ```
+
+`--until-complete` runs up to 20 iterations and stops early when the workflow completes, blocks for input, or errors. Use it for requests like `act "Fix these code problems: ..." --until-complete`.
 
 ### `respond`
 ```powershell

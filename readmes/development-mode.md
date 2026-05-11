@@ -2,14 +2,13 @@
 
 Development mode means running the current WallyCode source build while you edit WallyCode itself. There is no separate `devmode` CLI verb; use `dotnet run --project WallyCode.Console -- ...` to pass commands to the local console app.
 
-## Build and test first
+## Build first
 
 From the repository root:
 
 ```powershell
 dotnet restore WallyCode.sln
 dotnet build WallyCode.sln
-dotnet test WallyCode.sln
 ```
 
 ## Run the local CLI
@@ -61,8 +60,8 @@ This is useful when debugging the console app from Visual Studio and you want Wa
 
 ## Safe edit loop
 
-1. Build and test the solution.
+1. Build the solution.
 2. Run `ask` first if you only need analysis.
 3. Run `act` when file edits are intended.
 4. Inspect the resulting diff.
-5. Run `dotnet test WallyCode.sln` before keeping the change.
+5. Run `dotnet build WallyCode.sln` before keeping the change.

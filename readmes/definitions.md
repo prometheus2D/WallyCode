@@ -14,7 +14,7 @@ The project file copies workflow step and transition JSON to build and publish o
 | Definition | Start step | Purpose |
 | --- | --- | --- |
 | `ask` | `ask` | Answer a question without intending to edit files. |
-| `act` | `act` | Complete a file-changing implementation request. |
+| `act` | `act` | Complete a file-changing implementation request through an implementation/review loop. |
 | `requirements` | `collect_requirements` | Clarify requirements, produce tasks, then execute. This is the default for `loop`. |
 | `tasks` | `produce_tasks` | Start at task production, then execute. |
 | `full-pipeline` | `collect_requirements` | Run the full requirements-to-execution flow. |
@@ -25,7 +25,8 @@ The project file copies workflow step and transition JSON to build and publish o
 wallycode loop "Build a CSV importer." --definition requirements --source C:\src\MyRepo --log --verbose
 wallycode loop "Implement the prepared task list." --definition tasks --source C:\src\MyRepo --log --verbose
 wallycode ask "Where is setup implemented?" --source C:\src\MyRepo
-wallycode act "Add tests for setup behavior." --source C:\src\MyRepo
+wallycode act "Update setup behavior." --source C:\src\MyRepo
+wallycode act "Fix these code problems: ..." --until-complete --source C:\src\MyRepo
 ```
 
 If an active session exists, it is tied to the workflow definition it started with. Use `--memory-root` for a parallel session with another definition.
@@ -37,14 +38,15 @@ If an active session exists, it is tied to the workflow definition it started wi
 3. Use `readsMemory` and `writesMemory` when a step should consume or produce durable session context.
 4. Add reusable transitions under `WallyCode.Console/Workflow/Transitions`.
 5. Reference those transitions from steps with `transitionIds`.
-6. Run `dotnet test WallyCode.sln`.
+6. Run `dotnet build WallyCode.sln`.
 
 Example shape:
 
 ```json
 {
   "id": "collect_requirements",
-  "instructions": "Clarify the user's goal, constraints, and expected outcome.",
+  "executionKind": "provider",
+  "instructions": "Clarify the user's goal, constraints, and expected outcome. When ready, write requirements.",
   "writesMemory": ["requirements"],
   "transitionIds": ["continue", "to_produce_tasks"]
 }
@@ -75,4 +77,24 @@ Steps can also update session memory by returning a top-level `memory` object:
 }
 ```
 
-The runner stores memory in `.wallycode/session.json`, injects declared `readsMemory` keys into later prompts, and writes versioned snapshots under `.wallycode/sessions/session-0001.json`, `.wallycode/sessions/session-0002.json`, and so on. Use `null` in the returned `memory` object to remove a key.
+The orchestrator stores memory in `.wallycode/session.json`, injects declared `readsMemory` keys into later prompts, and writes versioned snapshots under `.wallycode/sessions/session-0001.json`, `.wallycode/sessions/session-0002.json`, and so on. Use `null` in the returned `memory` object to remove a key.
+
+The orchestrator filters memory updates through the active step's `writesMemory` list. Undeclared memory keys are ignored so one step cannot accidentally overwrite another step's durable context.
+
+When a transition targets another step, the resolver derives simple handoff requirements from memory contracts. If the current step can write a key and the target step reads that same key, the key must exist before the transition can move forward. For example, `collect_requirements` writes `requirements`, `produce_tasks` reads `requirements`, so selecting `produce_tasks` requires the provider to write `memory.requirements` in the same response or have it already stored in the session.
+
+Transitions can also define explicit guards for advanced deterministic routing. Guarded transitions are evaluated before the model-selected transition, and a guarded route cannot be selected directly unless its guard matches:
+
+```json
+{
+  "selection": "review_result",
+  "targetStepName": "review_result",
+  "guard": {
+    "memoryEquals": {
+      "validation.status": "passed"
+    }
+  }
+}
+```
+
+Use guarded transitions when the route should follow verified session state instead of another model judgment.

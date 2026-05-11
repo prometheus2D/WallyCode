@@ -23,6 +23,9 @@ internal sealed class ActCommandOptions
     [Option("steps", Default = 1, HelpText = "Runs n iterations in this invocation.")]
     public int Steps { get; set; }
 
+    [Option("until-complete", HelpText = "Runs until the workflow stops, blocks, errors, or reaches the safety cap of 20 iterations.")]
+    public bool UntilComplete { get; set; }
+
     [Option("log", HelpText = "Enable logging for this invocation.")]
     public bool Log { get; set; }
 
@@ -38,6 +41,7 @@ internal sealed class ActCommandOptions
         SourcePath = SourcePath,
         MemoryRoot = MemoryRoot,
         Steps = Steps,
+        UntilComplete = UntilComplete,
         Log = Log,
         Verbose = Verbose
     };
