@@ -1,16 +1,6 @@
 {
   "id": "collect_requirements",
   "instructions": "Clarify the user's goal, constraints, and expected outcome. Stay in this step until the requirements are clear enough to proceed.",
-  "transitions": [
-    {
-      "selection": "collect_requirements",
-      "description": "Continue clarifying requirements in the current step.",
-      "targetStepName": "collect_requirements"
-    },
-    {
-      "selection": "produce_tasks",
-      "description": "Requirements are clear enough to break the work into concrete implementation tasks.",
-      "targetStepName": "produce_tasks"
-    }
-  ]
+  "writesMemory": ["requirements"],
+  "transitionIds": ["continue", "to_produce_tasks"]
 }

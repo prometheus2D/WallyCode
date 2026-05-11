@@ -1,0 +1,6 @@
+{
+  "id": "to_execute_tasks",
+  "selection": "execute_tasks",
+  "description": "The task list is ready and implementation should begin.",
+  "targetStepName": "execute_tasks"
+}

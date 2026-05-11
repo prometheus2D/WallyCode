@@ -26,13 +26,32 @@ public class SessionTests
         var session = Session.Start(def, "test goal", "mock-provider", "mock-default-model", temp.RootPath);
         session.IterationCount = 3;
         session.LastSelectedStep = "collect_requirements";
+        session.Memory["requirements"] = "Use CSV files.";
         session.PendingResponses.Add("hi");
         session.Save(temp.RootPath);
 
         var loaded = Session.Load(temp.RootPath);
         Assert.Equal(3, loaded.IterationCount);
         Assert.Equal("collect_requirements", loaded.LastSelectedStep);
+        Assert.Equal("Use CSV files.", loaded.Memory["requirements"]);
         Assert.Equal(new[] { "hi" }, loaded.PendingResponses);
+    }
+
+    [Fact]
+    public void SaveSnapshot_writes_versioned_session_file()
+    {
+        using var temp = TempWorkspace.Create();
+        var def = WorkflowDefinition.LoadByName("requirements");
+        var session = Session.Start(def, "test goal", "mock-provider", "mock-default-model", temp.RootPath);
+        session.IterationCount = 2;
+        session.Memory["tasks"] = "[\"parse csv\"]";
+        session.SaveSnapshot(temp.RootPath);
+
+        var snapshotPath = Session.SnapshotFilePath(temp.RootPath, 2);
+        Assert.True(File.Exists(snapshotPath));
+        var snapshot = Session.LoadFile(snapshotPath);
+        Assert.Equal(2, snapshot.IterationCount);
+        Assert.Equal("[\"parse csv\"]", snapshot.Memory["tasks"]);
     }
 
     [Fact]
@@ -73,7 +92,10 @@ public class SessionTests
         Assert.Equal("ask", definition.StartStepName);
         var step = definition.GetStep("ask");
         Assert.Contains("Do not change files", step.Instructions);
-        Assert.Contains(step.Transitions, transition => transition.Selection == "ask" && transition.TargetStepName == "ask");
+        Assert.Contains(step.TransitionIds, transitionId => transitionId == "continue");
+        Assert.Contains(step.TransitionIds, transitionId => transitionId == "stop");
+        Assert.Contains(step.Transitions, transition => transition.Selection == "continue" && transition.TargetStepName is null);
+        Assert.Contains(step.Transitions, transition => transition.Selection == "stop" && transition.Status == SessionStatus.Completed && transition.StopsInvocation);
         Assert.DoesNotContain(step.Transitions, transition => transition.Selection is "ask_user" or "done" or "error");
     }
 
@@ -86,7 +108,10 @@ public class SessionTests
         Assert.Equal("act", definition.StartStepName);
         var step = definition.GetStep("act");
         Assert.Contains("You may change files", step.Instructions);
-        Assert.Contains(step.Transitions, transition => transition.Selection == "act" && transition.TargetStepName == "act");
+        Assert.Contains(step.TransitionIds, transitionId => transitionId == "continue");
+        Assert.Contains(step.TransitionIds, transitionId => transitionId == "stop");
+        Assert.Contains(step.Transitions, transition => transition.Selection == "continue" && transition.TargetStepName is null);
+        Assert.Contains(step.Transitions, transition => transition.Selection == "stop" && transition.Status == SessionStatus.Completed && transition.StopsInvocation);
         Assert.DoesNotContain(step.Transitions, transition => transition.Selection is "ask_user" or "done" or "error");
     }
 }

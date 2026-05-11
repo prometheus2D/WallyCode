@@ -8,7 +8,7 @@ Use `act` when WallyCode should complete an implementation-oriented request and 
 wallycode loop "..." --definition act
 ```
 
-The `act` definition has one step named `prompt`. Its instructions tell the provider to make the smallest correct change set and preserve existing behavior unless the request requires otherwise.
+The `act` definition has one step named `act`. Its instructions tell the provider to make the smallest correct change set and preserve existing behavior unless the request requires otherwise. It uses the shared `continue` and `stop` transitions: `continue` keeps implementation work active, while `stop` completes the session.
 
 ## Basic usage
 

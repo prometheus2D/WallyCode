@@ -58,6 +58,7 @@ internal sealed class Runner
         string nextStep;
         string status;
         bool stops;
+        Dictionary<string, string?> memoryUpdates = [];
 
         try
         {
@@ -71,7 +72,8 @@ internal sealed class Runner
 
             _logger?.LogExchange("IN", $"iteration {session.IterationCount + 1} response ({step.Name})", rawOutput);
 
-            (selectedStep, summary) = ParseOutput(rawOutput);
+            (selectedStep, summary, memoryUpdates) = ParseOutput(rawOutput);
+            selectedStep = NormalizeSelection(step, selectedStep);
 
             if (!GetAllowedSelections(step).Contains(selectedStep, StringComparer.Ordinal))
             {
@@ -89,16 +91,19 @@ internal sealed class Runner
             session.Status = SessionStatus.Error;
             session.PendingResponses.Clear();
             session.Save(_sessionRoot);
+            session.SaveSnapshot(_sessionRoot);
             throw;
         }
 
         session.IterationCount++;
         session.LastSelectedStep = selectedStep;
         session.LastSummary = summary;
+        ApplyMemoryUpdates(session, memoryUpdates);
         session.ActiveStepName = nextStep;
         session.Status = status;
         session.PendingResponses.Clear();
         session.Save(_sessionRoot);
+        session.SaveSnapshot(_sessionRoot);
 
         return new IterationResult
         {
@@ -141,6 +146,9 @@ internal sealed class Runner
             sb.AppendLine($"Instructions: {step.Instructions}");
         }
 
+        AppendSessionMemory(sb, session, step);
+        AppendMemoryContract(sb, step);
+
         sb.AppendLine("Step transitions:");
         foreach (var transition in step.Transitions)
         {
@@ -165,14 +173,62 @@ internal sealed class Runner
 
         sb.AppendLine();
         sb.AppendLine("Choose exactly one step transition or terminal outcome that best matches what should happen next.");
-        sb.AppendLine("Respond with strict JSON: { \"selectedStep\": \"ONE_OF_ALLOWED\", \"summary\": \"...\" }");
+        sb.AppendLine("Respond with strict JSON: { \"selectedStep\": \"ONE_OF_ALLOWED\", \"summary\": \"...\", \"memory\": { \"KEY\": \"VALUE\" } }");
         sb.AppendLine("selectedStep must be one of the allowed selections above exactly as written. Output JSON only.");
         return sb.ToString();
     }
 
+    private static void AppendSessionMemory(StringBuilder sb, Session session, WorkflowStep step)
+    {
+        if (step.ReadsMemory.Count > 0)
+        {
+            sb.AppendLine("Session memory:");
+            foreach (var key in step.ReadsMemory)
+            {
+                var value = session.Memory.TryGetValue(key, out var storedValue) && !string.IsNullOrWhiteSpace(storedValue)
+                    ? storedValue
+                    : "[not set]";
+                sb.AppendLine($"  - {key}: {FormatMemoryValue(value)}");
+            }
+
+            return;
+        }
+
+        if (session.Memory.Count == 0)
+        {
+            return;
+        }
+
+        sb.AppendLine("Session memory:");
+        foreach (var entry in session.Memory.OrderBy(entry => entry.Key, StringComparer.Ordinal))
+        {
+            sb.AppendLine($"  - {entry.Key}: {FormatMemoryValue(entry.Value)}");
+        }
+    }
+
+    private static void AppendMemoryContract(StringBuilder sb, WorkflowStep step)
+    {
+        if (step.WritesMemory.Count == 0)
+        {
+            return;
+        }
+
+        sb.AppendLine("Memory this step can update:");
+        foreach (var key in step.WritesMemory)
+        {
+            sb.AppendLine($"  - {key}");
+        }
+        sb.AppendLine("Put durable context for later steps in the optional top-level memory object. Use null to remove a memory key.");
+    }
+
+    private static string FormatMemoryValue(string value)
+    {
+        return value.Replace("\r\n", "\n", StringComparison.Ordinal).Replace("\n", "\n    ", StringComparison.Ordinal);
+    }
+
     private IReadOnlyList<string> GetAllowedSelections(WorkflowStep step)
     {
-        return [.. step.Transitions.Select(transition => transition.Selection), .. GetTerminalOutcomes().Select(outcome => outcome.Selection)];
+        return [.. step.Transitions.Select(transition => transition.Selection), .. GetTerminalOutcomes().Select(outcome => outcome.Selection), Done];
     }
 
     private static IReadOnlyList<(string Selection, string Description)> GetTerminalOutcomes()
@@ -180,7 +236,6 @@ internal sealed class Runner
         return
         [
             (AskUser, "Ask the user for input that is required before progress can continue."),
-            (Done, "The user's goal is complete and no further steps are required."),
             (Error, "An unrecoverable problem prevented the workflow from continuing. Put the user-visible reason in summary.")
         ];
     }
@@ -213,7 +268,7 @@ internal sealed class Runner
             : ProjectSettings.Load(projectRoot).GlobalPrompt ?? string.Empty;
     }
 
-    private static (string selectedStep, string summary) ParseOutput(string rawOutput)
+    private static (string selectedStep, string summary, Dictionary<string, string?> memoryUpdates) ParseOutput(string rawOutput)
     {
         if (string.IsNullOrWhiteSpace(rawOutput))
         {
@@ -257,7 +312,62 @@ internal sealed class Runner
             ? summaryElement.GetString() ?? string.Empty
             : string.Empty;
 
-        return (selectedStepElement.GetString()?.Trim() ?? string.Empty, summary);
+        var memoryUpdates = ParseMemoryUpdates(root);
+
+        return (selectedStepElement.GetString()?.Trim() ?? string.Empty, summary, memoryUpdates);
+    }
+
+    private static Dictionary<string, string?> ParseMemoryUpdates(JsonElement root)
+    {
+        var memoryUpdates = new Dictionary<string, string?>(StringComparer.Ordinal);
+        if (!root.TryGetProperty("memory", out var memoryElement) || memoryElement.ValueKind is JsonValueKind.Undefined or JsonValueKind.Null)
+        {
+            return memoryUpdates;
+        }
+
+        if (memoryElement.ValueKind != JsonValueKind.Object)
+        {
+            throw new InvalidOperationException("Provider output 'memory' must be a JSON object when provided.");
+        }
+
+        foreach (var property in memoryElement.EnumerateObject())
+        {
+            if (string.IsNullOrWhiteSpace(property.Name))
+            {
+                throw new InvalidOperationException("Provider output 'memory' contains an empty key.");
+            }
+
+            memoryUpdates[property.Name] = property.Value.ValueKind == JsonValueKind.Null
+                ? null
+                : property.Value.ValueKind == JsonValueKind.String
+                    ? property.Value.GetString() ?? string.Empty
+                    : property.Value.GetRawText();
+        }
+
+        return memoryUpdates;
+    }
+
+    private static void ApplyMemoryUpdates(Session session, IReadOnlyDictionary<string, string?> memoryUpdates)
+    {
+        foreach (var update in memoryUpdates)
+        {
+            if (update.Value is null)
+            {
+                session.Memory.Remove(update.Key);
+            }
+            else
+            {
+                session.Memory[update.Key] = update.Value;
+            }
+        }
+    }
+
+    private static string NormalizeSelection(WorkflowStep step, string selectedStep)
+    {
+        return string.Equals(selectedStep, step.Name, StringComparison.Ordinal)
+            && step.Transitions.Any(transition => string.Equals(transition.Selection, "continue", StringComparison.Ordinal))
+            ? "continue"
+            : selectedStep;
     }
 
     private static (string nextStep, string status, bool stops) ApplySelection(WorkflowStep step, string selectedStep)

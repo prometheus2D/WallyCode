@@ -93,13 +93,13 @@ public class CommandFailureTests
         var provider = new MockLlmProvider([
             new MockInvocation
             {
-                RawOutput = """{"selectedStep":"collect_requirements","summary":"first"}""",
+                RawOutput = """{"selectedStep":"continue","summary":"first"}""",
                 ExpectedModel = "mock-default-model",
                 ExpectedSourcePath = workspace.RootPath
             },
             new MockInvocation
             {
-                RawOutput = """{"selectedStep":"collect_requirements","summary":"second"}""",
+                RawOutput = """{"selectedStep":"continue","summary":"second"}""",
                 ExpectedModel = "mock-default-model",
                 ExpectedSourcePath = workspace.RootPath
             }
@@ -239,13 +239,13 @@ public class CommandFailureTests
         var provider = new MockLlmProvider([
             new MockInvocation
             {
-                RawOutput = """{"selectedStep":"collect_requirements","summary":"first"}""",
+                RawOutput = """{"selectedStep":"continue","summary":"first"}""",
                 ExpectedModel = "mock-default-model",
                 ExpectedSourcePath = workspace.RootPath
             },
             new MockInvocation
             {
-                RawOutput = """{"selectedStep":"collect_requirements","summary":"second"}""",
+                RawOutput = """{"selectedStep":"continue","summary":"second"}""",
                 ExpectedModel = "mock-default-model",
                 ExpectedSourcePath = workspace.RootPath
             }
@@ -416,7 +416,7 @@ public class CommandFailureTests
         var provider = new MockLlmProvider([
             new MockInvocation
             {
-                RawOutput = """{"selectedStep":"done","summary":""}""",
+                RawOutput = """{"selectedStep":"stop","summary":""}""",
                 ExpectedModel = "mock-default-model",
                 ExpectedSourcePath = workspace.RootPath
             }
@@ -457,7 +457,7 @@ public class CommandFailureTests
         var provider = new MockLlmProvider([
             new MockInvocation
             {
-                RawOutput = """{"selectedStep":"done","summary":"done again"}""",
+                RawOutput = """{"selectedStep":"stop","summary":"done again"}""",
                 ExpectedModel = "mock-default-model",
                 ExpectedSourcePath = workspace.RootPath
             }

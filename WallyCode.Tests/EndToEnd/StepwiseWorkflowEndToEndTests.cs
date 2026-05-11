@@ -23,7 +23,7 @@ public class StepwiseWorkflowEndToEndTests
         var provider = new MockLlmProvider([
             new MockInvocation
             {
-                RawOutput = """{"selectedStep":"done","summary":"answered"}""",
+                RawOutput = """{"selectedStep":"stop","summary":"answered"}""",
                 ExpectedSourcePath = workspace.RootPath
             }
         ]);
@@ -33,7 +33,7 @@ public class StepwiseWorkflowEndToEndTests
         var run = await harness.InvokeAsync("ask", "Summarize the repo.");
 
         run.AssertSucceeded();
-        Assert.Contains("Selected step: done", run.Output);
+        Assert.Contains("Selected step: stop", run.Output);
         Assert.Contains("Summary: answered", run.Output);
 
         // session was archived because 'done' is terminal and the loop archives terminals on next start;
@@ -58,7 +58,7 @@ public class StepwiseWorkflowEndToEndTests
             new MockInvocation
             {
                 Label = "step-1-continue",
-                RawOutput = """{"selectedStep":"collect_requirements","summary":"gathering requirements"}""",
+                RawOutput = """{"selectedStep":"continue","summary":"gathering requirements"}""",
                 ExpectedSourcePath = workspace.RootPath
             },
             // step 2: loop --step -> ask_user (blocks the session)
@@ -83,7 +83,7 @@ public class StepwiseWorkflowEndToEndTests
         // 1. start the session with --step
         var step1 = await harness.InvokeAsync("loop", "Build a CSV importer.", "--start-step", "collect_requirements", "--step");
         step1.AssertSucceeded();
-        Assert.Contains("Selected step: collect_requirements", step1.Output);
+        Assert.Contains("Selected step: continue", step1.Output);
         var afterStep1 = Session.Load(sessionRoot);
         Assert.Equal("collect_requirements", afterStep1.ActiveStepName);
         Assert.Equal(SessionStatus.Active, afterStep1.Status);
@@ -130,8 +130,8 @@ public class StepwiseWorkflowEndToEndTests
         WriteMockProviderSettings(workspace.RootPath);
 
         var provider = new MockLlmProvider([
-            new MockInvocation { RawOutput = """{"selectedStep":"done","summary":"first done"}""" },
-            new MockInvocation { RawOutput = """{"selectedStep":"done","summary":"second done"}""" }
+            new MockInvocation { RawOutput = """{"selectedStep":"stop","summary":"first done"}""" },
+            new MockInvocation { RawOutput = """{"selectedStep":"stop","summary":"second done"}""" }
         ]);
 
         using var harness = CliHarness.Create(workspace.RootPath, provider);
@@ -189,7 +189,7 @@ public class StepwiseWorkflowEndToEndTests
         var provider = new MockLlmProvider([
             new MockInvocation
             {
-                RawOutput = """{"selectedStep":"done","summary":"changes applied"}""",
+                RawOutput = """{"selectedStep":"stop","summary":"changes applied"}""",
                 ExpectedSourcePath = workspace.RootPath
             }
         ]);
@@ -199,7 +199,7 @@ public class StepwiseWorkflowEndToEndTests
         var run = await harness.InvokeAsync("act", "Apply the change.");
 
         run.AssertSucceeded();
-        Assert.Contains("Selected step: done", run.Output);
+        Assert.Contains("Selected step: stop", run.Output);
 
         var session = Session.Load(Path.Combine(workspace.RootPath, ".wallycode"));
         Assert.Equal("act", session.WorkflowName);
@@ -225,7 +225,7 @@ public class StepwiseWorkflowEndToEndTests
             new MockInvocation
             {
                 Label = "execute-tasks-done",
-                RawOutput = """{"selectedStep":"done","summary":"all tasks executed"}""",
+                RawOutput = """{"selectedStep":"stop","summary":"all tasks executed"}""",
                 ExpectedSourcePath = workspace.RootPath
             }
         ]);
@@ -243,7 +243,7 @@ public class StepwiseWorkflowEndToEndTests
 
         var step2 = await harness.InvokeAsync("resume", "--step");
         step2.AssertSucceeded();
-        Assert.Contains("Selected step: done", step2.Output);
+        Assert.Contains("Selected step: stop", step2.Output);
         var afterStep2 = Session.Load(sessionRoot);
         Assert.Equal(SessionStatus.Completed, afterStep2.Status);
 
@@ -275,7 +275,7 @@ public class StepwiseWorkflowEndToEndTests
             new MockInvocation
             {
                 Label = "execute-done",
-                RawOutput = """{"selectedStep":"done","summary":"pipeline complete"}""",
+                RawOutput = """{"selectedStep":"stop","summary":"pipeline complete"}""",
                 ExpectedSourcePath = workspace.RootPath
             }
         ]);
@@ -296,7 +296,7 @@ public class StepwiseWorkflowEndToEndTests
 
         var step3 = await harness.InvokeAsync("resume", "--step");
         step3.AssertSucceeded();
-        Assert.Contains("Selected step: done", step3.Output);
+        Assert.Contains("Selected step: stop", step3.Output);
         var afterStep3 = Session.Load(sessionRoot);
         Assert.Equal(SessionStatus.Completed, afterStep3.Status);
 

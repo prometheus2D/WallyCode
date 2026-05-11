@@ -18,7 +18,7 @@ public class WorkingDirectoryBehaviorTests
         var provider = new MockLlmProvider([
             new MockInvocation
             {
-                RawOutput = """{"selectedStep":"done","summary":"done"}""",
+                RawOutput = """{"selectedStep":"stop","summary":"done"}""",
                 ExpectedModel = "mock-default-model",
                 ExpectedSourcePath = workspace.RootPath
             }
@@ -45,7 +45,7 @@ public class WorkingDirectoryBehaviorTests
         var provider = new MockLlmProvider([
             new MockInvocation
             {
-                RawOutput = """{"selectedStep":"done","summary":"done"}""",
+                RawOutput = """{"selectedStep":"stop","summary":"done"}""",
                 ExpectedModel = "mock-default-model",
                 ExpectedSourcePath = sourceWorkspace.RootPath
             }
@@ -73,7 +73,7 @@ public class WorkingDirectoryBehaviorTests
         var provider = new MockLlmProvider([
             new MockInvocation
             {
-                RawOutput = """{"selectedStep":"done","summary":"done"}""",
+                RawOutput = """{"selectedStep":"stop","summary":"done"}""",
                 ExpectedModel = "mock-default-model",
                 ExpectedSourcePath = workspace.RootPath
             }
@@ -102,13 +102,13 @@ public class WorkingDirectoryBehaviorTests
         var provider = new MockLlmProvider([
             new MockInvocation
             {
-                RawOutput = """{"selectedStep":"done","summary":"first result"}""",
+                RawOutput = """{"selectedStep":"stop","summary":"first result"}""",
                 ExpectedModel = "mock-default-model",
                 ExpectedSourcePath = workspaceA.RootPath
             },
             new MockInvocation
             {
-                RawOutput = """{"selectedStep":"done","summary":"second result"}""",
+                RawOutput = """{"selectedStep":"stop","summary":"second result"}""",
                 ExpectedModel = "mock-default-model",
                 ExpectedSourcePath = workspaceB.RootPath
             }

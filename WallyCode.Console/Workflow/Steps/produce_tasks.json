@@ -1,16 +1,7 @@
 {
   "id": "produce_tasks",
   "instructions": "Break the clarified work into concrete implementation tasks. Stay in this step until the task list is ready.",
-  "transitions": [
-    {
-      "selection": "produce_tasks",
-      "description": "Continue refining the implementation task list in the current step.",
-      "targetStepName": "produce_tasks"
-    },
-    {
-      "selection": "execute_tasks",
-      "description": "The task list is ready and implementation should begin.",
-      "targetStepName": "execute_tasks"
-    }
-  ]
+  "readsMemory": ["requirements"],
+  "writesMemory": ["tasks"],
+  "transitionIds": ["continue", "to_execute_tasks"]
 }

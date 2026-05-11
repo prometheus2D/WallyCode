@@ -21,6 +21,7 @@ internal abstract class SessionBase
     public string LastSelectedStep { get; set; } = string.Empty;
     public string LastSummary { get; set; } = string.Empty;
     public int IterationCount { get; set; }
+    public Dictionary<string, string> Memory { get; set; } = [];
     public List<string> PendingResponses { get; set; } = [];
 }
 
@@ -44,6 +45,11 @@ internal sealed class Session : SessionBase
     }
 
     public static string FilePath(string rootPath) => Path.Combine(rootPath, "session.json");
+
+    public static string SnapshotRoot(string rootPath) => Path.Combine(rootPath, "sessions");
+
+    public static string SnapshotFilePath(string rootPath, int iterationCount) =>
+        Path.Combine(SnapshotRoot(rootPath), $"session-{iterationCount:D4}.json");
 
     public static bool Exists(string rootPath) => File.Exists(FilePath(rootPath));
 
@@ -98,19 +104,44 @@ internal sealed class Session : SessionBase
 
     public static Session Load(string rootPath)
     {
-        var path = FilePath(rootPath);
+        return LoadFile(FilePath(rootPath));
+    }
+
+    public static Session LoadFile(string path)
+    {
         if (!File.Exists(path))
         {
             throw new InvalidOperationException($"No session at {path}.");
         }
 
-        return JsonSerializer.Deserialize<Session>(File.ReadAllText(path), SessionJson.Default)
+        var session = JsonSerializer.Deserialize<Session>(File.ReadAllText(path), SessionJson.Default)
             ?? throw new InvalidOperationException($"Session file is invalid: {path}");
+        session.Normalize();
+        return session;
     }
 
     public void Save(string rootPath)
     {
+        Normalize();
         Directory.CreateDirectory(rootPath);
         File.WriteAllText(FilePath(rootPath), JsonSerializer.Serialize(this, SessionJson.Default));
+    }
+
+    public void SaveSnapshot(string rootPath)
+    {
+        if (IterationCount <= 0)
+        {
+            return;
+        }
+
+        Normalize();
+        Directory.CreateDirectory(SnapshotRoot(rootPath));
+        File.WriteAllText(SnapshotFilePath(rootPath, IterationCount), JsonSerializer.Serialize(this, SessionJson.Default));
+    }
+
+    private void Normalize()
+    {
+        PendingResponses ??= [];
+        Memory ??= [];
     }
 }

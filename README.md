@@ -97,6 +97,7 @@ Repo-scoped. `--source` selects which repo's config/state is used.
 
 - `wallycode.json` -> repo configuration (default provider/model, etc.)
 - `.wallycode\session.json` -> active session
+- `.wallycode\sessions\session-000N.json` -> per-iteration session snapshots
 - `.wallycode\archive\...` -> completed sessions
 - `--memory-root <path>` -> override session state location for parallel sessions against the same repo
 
@@ -107,11 +108,15 @@ Session lifecycle inside `loop`:
 - terminal -> archived automatically before a new one starts
 
 The provider returns a `selectedStep` from the allowed step options in the prompt:
-- the current step name continues that step
-- a configured JSON transition moves to its `targetStepName`
+- `continue` stays on the current step
+- a configured transition such as `produce_tasks` moves to its `targetStepName`
+- `stop` completes the workflow
 - `ask_user` blocks until `respond`
-- `done` completes the workflow
 - `error` stops; reason goes in `summary`
+
+Steps live under `WallyCode.Console/Workflow/Steps`, reusable transitions live under `WallyCode.Console/Workflow/Transitions`, and each step opts into routes with `transitionIds`.
+
+Steps can also return a top-level `memory` object. The runner merges that object into session memory, stores it in `session.json`, and injects declared memory keys into later step prompts.
 
 ---
 

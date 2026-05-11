@@ -8,7 +8,7 @@ Use `ask` when you want WallyCode to answer a question against a repo without in
 wallycode loop "..." --definition ask
 ```
 
-The `ask` workflow starts at the `ask` step. Its instructions tell the provider not to change files, and it can finish with `done` or fail with `error`.
+The `ask` workflow starts at the `ask` step. Its instructions tell the provider not to change files, and it uses the shared `continue` and `stop` transitions: `continue` keeps the session active for another answer iteration, while `stop` completes it.
 
 ## Basic usage
 

@@ -1,13 +1,13 @@
 # Definitions and Steps
 
-Workflow definitions are WallyCode entry points selected by `loop --definition <name>`. `ask` and `act` are shortcut verbs for two common definitions.
+Workflow definitions are WallyCode entry points selected by `loop --definition <name>`. Definition names resolve to a start step, and `ask` and `act` are shortcut verbs for two common starts.
 
 ## Files
 
-- `WallyCode.Console/Workflow/Definitions/*.json` defines named workflows.
-- `WallyCode.Console/Workflow/Steps/*.json` defines reusable shared steps.
+- `WallyCode.Console/Workflow/Steps/*.json` defines reusable shared steps that can be used as workflow starts.
+- `WallyCode.Console/Workflow/Transitions/*.json` defines reusable routing transitions that steps opt into with `transitionIds`.
 
-The project file copies workflow step JSON to build and publish output, so edits are available to the console app after a build.
+The project file copies workflow step and transition JSON to build and publish output, so edits are available to the console app after a build.
 
 ## Built-in definitions
 
@@ -34,8 +34,10 @@ If an active session exists, it is tied to the workflow definition it started wi
 
 1. Add or edit shared step JSON under `WallyCode.Console/Workflow/Steps`.
 2. Put step instructions in `instructions`.
-3. Put direct step routes in `transitions`. Each JSON transition must set `targetStepName` to another step defined by a loadable JSON file.
-4. Run `dotnet test WallyCode.sln`.
+3. Use `readsMemory` and `writesMemory` when a step should consume or produce durable session context.
+4. Add reusable transitions under `WallyCode.Console/Workflow/Transitions`.
+5. Reference those transitions from steps with `transitionIds`.
+6. Run `dotnet test WallyCode.sln`.
 
 Example shape:
 
@@ -43,14 +45,34 @@ Example shape:
 {
   "id": "collect_requirements",
   "instructions": "Clarify the user's goal, constraints, and expected outcome.",
-  "transitions": [
-    {
-      "selection": "produce_tasks",
-      "description": "Requirements are clear enough to break the work into tasks.",
-      "targetStepName": "produce_tasks"
-    }
-  ]
+  "writesMemory": ["requirements"],
+  "transitionIds": ["continue", "to_produce_tasks"]
 }
 ```
 
-At runtime, the provider returns `selectedStep`. Selecting the current step continues, selecting a JSON-defined transition moves to its `targetStepName`, `ask_user` blocks for `respond`, `done` completes, and `error` stops with the summary as the reason. `ask_user`, `done`, and `error` are built-in terminal outcomes, not JSON transitions.
+Example transition:
+
+```json
+{
+  "id": "to_produce_tasks",
+  "selection": "produce_tasks",
+  "description": "Requirements are clear enough to break the work into tasks.",
+  "targetStepName": "produce_tasks"
+}
+```
+
+At runtime, the provider returns `selectedStep`. Selecting `continue` stays on the current step, selecting a route like `produce_tasks` moves to that transition's `targetStepName`, selecting `stop` completes the workflow, `ask_user` blocks for `respond`, and `error` stops with the summary as the reason. `done` is still accepted as a compatibility alias for completion, but new transitions should use `stop`.
+
+Steps can also update session memory by returning a top-level `memory` object:
+
+```json
+{
+  "selectedStep": "produce_tasks",
+  "summary": "Requirements are ready.",
+  "memory": {
+    "requirements": "Import comma-separated files and reject invalid rows."
+  }
+}
+```
+
+The runner stores memory in `.wallycode/session.json`, injects declared `readsMemory` keys into later prompts, and writes versioned snapshots under `.wallycode/sessions/session-0001.json`, `.wallycode/sessions/session-0002.json`, and so on. Use `null` in the returned `memory` object to remove a key.

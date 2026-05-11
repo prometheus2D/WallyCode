@@ -8,7 +8,7 @@ internal static class StepExecutionKind
     public const string Script = "script";
 }
 
-internal sealed class WorkflowTransition
+internal class WorkflowTransition
 {
     public string Selection { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
@@ -33,14 +33,24 @@ internal sealed class WorkflowTransition
             throw new InvalidOperationException($"Step '{ownerName}/{stepName}' transition '{Selection}' has unsupported status '{Status}'.");
         }
 
-        if (string.IsNullOrWhiteSpace(TargetStepName))
+        if (string.Equals(Status, "active", StringComparison.Ordinal))
         {
-            throw new InvalidOperationException($"Step '{ownerName}/{stepName}' transition '{Selection}' must target a declared step.");
+            if (StopsInvocation)
+            {
+                throw new InvalidOperationException($"Step '{ownerName}/{stepName}' transition '{Selection}' cannot stop while keeping workflow status active.");
+            }
+
+            return;
         }
 
-        if (!string.Equals(Status, "active", StringComparison.Ordinal) || StopsInvocation)
+        if (!StopsInvocation)
         {
-            throw new InvalidOperationException($"Step '{ownerName}/{stepName}' transition '{Selection}' must be an active step route. Terminal outcomes are built in.");
+            throw new InvalidOperationException($"Step '{ownerName}/{stepName}' transition '{Selection}' with status '{Status}' must stop the invocation.");
+        }
+
+        if (!string.IsNullOrWhiteSpace(TargetStepName))
+        {
+            throw new InvalidOperationException($"Step '{ownerName}/{stepName}' transition '{Selection}' stops the invocation and cannot target another step.");
         }
     }
 }
@@ -49,6 +59,9 @@ internal class WorkflowStep
 {
     public string Name { get; set; } = string.Empty;
     public string Instructions { get; set; } = string.Empty;
+    public List<string> ReadsMemory { get; set; } = [];
+    public List<string> WritesMemory { get; set; } = [];
+    public List<string> TransitionIds { get; set; } = [];
     public List<WorkflowTransition> Transitions { get; set; } = [];
     public string ExecutionKind { get; set; } = StepExecutionKind.Provider;
     public string? ScriptPath { get; set; }
@@ -79,6 +92,9 @@ internal class WorkflowStep
             throw new InvalidOperationException($"Step '{ownerName}/{Name}' uses executionKind 'script' but has no scriptPath.");
         }
 
+        ValidateMemoryKeys(ownerName, ReadsMemory, nameof(ReadsMemory));
+        ValidateMemoryKeys(ownerName, WritesMemory, nameof(WritesMemory));
+
         var selections = new HashSet<string>(StringComparer.Ordinal);
         foreach (var transition in Transitions)
         {
@@ -90,9 +106,31 @@ internal class WorkflowStep
             }
         }
     }
+
+    private void ValidateMemoryKeys(string ownerName, IEnumerable<string> keys, string propertyName)
+    {
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var key in keys)
+        {
+            if (string.IsNullOrWhiteSpace(key))
+            {
+                throw new InvalidOperationException($"Step '{ownerName}/{Name}' contains an empty {propertyName} key.");
+            }
+
+            if (!seen.Add(key))
+            {
+                throw new InvalidOperationException($"Step '{ownerName}/{Name}' contains duplicate {propertyName} key '{key}'.");
+            }
+        }
+    }
 }
 
 internal sealed class SharedWorkflowStepDefinition : WorkflowStep
+{
+    public string Id { get; set; } = string.Empty;
+}
+
+internal sealed class SharedWorkflowTransitionDefinition : WorkflowTransition
 {
     public string Id { get; set; } = string.Empty;
 }
@@ -181,6 +219,28 @@ internal sealed class WorkflowCatalog
     public static WorkflowCatalog LoadFromDirectory(string workflowRoot)
     {
         var stepsPath = Path.Combine(workflowRoot, "Steps");
+        var transitionsPath = Path.Combine(workflowRoot, "Transitions");
+
+        var sharedTransitions = new Dictionary<string, SharedWorkflowTransitionDefinition>(StringComparer.Ordinal);
+        if (Directory.Exists(transitionsPath))
+        {
+            foreach (var path in Directory.GetFiles(transitionsPath, "*.json", SearchOption.AllDirectories))
+            {
+                var transition = JsonSerializer.Deserialize<SharedWorkflowTransitionDefinition>(File.ReadAllText(path), JsonOptions.Default)
+                    ?? throw new InvalidOperationException($"Shared transition JSON is invalid: {path}");
+
+                if (string.IsNullOrWhiteSpace(transition.Id))
+                {
+                    throw new InvalidOperationException($"Shared workflow transition id is required: {path}");
+                }
+
+                transition.ValidateShape("shared-transition", transition.Id);
+                if (!sharedTransitions.TryAdd(transition.Id, transition))
+                {
+                    throw new InvalidOperationException($"Duplicate shared workflow transition id '{transition.Id}'.");
+                }
+            }
+        }
 
         var sharedSteps = Directory.Exists(stepsPath)
             ? Directory.GetFiles(stepsPath, "*.json", SearchOption.AllDirectories)
@@ -197,6 +257,7 @@ internal sealed class WorkflowCatalog
             }
 
             step.Name = step.Id;
+            step.Transitions = ResolveStepTransitions(step, sharedTransitions);
 
             step.ValidateShape($"shared:{step.Id}");
         }
@@ -238,6 +299,37 @@ internal sealed class WorkflowCatalog
         }
     }
 
+    private static List<WorkflowTransition> ResolveStepTransitions(
+        SharedWorkflowStepDefinition step,
+        IReadOnlyDictionary<string, SharedWorkflowTransitionDefinition> sharedTransitions)
+    {
+        var transitions = new List<WorkflowTransition>();
+        var referencedTransitionIds = new HashSet<string>(StringComparer.Ordinal);
+
+        foreach (var transitionId in step.TransitionIds)
+        {
+            if (string.IsNullOrWhiteSpace(transitionId))
+            {
+                throw new InvalidOperationException($"Step '{step.Id}' references a transition with no id.");
+            }
+
+            if (!referencedTransitionIds.Add(transitionId))
+            {
+                throw new InvalidOperationException($"Step '{step.Id}' references transition '{transitionId}' more than once.");
+            }
+
+            if (!sharedTransitions.TryGetValue(transitionId, out var transition))
+            {
+                throw new InvalidOperationException($"Step '{step.Id}' references unknown shared transition '{transitionId}'.");
+            }
+
+            transitions.Add(CloneTransition(transition));
+        }
+
+        transitions.AddRange(step.Transitions.Select(CloneTransition));
+        return transitions;
+    }
+
     internal static string ResolveStartStepName(string name)
     {
         return name switch
@@ -254,6 +346,9 @@ internal sealed class WorkflowCatalog
         {
             Name = shared.Name,
             Instructions = shared.Instructions,
+            ReadsMemory = [.. shared.ReadsMemory],
+            WritesMemory = [.. shared.WritesMemory],
+            TransitionIds = [.. shared.TransitionIds],
             Transitions = [.. shared.Transitions.Select(CloneTransition)],
             ExecutionKind = shared.ExecutionKind,
             ScriptPath = shared.ScriptPath

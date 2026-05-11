@@ -1,11 +1,6 @@
 {
   "id": "ask",
   "instructions": "Do not change files. Answer the user's request directly and concisely based on the current workspace.",
-  "transitions": [
-    {
-      "selection": "ask",
-      "description": "Continue answering in the current step because more work is needed before stopping.",
-      "targetStepName": "ask"
-    }
-  ]
+  "writesMemory": ["answer"],
+  "transitionIds": ["continue", "stop"]
 }

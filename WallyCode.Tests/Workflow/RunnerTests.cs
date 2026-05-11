@@ -20,11 +20,11 @@ public class RunnerTests
         using var temp = TempWorkspace.Create();
         var def = WorkflowDefinition.LoadByName("requirements");
         var runner = NewRunner(temp.RootPath, def,
-            new MockInvocation { RawOutput = """{"selectedStep":"collect_requirements","summary":"working"}""" });
+            new MockInvocation { RawOutput = """{"selectedStep":"continue","summary":"working"}""" });
 
         var result = await runner.RunOnceAsync(CancellationToken.None);
 
-        Assert.Equal("collect_requirements", result.SelectedStep);
+        Assert.Equal("continue", result.SelectedStep);
         Assert.Equal("collect_requirements", result.ActiveStepName);
         Assert.Equal(SessionStatus.Active, result.Status);
         Assert.False(result.StopsInvocation);
@@ -32,7 +32,7 @@ public class RunnerTests
 
         var session = Session.Load(temp.RootPath);
         Assert.Equal(1, session.IterationCount);
-        Assert.Equal("collect_requirements", session.LastSelectedStep);
+        Assert.Equal("continue", session.LastSelectedStep);
     }
 
     [Fact]
@@ -52,6 +52,7 @@ public class RunnerTests
 
     [Theory]
     [InlineData("ask_user", SessionStatus.Blocked)]
+    [InlineData("stop", SessionStatus.Completed)]
     [InlineData("done", SessionStatus.Completed)]
     [InlineData("error", SessionStatus.Error)]
     public async Task Terminal_selections_update_status_and_stop(string selectedStep, string expectedStatus)
@@ -59,9 +60,9 @@ public class RunnerTests
         using var temp = TempWorkspace.Create();
         var def = WorkflowDefinition.LoadByName("full-pipeline");
         var session = Session.Start(def, "test goal", "mock-provider", "mock-default-model", temp.RootPath);
-        if (selectedStep is "done" or "error")
+        if (selectedStep is "stop" or "done" or "error")
         {
-            session.ActiveStepName = "produce_tasks";
+            session.ActiveStepName = "execute_tasks";
         }
         session.Save(temp.RootPath);
 
@@ -146,10 +147,10 @@ public class RunnerTests
         using var temp = TempWorkspace.Create();
         var def = WorkflowDefinition.LoadByName("requirements");
         var runner = NewRunner(temp.RootPath, def,
-            new MockInvocation { RawOutput = "```json\n{\"selectedStep\":\"collect_requirements\"}\n```" });
+            new MockInvocation { RawOutput = "```json\n{\"selectedStep\":\"continue\"}\n```" });
 
         var result = await runner.RunOnceAsync(CancellationToken.None);
-        Assert.Equal("collect_requirements", result.SelectedStep);
+        Assert.Equal("continue", result.SelectedStep);
     }
 
     [Fact]
@@ -161,9 +162,9 @@ public class RunnerTests
         session.Save(temp.RootPath);
         var runner = new Runner(
             new MockLlmProvider([
-                new MockInvocation { RawOutput = """{"selectedStep":"collect_requirements"}""" },
+                new MockInvocation { RawOutput = """{"selectedStep":"continue"}""" },
                 new MockInvocation { RawOutput = """{"selectedStep":"ask_user"}""" },
-                new MockInvocation { RawOutput = """{"selectedStep":"collect_requirements"}""" }
+                new MockInvocation { RawOutput = """{"selectedStep":"continue"}""" }
             ]),
             def, temp.RootPath);
 
@@ -182,7 +183,7 @@ public class RunnerTests
         session.Save(temp.RootPath);
 
         var provider = new MockLlmProvider([
-            new MockInvocation { RawOutput = """{"selectedStep":"collect_requirements"}""" }
+            new MockInvocation { RawOutput = """{"selectedStep":"continue"}""" }
         ]);
         var runner = new Runner(provider, def, temp.RootPath);
 
@@ -198,7 +199,7 @@ public class RunnerTests
         using var temp = TempWorkspace.Create();
         var def = WorkflowDefinition.LoadByName("requirements");
         var provider = new MockLlmProvider([
-            new MockInvocation { RawOutput = """{"selectedStep":"collect_requirements"}""" }
+            new MockInvocation { RawOutput = """{"selectedStep":"continue"}""" }
         ]);
         var runner = new Runner(provider, def, temp.RootPath);
         Session.Start(def, "test goal", "mock-provider", "mock-default-model", temp.RootPath).Save(temp.RootPath);
@@ -206,8 +207,62 @@ public class RunnerTests
         await runner.RunOnceAsync(CancellationToken.None);
 
         Assert.Contains("Step transitions:", provider.Requests[0].Prompt);
-        Assert.Contains("collect_requirements:", provider.Requests[0].Prompt);
+        Assert.Contains("continue:", provider.Requests[0].Prompt);
         Assert.Contains("produce_tasks:", provider.Requests[0].Prompt);
+        Assert.DoesNotContain("stop:", provider.Requests[0].Prompt);
+    }
+
+    [Fact]
+    public async Task Memory_updates_are_persisted_injected_and_snapshotted()
+    {
+        using var temp = TempWorkspace.Create();
+        var def = WorkflowDefinition.LoadByName("full-pipeline");
+        Session.Start(def, "test goal", "mock-provider", "mock-default-model", temp.RootPath).Save(temp.RootPath);
+
+        var provider = new MockLlmProvider([
+            new MockInvocation
+            {
+                RawOutput = """{"selectedStep":"produce_tasks","summary":"requirements ready","memory":{"requirements":"Import comma-separated files."}}"""
+            },
+            new MockInvocation
+            {
+                RawOutput = """{"selectedStep":"continue","summary":"task draft","memory":{"tasks":["Parse CSV","Validate rows"]}}"""
+            }
+        ]);
+        var runner = new Runner(provider, def, temp.RootPath);
+
+        var results = await runner.RunAsync(steps: 2, CancellationToken.None);
+
+        Assert.Equal(2, results.Count);
+        Assert.Contains("Session memory:", provider.Requests[1].Prompt);
+        Assert.Contains("requirements: Import comma-separated files.", provider.Requests[1].Prompt);
+        Assert.Contains("Memory this step can update:", provider.Requests[1].Prompt);
+        Assert.Contains("tasks", provider.Requests[1].Prompt);
+
+        var session = Session.Load(temp.RootPath);
+        Assert.Equal("Import comma-separated files.", session.Memory["requirements"]);
+        Assert.Equal("[\"Parse CSV\",\"Validate rows\"]", session.Memory["tasks"]);
+        Assert.True(File.Exists(Session.SnapshotFilePath(temp.RootPath, 1)));
+        Assert.True(File.Exists(Session.SnapshotFilePath(temp.RootPath, 2)));
+    }
+
+    [Fact]
+    public async Task Memory_null_update_removes_existing_key()
+    {
+        using var temp = TempWorkspace.Create();
+        var def = WorkflowDefinition.LoadByName("requirements");
+        var session = Session.Start(def, "test goal", "mock-provider", "mock-default-model", temp.RootPath);
+        session.Memory["requirements"] = "old";
+        session.Save(temp.RootPath);
+
+        var runner = new Runner(
+            new MockLlmProvider([new MockInvocation { RawOutput = """{"selectedStep":"continue","memory":{"requirements":null}}""" }]),
+            def,
+            temp.RootPath);
+
+        await runner.RunOnceAsync(CancellationToken.None);
+
+        Assert.False(Session.Load(temp.RootPath).Memory.ContainsKey("requirements"));
     }
 
     [Fact]
@@ -216,7 +271,7 @@ public class RunnerTests
         using var temp = TempWorkspace.Create();
         var def = WorkflowDefinition.LoadByName("requirements");
         var provider = new MockLlmProvider([
-            new MockInvocation { RawOutput = """{"selectedStep":"collect_requirements"}""" }
+            new MockInvocation { RawOutput = """{"selectedStep":"continue"}""" }
         ]);
         var runner = new Runner(provider, def, temp.RootPath);
         Session.Start(def, "test goal", "mock-provider", "mock-default-model", temp.RootPath).Save(temp.RootPath);
@@ -236,7 +291,7 @@ public class RunnerTests
         using var temp = TempWorkspace.Create();
         var def = WorkflowDefinition.LoadByName("requirements");
         var provider = new MockLlmProvider([
-            new MockInvocation { RawOutput = """{"selectedStep":"collect_requirements"}""" }
+            new MockInvocation { RawOutput = """{"selectedStep":"continue"}""" }
         ]);
         var runner = new Runner(provider, def, temp.RootPath);
         Session.Start(def, "test goal", "mock-provider", "mock-default-model", temp.RootPath).Save(temp.RootPath);

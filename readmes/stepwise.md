@@ -40,6 +40,8 @@ The response is included in the next prompt and then cleared from pending respon
 
 Use `--log --verbose` while tuning definitions or prompts. Logs include prompt text, raw provider output, selected step, next step, and final session status.
 
+Each completed iteration also writes the current session state to `sessions/session-000N.json` under the runtime root. The active `session.json` remains the latest state used by the next command.
+
 ## Isolate experiments
 
 An active session owns its workflow definition. Use `--memory-root` to keep experiments separate:

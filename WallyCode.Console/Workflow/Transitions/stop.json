@@ -1,0 +1,7 @@
+{
+  "id": "stop",
+  "selection": "stop",
+  "description": "Stop the workflow because the current goal is complete.",
+  "status": "completed",
+  "stopsInvocation": true
+}
