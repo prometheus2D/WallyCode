@@ -23,9 +23,6 @@ internal sealed class AskCommandOptions
     [Option("max-run-iterations", Default = RunCommandOptions.DefaultMaxRunIterations, HelpText = "Maximum workflow step iterations to execute in this invocation.")]
     public int MaxRunIterations { get; set; } = RunCommandOptions.DefaultMaxRunIterations;
 
-    [Option("max-iterations", HelpText = "Deprecated alias for --max-run-iterations.")]
-    public int? DeprecatedMaxIterations { get; set; }
-
     [Option("max-total-iterations", Default = 0, HelpText = "Maximum total workflow iterations allowed for the active session. Use 0 for no limit.")]
     public int MaxTotalIterations { get; set; }
 
@@ -46,7 +43,7 @@ internal sealed class AskCommandOptions
         Model = Model,
         SourcePath = SourcePath,
         MemoryRoot = MemoryRoot,
-        MaxRunIterations = DeprecatedMaxIterations ?? MaxRunIterations,
+        MaxRunIterations = MaxRunIterations,
         MaxTotalIterations = MaxTotalIterations,
         MaxStepRepeats = MaxStepRepeats,
         Log = Log,
