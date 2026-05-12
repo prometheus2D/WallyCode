@@ -1,13 +1,14 @@
 # Definitions and Steps
 
-Workflow definitions are WallyCode entry points selected by `loop --definition <name>`. Definition names resolve to a start step, and `ask` and `act` are shortcut verbs for two common starts.
+Workflow definitions are WallyCode entry points selected by `loop --definition <name>`. A definition owns workflow-level instructions, aliases, a start step, and the set of shared steps allowed in that workflow. `stepIds` defines the route surface for that workflow: transitions to targets outside the set are removed from the compiled workflow before the provider prompt and resolver see them. `ask` and `act` are shortcut verbs for two common definitions.
 
 ## Files
 
-- `WallyCode.Console/Workflow/Steps/*.json` defines reusable shared steps that can be used as workflow starts.
+- `WallyCode.Console/Workflow/Definitions/*.json` defines named workflows: instructions, aliases, start step, and allowed step IDs.
+- `WallyCode.Console/Workflow/Steps/*.json` defines reusable shared steps.
 - `WallyCode.Console/Workflow/Transitions/*.json` defines reusable routing transitions that steps opt into with `transitionIds`.
 
-The project file copies workflow step and transition JSON to build and publish output, so edits are available to the console app after a build.
+The project file copies workflow definition, step, and transition JSON to build and publish output, so edits are available to the console app after a build.
 
 ## Built-in definitions
 
@@ -15,9 +16,8 @@ The project file copies workflow step and transition JSON to build and publish o
 | --- | --- | --- |
 | `ask` | `ask` | Answer a question without intending to edit files. |
 | `act` | `act` | Complete a file-changing implementation request through an implementation/review loop. |
-| `requirements` | `collect_requirements` | Clarify requirements, produce tasks, then execute. This is the default for `loop`. |
+| `requirements` | `collect_requirements` | Clarify requirements, produce tasks, then execute. This is the default for `loop`. Aliases: `collect_requirements`, `full-pipeline`. |
 | `tasks` | `produce_tasks` | Start at task production, then execute. |
-| `full-pipeline` | `collect_requirements` | Run the full requirements-to-execution flow. |
 
 ## Run a definition
 
@@ -33,14 +33,27 @@ If an active session exists, it is tied to the workflow definition it started wi
 
 ## Add or change a definition
 
-1. Add or edit shared step JSON under `WallyCode.Console/Workflow/Steps`.
-2. Put step instructions in `instructions`.
-3. Use `readsMemory` and `writesMemory` when a step should consume or produce durable session context.
-4. Add reusable transitions under `WallyCode.Console/Workflow/Transitions`.
-5. Reference those transitions from steps with `transitionIds`.
-6. Run `dotnet build WallyCode.sln`.
+1. Add or edit a workflow JSON file under `WallyCode.Console/Workflow/Definitions`.
+2. Put workflow-level instructions in `instructions`.
+3. Choose `startStepName` and the allowed `stepIds`. Only transitions targeting those steps are available in that workflow.
+4. Add or edit shared step JSON under `WallyCode.Console/Workflow/Steps`.
+5. Use step `readsMemory` and `writesMemory` when a step should consume or produce durable session context.
+6. Add reusable transitions under `WallyCode.Console/Workflow/Transitions` and reference them from steps with `transitionIds`.
+7. Run `dotnet build WallyCode.sln`.
 
-Example shape:
+Example workflow definition:
+
+```json
+{
+  "id": "requirements",
+  "aliases": ["collect_requirements", "full-pipeline"],
+  "instructions": "Clarify requirements, produce tasks, execute the tasks, and finish only when the requested outcome is complete.",
+  "startStepName": "collect_requirements",
+  "stepIds": ["collect_requirements", "produce_tasks", "execute_tasks"]
+}
+```
+
+Example shared step:
 
 ```json
 {

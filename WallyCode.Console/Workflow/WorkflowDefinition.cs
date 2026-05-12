@@ -172,9 +172,19 @@ internal sealed class SharedWorkflowTransitionDefinition : WorkflowTransition
     public string Id { get; set; } = string.Empty;
 }
 
+internal sealed class SharedWorkflowDefinition
+{
+    public string Id { get; set; } = string.Empty;
+    public List<string> Aliases { get; set; } = [];
+    public string Instructions { get; set; } = string.Empty;
+    public string StartStepName { get; set; } = string.Empty;
+    public List<string> StepIds { get; set; } = [];
+}
+
 internal sealed class WorkflowDefinition
 {
     public string Name { get; set; } = string.Empty;
+    public string Instructions { get; set; } = string.Empty;
     public string StartStepName { get; set; } = string.Empty;
     public List<WorkflowStep> Steps { get; set; } = [];
 
@@ -187,7 +197,7 @@ internal sealed class WorkflowDefinition
         return WorkflowCatalog.LoadFromBaseDirectory().GetDefinition(workflowName);
     }
 
-    public static string NormalizeStartStepName(string name) => WorkflowCatalog.ResolveStartStepName(name);
+    public static string NormalizeStartStepName(string name) => WorkflowCatalog.LoadFromBaseDirectory().ResolveDefinitionName(name);
 
     public static WorkflowDefinition LoadFromJson(string json)
     {
@@ -240,11 +250,17 @@ internal sealed class WorkflowDefinition
 internal sealed class WorkflowCatalog
 {
     private readonly Dictionary<string, SharedWorkflowStepDefinition> _sharedSteps;
+    private readonly Dictionary<string, SharedWorkflowDefinition> _workflowDefinitions;
+    private readonly Dictionary<string, string> _workflowAliases;
 
     private WorkflowCatalog(
-        Dictionary<string, SharedWorkflowStepDefinition> sharedSteps)
+        Dictionary<string, SharedWorkflowStepDefinition> sharedSteps,
+        Dictionary<string, SharedWorkflowDefinition> workflowDefinitions,
+        Dictionary<string, string> workflowAliases)
     {
         _sharedSteps = sharedSteps;
+        _workflowDefinitions = workflowDefinitions;
+        _workflowAliases = workflowAliases;
     }
 
     public static WorkflowCatalog LoadFromBaseDirectory()
@@ -255,6 +271,7 @@ internal sealed class WorkflowCatalog
 
     public static WorkflowCatalog LoadFromDirectory(string workflowRoot)
     {
+        var definitionsPath = Path.Combine(workflowRoot, "Definitions");
         var stepsPath = Path.Combine(workflowRoot, "Steps");
         var transitionsPath = Path.Combine(workflowRoot, "Transitions");
 
@@ -299,27 +316,42 @@ internal sealed class WorkflowCatalog
             step.ValidateShape($"shared:{step.Id}");
         }
 
-        var catalog = new WorkflowCatalog(sharedSteps);
+        var (workflowDefinitions, workflowAliases) = LoadWorkflowDefinitions(definitionsPath);
+        var catalog = new WorkflowCatalog(sharedSteps, workflowDefinitions, workflowAliases);
         catalog.ResolveAndValidate();
         return catalog;
     }
 
     public WorkflowDefinition GetDefinition(string name)
     {
-        var startStepName = ResolveStartStepName(name);
-        if (!_sharedSteps.ContainsKey(startStepName))
+        var workflowName = ResolveDefinitionName(name);
+        if (_workflowDefinitions.TryGetValue(workflowName, out var workflowDefinition))
         {
-            throw new InvalidOperationException($"Workflow step '{name}' not found.");
+            var compiledDefinition = CompileWorkflowDefinition(workflowDefinition);
+            compiledDefinition.Validate();
+            return compiledDefinition;
+        }
+
+        if (!_sharedSteps.ContainsKey(workflowName))
+        {
+            throw new InvalidOperationException($"Workflow definition or step '{name}' not found.");
         }
 
         var definition = new WorkflowDefinition
         {
-            Name = startStepName,
-            StartStepName = startStepName,
+            Name = workflowName,
+            StartStepName = workflowName,
             Steps = [.. _sharedSteps.Values.Select(CloneSharedStep)]
         };
         definition.Validate();
         return definition;
+    }
+
+    public string ResolveDefinitionName(string name)
+    {
+        return _workflowAliases.TryGetValue(name, out var workflowName)
+            ? workflowName
+            : name;
     }
 
     private void ResolveAndValidate()
@@ -334,6 +366,120 @@ internal sealed class WorkflowCatalog
                 }
             }
         }
+
+        foreach (var definition in _workflowDefinitions.Values)
+        {
+            ValidateWorkflowDefinitionSpec(definition);
+            CompileWorkflowDefinition(definition).Validate();
+        }
+    }
+
+    private WorkflowDefinition CompileWorkflowDefinition(SharedWorkflowDefinition workflowDefinition)
+    {
+        var allowedStepIds = new HashSet<string>(workflowDefinition.StepIds, StringComparer.Ordinal);
+        return new WorkflowDefinition
+        {
+            Name = workflowDefinition.Id,
+            Instructions = workflowDefinition.Instructions,
+            StartStepName = workflowDefinition.StartStepName,
+            Steps = [.. workflowDefinition.StepIds.Select(stepId => CloneSharedStep(GetSharedStep(workflowDefinition.Id, stepId), allowedStepIds))]
+        };
+    }
+
+    private SharedWorkflowStepDefinition GetSharedStep(string workflowName, string stepId)
+    {
+        return _sharedSteps.TryGetValue(stepId, out var step)
+            ? step
+            : throw new InvalidOperationException($"Workflow definition '{workflowName}' references unknown step '{stepId}'.");
+    }
+
+    private void ValidateWorkflowDefinitionSpec(SharedWorkflowDefinition definition)
+    {
+        if (string.IsNullOrWhiteSpace(definition.Id))
+        {
+            throw new InvalidOperationException("Workflow definition id is required.");
+        }
+
+        if (string.IsNullOrWhiteSpace(definition.StartStepName))
+        {
+            throw new InvalidOperationException($"Workflow definition '{definition.Id}' startStepName is required.");
+        }
+
+        if (definition.StepIds.Count == 0)
+        {
+            throw new InvalidOperationException($"Workflow definition '{definition.Id}' must declare at least one stepId.");
+        }
+
+        var seenStepIds = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var stepId in definition.StepIds)
+        {
+            if (string.IsNullOrWhiteSpace(stepId))
+            {
+                throw new InvalidOperationException($"Workflow definition '{definition.Id}' contains an empty stepId.");
+            }
+
+            if (!seenStepIds.Add(stepId))
+            {
+                throw new InvalidOperationException($"Workflow definition '{definition.Id}' contains duplicate stepId '{stepId}'.");
+            }
+
+            _ = GetSharedStep(definition.Id, stepId);
+        }
+
+        if (!seenStepIds.Contains(definition.StartStepName))
+        {
+            throw new InvalidOperationException($"Workflow definition '{definition.Id}' startStepName '{definition.StartStepName}' is not in stepIds.");
+        }
+    }
+
+    private static (Dictionary<string, SharedWorkflowDefinition> Definitions, Dictionary<string, string> Aliases) LoadWorkflowDefinitions(string definitionsPath)
+    {
+        var definitions = new Dictionary<string, SharedWorkflowDefinition>(StringComparer.Ordinal);
+        var aliases = new Dictionary<string, string>(StringComparer.Ordinal);
+
+        if (!Directory.Exists(definitionsPath))
+        {
+            return (definitions, aliases);
+        }
+
+        foreach (var path in Directory.GetFiles(definitionsPath, "*.json", SearchOption.AllDirectories))
+        {
+            var definition = JsonSerializer.Deserialize<SharedWorkflowDefinition>(File.ReadAllText(path), JsonOptions.Default)
+                ?? throw new InvalidOperationException($"Workflow definition JSON is invalid: {path}");
+
+            if (string.IsNullOrWhiteSpace(definition.Id))
+            {
+                throw new InvalidOperationException($"Workflow definition id is required: {path}");
+            }
+
+            if (!definitions.TryAdd(definition.Id, definition))
+            {
+                throw new InvalidOperationException($"Duplicate workflow definition id '{definition.Id}'.");
+            }
+
+            AddWorkflowAlias(aliases, definition.Id, definition.Id, definition.Id);
+            foreach (var alias in definition.Aliases)
+            {
+                AddWorkflowAlias(aliases, alias, definition.Id, definition.Id);
+            }
+        }
+
+        return (definitions, aliases);
+    }
+
+    private static void AddWorkflowAlias(Dictionary<string, string> aliases, string alias, string definitionId, string ownerDefinitionId)
+    {
+        if (string.IsNullOrWhiteSpace(alias))
+        {
+            throw new InvalidOperationException($"Workflow definition '{ownerDefinitionId}' contains an empty alias.");
+        }
+
+        if (aliases.TryGetValue(alias, out var existingDefinitionId) && !string.Equals(existingDefinitionId, definitionId, StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException($"Workflow alias '{alias}' is used by both '{existingDefinitionId}' and '{definitionId}'.");
+        }
+
+        aliases[alias] = definitionId;
     }
 
     private static List<WorkflowTransition> ResolveStepTransitions(
@@ -367,16 +513,6 @@ internal sealed class WorkflowCatalog
         return transitions;
     }
 
-    internal static string ResolveStartStepName(string name)
-    {
-        return name switch
-        {
-            "requirements" or "full-pipeline" => "collect_requirements",
-            "tasks" => "produce_tasks",
-            _ => name
-        };
-    }
-
     private static WorkflowStep CloneSharedStep(SharedWorkflowStepDefinition shared)
     {
         return new WorkflowStep
@@ -392,6 +528,19 @@ internal sealed class WorkflowCatalog
             ScriptArguments = shared.ScriptArguments,
             TimeoutSeconds = shared.TimeoutSeconds
         };
+    }
+
+    private static WorkflowStep CloneSharedStep(SharedWorkflowStepDefinition shared, IReadOnlySet<string> allowedStepIds)
+    {
+        var step = CloneSharedStep(shared);
+        step.Transitions = [.. step.Transitions.Where(transition => IsTransitionAllowedInWorkflow(transition, allowedStepIds))];
+        return step;
+    }
+
+    private static bool IsTransitionAllowedInWorkflow(WorkflowTransition transition, IReadOnlySet<string> allowedStepIds)
+    {
+        return string.IsNullOrWhiteSpace(transition.TargetStepName)
+            || allowedStepIds.Contains(transition.TargetStepName);
     }
 
     private static WorkflowTransition CloneTransition(WorkflowTransition transition)

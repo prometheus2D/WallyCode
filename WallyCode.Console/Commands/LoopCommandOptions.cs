@@ -10,10 +10,10 @@ internal sealed class LoopCommandOptions
     [Value(0, MetaName = "goal", Required = false, HelpText = "Goal for a new session. Omit to continue the active session.")]
     public string? Goal { get; set; }
 
-    [Option("definition", HelpText = "Compatibility alias for --start-step. Defaults to 'collect_requirements'.")]
+    [Option("definition", HelpText = "Workflow definition name. Defaults to 'requirements'.")]
     public string? Definition { get; set; }
 
-    [Option("start-step", HelpText = "Workflow step name to start. Defaults to 'collect_requirements'.")]
+    [Option("start-step", HelpText = "Compatibility alias for --definition.")]
     public string? StartStepName { get; set; }
 
     [Option("provider", HelpText = "Optional provider override.")]

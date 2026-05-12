@@ -41,6 +41,13 @@ internal sealed class ProviderStepExecutor : IStepExecutor
         var step = context.Step;
         var sb = new StringBuilder();
         sb.AppendLine($"Goal: {session.Goal}");
+        sb.AppendLine($"Workflow: {context.Definition.Name}");
+        if (!string.IsNullOrWhiteSpace(context.Definition.Instructions))
+        {
+            sb.AppendLine("Workflow instructions:");
+            sb.AppendLine(context.Definition.Instructions);
+        }
+
         sb.AppendLine($"Active step: {step.Name}");
         if (!string.IsNullOrWhiteSpace(context.GlobalPrompt))
         {

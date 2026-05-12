@@ -116,13 +116,14 @@ The provider returns a `selectedStep` from the allowed step options in the promp
 
 For implementation work, `act` uses an implementation/review loop. The `act` step makes changes and writes `implementation`; `review_changes` reads that summary, reviews the workspace, and either chooses `stop`, `continue`, `ask_user`, or routes back to `act` with `review` feedback.
 
-Steps live under `WallyCode.Console/Workflow/Steps`, reusable transitions live under `WallyCode.Console/Workflow/Transitions`, and each step opts into routes with `transitionIds`.
+Workflow definitions live under `WallyCode.Console/Workflow/Definitions`. A definition declares workflow-level instructions, aliases, the start step, and the allowed step IDs. Those step IDs define the route options available in that workflow; transitions to outside targets are filtered out before prompting and resolution. Shared steps live under `WallyCode.Console/Workflow/Steps`, reusable transitions live under `WallyCode.Console/Workflow/Transitions`, and each step opts into routes with `transitionIds`.
 
 Steps can also return a top-level `memory` object. The orchestrator merges that object into session memory, stores it in `session.json`, and injects declared memory keys into later step prompts.
 
 Workflow execution is orchestrated in layers:
 
 - `WorkflowOrchestrator` owns one deterministic session iteration.
+- `WorkflowDefinition` owns the higher-level workflow instructions and allowed step graph.
 - Step executors run the active step. Provider steps call the LLM; script steps run deterministic local scripts.
 - `TransitionResolver` checks explicit guarded transitions first, then uses the LLM-selected transition and enforces derived handoff memory requirements.
 - Session memory is filtered through each step's `writesMemory` contract before persistence.

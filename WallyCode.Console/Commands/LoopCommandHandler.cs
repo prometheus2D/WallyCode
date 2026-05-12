@@ -8,7 +8,7 @@ namespace WallyCode.ConsoleApp.Commands;
 
 internal sealed class LoopCommandHandler
 {
-    private const string DefaultStartStepName = "collect_requirements";
+    private const string DefaultWorkflowName = "requirements";
     private const string EmptySummaryMessage = "[no summary provided]";
 
     private readonly ProviderRegistry _providerRegistry;
@@ -85,7 +85,8 @@ internal sealed class LoopCommandHandler
                 _logger.LogAction("Resuming session", $"workflow={definition.Name}; provider={provider.Name}; iteration={session.IterationCount}");
                 _logger.Info($"Resuming session at iteration {session.IterationCount}.");
 
-                _logger.Info($"Start step: {definition.Name}");
+                _logger.Info($"Workflow: {definition.Name}");
+                _logger.Info($"Start step: {definition.StartStepName}");
                 _logger.Info($"Active step: {session.ActiveStepName}");
                 _logger.Info($"Status: {session.Status}");
                 _logger.Info($"Session root: {sessionRoot}");
@@ -137,13 +138,14 @@ internal sealed class LoopCommandHandler
             ? (string.IsNullOrWhiteSpace(settings.Model) ? provider.DefaultModel : settings.Model)
             : options.Model!.Trim();
 
-        definition = WorkflowDefinition.LoadByName(options.GetRequestedStartStepName()?.Trim() ?? DefaultStartStepName);
+        definition = WorkflowDefinition.LoadByName(options.GetRequestedStartStepName()?.Trim() ?? DefaultWorkflowName);
         session = Session.Start(definition, options.Goal!, provider.Name, model, projectRoot);
         session.Save(sessionRoot);
         _logger.LogAction("Started session", $"startStep={definition.Name}; provider={provider.Name}; model={model ?? "<default>"}; goal={session.Goal}");
-        _logger.Info($"Started session at step '{definition.Name}'.");
+        _logger.Info($"Started session for workflow '{definition.Name}'.");
 
-        _logger.Info($"Start step: {definition.Name}");
+        _logger.Info($"Workflow: {definition.Name}");
+        _logger.Info($"Start step: {definition.StartStepName}");
         _logger.Info($"Active step: {session.ActiveStepName}");
         _logger.Info($"Status: {session.Status}");
         _logger.Info($"Session root: {sessionRoot}");
