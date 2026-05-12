@@ -11,14 +11,8 @@ internal sealed class ResumeCommandOptions
     [Option("memory-root", HelpText = "Optional folder for session state.")]
     public string? MemoryRoot { get; set; }
 
-    [Option("steps", Default = 1, HelpText = "Runs n iterations in this invocation.")]
-    public int Steps { get; set; }
-
-    [Option("step", HelpText = "Runs exactly one iteration in this invocation.")]
-    public bool Step { get; set; }
-
-    [Option("until-complete", HelpText = "Runs until the workflow stops, blocks, errors, or reaches the safety cap of 20 iterations.")]
-    public bool UntilComplete { get; set; }
+    [Option("max-iterations", Default = RunCommandOptions.DefaultMaxIterations, HelpText = "Maximum workflow iterations to run before stopping.")]
+    public int MaxIterations { get; set; } = RunCommandOptions.DefaultMaxIterations;
 
     [Option("log", HelpText = "Enable transcript logging for this invocation.")]
     public bool Log { get; set; }
@@ -26,19 +20,15 @@ internal sealed class ResumeCommandOptions
     [Option("verbose", HelpText = "Enable verbose transcript logging for this invocation.")]
     public bool Verbose { get; set; }
 
-    public LoopCommandOptions ToLoopOptions()
+    public RunCommandOptions ToRunOptions()
     {
-        return new LoopCommandOptions
+        return new RunCommandOptions
         {
             SourcePath = SourcePath,
             MemoryRoot = MemoryRoot,
-            Steps = Steps,
-            Step = Step,
-            UntilComplete = UntilComplete,
+            MaxIterations = MaxIterations,
             Log = Log,
             Verbose = Verbose
         };
     }
-
-    public int GetEffectiveSteps() => Step ? 1 : UntilComplete ? LoopCommandOptions.UntilCompleteStepLimit : Steps;
 }

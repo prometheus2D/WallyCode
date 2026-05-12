@@ -150,7 +150,7 @@ internal sealed class SetupCommandHandler
         Console.WriteLine("Next commands:");
         Console.WriteLine($"cd {targetDirectory}");
         Console.WriteLine("wallycode provider");
-        Console.WriteLine("wallycode loop --definition ask \"Summarize this repository in one short paragraph.\"");
+        Console.WriteLine("wallycode run \"Summarize this repository in one short paragraph.\" ask");
         Console.WriteLine();
     }
 }

@@ -39,17 +39,18 @@ internal static class Program
 			settings.AutoVersion = true;
 		});
 
-		var result = parser.ParseArguments<LoopCommandOptions, ResumeCommandOptions, AskCommandOptions, ActCommandOptions, ProviderCommandOptions, RespondCommandOptions, LoggingCommandOptions, ShellCommandOptions, SetupCommandOptions>(args);
+		var result = parser.ParseArguments<RunCommandOptions, StepCommandOptions, ResumeCommandOptions, AskCommandOptions, ActCommandOptions, ProviderCommandOptions, RespondCommandOptions, LoggingCommandOptions, ShellCommandOptions, SetupCommandOptions>(args);
 
 		try
 		{
 			return await result.MapResult(
-				(LoopCommandOptions options) => new LoopCommandHandler(providerRegistry, logger).ExecuteAsync(options, cancellationToken),
-				(ResumeCommandOptions options) => new ResumeCommandHandler(new LoopCommandHandler(providerRegistry, logger)).ExecuteAsync(options, cancellationToken),
-				(AskCommandOptions options) => new LoopCommandHandler(providerRegistry, logger).ExecuteAsync(options.ToLoopOptions(), cancellationToken),
-				(ActCommandOptions options) => new LoopCommandHandler(providerRegistry, logger).ExecuteAsync(options.ToLoopOptions(), cancellationToken),
+				(RunCommandOptions options) => new WorkflowRunCommandHandler(providerRegistry, logger).ExecuteAsync(options, cancellationToken),
+				(StepCommandOptions options) => new StepCommandHandler(providerRegistry, logger).ExecuteAsync(options, cancellationToken),
+				(ResumeCommandOptions options) => new ResumeCommandHandler(new WorkflowRunCommandHandler(providerRegistry, logger)).ExecuteAsync(options, cancellationToken),
+				(AskCommandOptions options) => new WorkflowRunCommandHandler(providerRegistry, logger).ExecuteAsync(options.ToRunOptions(), cancellationToken),
+				(ActCommandOptions options) => new WorkflowRunCommandHandler(providerRegistry, logger).ExecuteAsync(options.ToRunOptions(), cancellationToken),
 				(ProviderCommandOptions options) => new ProviderCommandHandler(providerRegistry, logger).ExecuteAsync(options, cancellationToken),
-				(RespondCommandOptions options) => new RespondCommandHandler(logger).ExecuteAsync(options, cancellationToken),
+				(RespondCommandOptions options) => new RespondCommandHandler(new WorkflowRunCommandHandler(providerRegistry, logger), logger).ExecuteAsync(options, cancellationToken),
 				(LoggingCommandOptions options) => new LoggingCommandHandler(logger).ExecuteAsync(options, cancellationToken),
 				(ShellCommandOptions options) => new ShellCommandHandler(options, appDirectoryPath).ExecuteAsync(cancellationToken),
 				(SetupCommandOptions options) => new SetupCommandHandler(providerRegistry, logger, appDirectoryPath).ExecuteAsync(options, cancellationToken),
@@ -109,7 +110,8 @@ internal static class Program
 
 	private static bool SupportsInvocationLogging(string commandName)
 	{
-		return string.Equals(commandName, "loop", StringComparison.OrdinalIgnoreCase)
+		return string.Equals(commandName, "run", StringComparison.OrdinalIgnoreCase)
+			|| string.Equals(commandName, "step", StringComparison.OrdinalIgnoreCase)
 			|| string.Equals(commandName, "resume", StringComparison.OrdinalIgnoreCase)
 			|| string.Equals(commandName, "ask", StringComparison.OrdinalIgnoreCase)
 			|| string.Equals(commandName, "act", StringComparison.OrdinalIgnoreCase)

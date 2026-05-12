@@ -2,11 +2,11 @@ using CommandLine;
 
 namespace WallyCode.ConsoleApp.Commands;
 
-[Verb("act", HelpText = "Shortcut for loop --start-step act.")]
+[Verb("act", HelpText = "Shortcut for run <prompt> act.")]
 internal sealed class ActCommandOptions
 {
-    [Value(0, MetaName = "goal", Required = false, HelpText = "Goal for a new act session. Omit to continue the active session.")]
-    public string? Goal { get; set; }
+    [Value(0, MetaName = "prompt", Required = false, HelpText = "Prompt for a new act session. Omit to continue the active session.")]
+    public string? Prompt { get; set; }
 
     [Option("provider", HelpText = "Optional provider override.")]
     public string? Provider { get; set; }
@@ -20,11 +20,8 @@ internal sealed class ActCommandOptions
     [Option("memory-root", HelpText = "Optional folder for session state.")]
     public string? MemoryRoot { get; set; }
 
-    [Option("steps", Default = 1, HelpText = "Runs n iterations in this invocation.")]
-    public int Steps { get; set; }
-
-    [Option("until-complete", HelpText = "Runs until the workflow stops, blocks, errors, or reaches the safety cap of 20 iterations.")]
-    public bool UntilComplete { get; set; }
+    [Option("max-iterations", Default = RunCommandOptions.DefaultMaxIterations, HelpText = "Maximum workflow iterations to run before stopping.")]
+    public int MaxIterations { get; set; } = RunCommandOptions.DefaultMaxIterations;
 
     [Option("log", HelpText = "Enable logging for this invocation.")]
     public bool Log { get; set; }
@@ -32,16 +29,15 @@ internal sealed class ActCommandOptions
     [Option("verbose", HelpText = "Enable verbose logging for this invocation.")]
     public bool Verbose { get; set; }
 
-    public LoopCommandOptions ToLoopOptions() => new()
+    public RunCommandOptions ToRunOptions() => new()
     {
-        Goal = Goal,
-        StartStepName = "act",
+        Prompt = Prompt,
+        WorkflowName = "act",
         Provider = Provider,
         Model = Model,
         SourcePath = SourcePath,
         MemoryRoot = MemoryRoot,
-        Steps = Steps,
-        UntilComplete = UntilComplete,
+        MaxIterations = MaxIterations,
         Log = Log,
         Verbose = Verbose
     };

@@ -6,7 +6,7 @@ using WallyCode.ConsoleApp.Workflow;
 
 namespace WallyCode.ConsoleApp.Commands;
 
-internal sealed class LoopCommandHandler
+internal sealed class WorkflowRunCommandHandler
 {
     private const string DefaultWorkflowName = "requirements";
     private const string EmptySummaryMessage = "[no summary provided]";
@@ -14,18 +14,18 @@ internal sealed class LoopCommandHandler
     private readonly ProviderRegistry _providerRegistry;
     private readonly AppLogger _logger;
 
-    public LoopCommandHandler(ProviderRegistry providerRegistry, AppLogger logger)
+    public WorkflowRunCommandHandler(ProviderRegistry providerRegistry, AppLogger logger)
     {
         _providerRegistry = providerRegistry;
         _logger = logger;
     }
 
-    public async Task<int> ExecuteAsync(LoopCommandOptions options, CancellationToken cancellationToken)
+    public async Task<int> ExecuteAsync(RunCommandOptions options, CancellationToken cancellationToken)
     {
-        var effectiveSteps = options.GetEffectiveSteps();
-        if (effectiveSteps <= 0)
+        var maxIterations = options.MaxIterations;
+        if (maxIterations <= 0)
         {
-            throw new InvalidOperationException("Steps must be greater than zero.");
+            throw new InvalidOperationException("Max iterations must be greater than zero.");
         }
 
         var projectRoot = ProjectSettings.ResolveProjectRoot(options.SourcePath);
@@ -41,7 +41,7 @@ internal sealed class LoopCommandHandler
         _logger.ConfigureLogging(sessionRoot, loggingMode);
         _logger.LogAction("Resolved paths", $"projectRoot={projectRoot}; sessionRoot={sessionRoot}");
 
-        _logger.Section("WallyCode Loop");
+        _logger.Section("WallyCode Run");
 
         Session session;
         WorkflowDefinition definition;
@@ -51,14 +51,14 @@ internal sealed class LoopCommandHandler
         {
             session = Session.Load(sessionRoot);
             _logger.LogAction("Loaded session", $"workflow={session.WorkflowName}; status={session.Status}; iteration={session.IterationCount}");
-            var workflowName = options.GetRequestedStartStepName()?.Trim();
+            var workflowName = options.GetRequestedWorkflowName()?.Trim();
             workflowName = string.IsNullOrWhiteSpace(workflowName)
                 ? session.WorkflowName
-                : WorkflowDefinition.NormalizeStartStepName(workflowName);
+                : WorkflowDefinition.NormalizeWorkflowName(workflowName);
             if (workflowName != session.WorkflowName)
             {
                 throw new InvalidOperationException(
-                    $"Active session started from step '{session.WorkflowName}'. Use --memory-root for a different one.");
+                    $"Active session is for workflow '{session.WorkflowName}'. Use --memory-root for a different workflow session.");
             }
 
             if (Session.IsTerminal(session.Status))
@@ -71,7 +71,7 @@ internal sealed class LoopCommandHandler
                     _logger.Warning($"Previous error: {session.LastSummary}");
                 }
 
-                if (string.IsNullOrWhiteSpace(options.Goal))
+                if (string.IsNullOrWhiteSpace(options.Prompt))
                 {
                     _logger.Success($"Session is already {session.Status}.");
                     _logger.LogAction("Invocation completed", "Existing terminal session reported without starting a new session.");
@@ -80,6 +80,12 @@ internal sealed class LoopCommandHandler
             }
             else
             {
+                if (!string.IsNullOrWhiteSpace(options.Prompt))
+                {
+                    throw new InvalidOperationException(
+                        "An active workflow session already exists. Use resume to continue it, or use --memory-root for a different session.");
+                }
+
                 definition = WorkflowDefinition.LoadByName(workflowName);
                 provider = _providerRegistry.Get(session.ProviderName);
                 _logger.LogAction("Resuming session", $"workflow={definition.Name}; provider={provider.Name}; iteration={session.IterationCount}");
@@ -102,34 +108,16 @@ internal sealed class LoopCommandHandler
                 _logger.LogAction("Provider ready", $"provider={provider.Name}; model={session.Model ?? "<default>"}", verboseOnly: true);
 
                 var orchestrator = CreateOrchestrator(provider, definition, sessionRoot);
-                var results = await orchestrator.RunAsync(effectiveSteps, cancellationToken);
+                var results = await orchestrator.RunAsync(maxIterations, cancellationToken);
 
-                foreach (var result in results)
-                {
-                    _logger.Section($"Iteration {result.IterationNumber}");
-                    _logger.Info($"Selected step: {result.SelectedStep}");
-                    _logger.Info($"Summary: {FormatSummary(result.Summary)}");
-                    _logger.Info($"Next step: {result.ActiveStepName}");
-                    _logger.Info($"Status: {result.Status}");
-                }
-
-                var finalResult = results.LastOrDefault();
-                if (finalResult?.Status == SessionStatus.Error && !string.IsNullOrWhiteSpace(finalResult.Summary))
-                {
-                    _logger.Warning($"Error: {finalResult.Summary}");
-                }
-
-                WarnIfUntilCompleteHitCap(options, effectiveSteps, results.Count, finalResult);
-
-                _logger.Success($"Run complete after {results.Count} iteration(s).");
-                _logger.LogAction("Invocation completed", $"iterations={results.Count}; finalStatus={finalResult?.Status ?? session.Status}");
+                LogResults(options, results, session);
                 return 0;
             }
         }
 
-        if (string.IsNullOrWhiteSpace(options.Goal))
+        if (string.IsNullOrWhiteSpace(options.Prompt))
         {
-            throw new InvalidOperationException("No active session. Start one with: loop <goal> [--start-step <name>]");
+            throw new InvalidOperationException("No active session. Start one with: run <prompt> [workflow]");
         }
 
         var providerName = string.IsNullOrWhiteSpace(options.Provider) ? settings.Provider : options.Provider!.Trim();
@@ -138,10 +126,10 @@ internal sealed class LoopCommandHandler
             ? (string.IsNullOrWhiteSpace(settings.Model) ? provider.DefaultModel : settings.Model)
             : options.Model!.Trim();
 
-        definition = WorkflowDefinition.LoadByName(options.GetRequestedStartStepName()?.Trim() ?? DefaultWorkflowName);
-        session = Session.Start(definition, options.Goal!, provider.Name, model, projectRoot);
+        definition = WorkflowDefinition.LoadByName(options.GetRequestedWorkflowName()?.Trim() ?? DefaultWorkflowName);
+        session = Session.Start(definition, options.Prompt!, provider.Name, model, projectRoot);
         session.Save(sessionRoot);
-        _logger.LogAction("Started session", $"startStep={definition.Name}; provider={provider.Name}; model={model ?? "<default>"}; goal={session.Goal}");
+        _logger.LogAction("Started session", $"workflow={definition.Name}; provider={provider.Name}; model={model ?? "<default>"}; prompt={session.Goal}");
         _logger.Info($"Started session for workflow '{definition.Name}'.");
 
         _logger.Info($"Workflow: {definition.Name}");
@@ -154,9 +142,15 @@ internal sealed class LoopCommandHandler
         _logger.LogAction("Provider ready", $"provider={provider.Name}; model={model ?? "<default>"}", verboseOnly: true);
 
         var orchestratorNew = CreateOrchestrator(provider, definition, sessionRoot);
-        var resultsNew = await orchestratorNew.RunAsync(effectiveSteps, cancellationToken);
+        var resultsNew = await orchestratorNew.RunAsync(maxIterations, cancellationToken);
 
-        foreach (var result in resultsNew)
+        LogResults(options, resultsNew, session);
+        return 0;
+    }
+
+    private void LogResults(RunCommandOptions options, IReadOnlyList<IterationResult> results, Session session)
+    {
+        foreach (var result in results)
         {
             _logger.Section($"Iteration {result.IterationNumber}");
             _logger.Info($"Selected step: {result.SelectedStep}");
@@ -165,17 +159,19 @@ internal sealed class LoopCommandHandler
             _logger.Info($"Status: {result.Status}");
         }
 
-        var finalNewResult = resultsNew.LastOrDefault();
-        if (finalNewResult?.Status == SessionStatus.Error && !string.IsNullOrWhiteSpace(finalNewResult.Summary))
+        var finalResult = results.LastOrDefault();
+        if (finalResult?.Status == SessionStatus.Error && !string.IsNullOrWhiteSpace(finalResult.Summary))
         {
-            _logger.Warning($"Error: {finalNewResult.Summary}");
+            _logger.Warning($"Error: {finalResult.Summary}");
         }
 
-        WarnIfUntilCompleteHitCap(options, effectiveSteps, resultsNew.Count, finalNewResult);
+        if (results.Count >= options.MaxIterations && finalResult?.StopsInvocation != true)
+        {
+            _logger.Warning($"Reached max iteration limit ({options.MaxIterations}). Run resume --max-iterations <n> to continue.");
+        }
 
-        _logger.Success($"Run complete after {resultsNew.Count} iteration(s).");
-        _logger.LogAction("Invocation completed", $"iterations={resultsNew.Count}; finalStatus={finalNewResult?.Status ?? session.Status}");
-        return 0;
+        _logger.Success($"Run complete after {results.Count} iteration(s).");
+        _logger.LogAction("Invocation completed", $"iterations={results.Count}; finalStatus={finalResult?.Status ?? session.Status}");
     }
 
     private static string FormatSummary(string? summary)
@@ -192,13 +188,5 @@ internal sealed class LoopCommandHandler
             sessionRoot,
             [new ProviderStepExecutor(provider, _logger), new ScriptStepExecutor(_logger)],
             _logger);
-    }
-
-    private void WarnIfUntilCompleteHitCap(LoopCommandOptions options, int effectiveSteps, int resultCount, IterationResult? finalResult)
-    {
-        if (options.UntilComplete && resultCount >= effectiveSteps && finalResult?.StopsInvocation != true)
-        {
-            _logger.Warning($"Reached --until-complete safety cap ({effectiveSteps} iterations). Run resume --until-complete to continue.");
-        }
     }
 }

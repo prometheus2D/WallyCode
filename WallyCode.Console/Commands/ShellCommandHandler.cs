@@ -171,7 +171,8 @@ internal sealed class ShellCommandHandler
 
     private static bool SupportsMemoryRoot(string commandName)
     {
-        return string.Equals(commandName, "loop", StringComparison.OrdinalIgnoreCase)
+        return string.Equals(commandName, "run", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(commandName, "step", StringComparison.OrdinalIgnoreCase)
             || string.Equals(commandName, "ask", StringComparison.OrdinalIgnoreCase)
             || string.Equals(commandName, "act", StringComparison.OrdinalIgnoreCase)
             || string.Equals(commandName, "respond", StringComparison.OrdinalIgnoreCase)
@@ -180,7 +181,8 @@ internal sealed class ShellCommandHandler
 
     private static bool SupportsLogging(string commandName)
     {
-        return string.Equals(commandName, "loop", StringComparison.OrdinalIgnoreCase)
+        return string.Equals(commandName, "run", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(commandName, "step", StringComparison.OrdinalIgnoreCase)
             || string.Equals(commandName, "ask", StringComparison.OrdinalIgnoreCase)
             || string.Equals(commandName, "act", StringComparison.OrdinalIgnoreCase)
             || string.Equals(commandName, "respond", StringComparison.OrdinalIgnoreCase);
@@ -203,7 +205,7 @@ internal sealed class ShellCommandHandler
 
         _logger.LogAction("Reset memory", $"sessionRoot={sessionRoot}");
         Console.WriteLine($"Reset session state at {sessionRoot}");
-        Console.WriteLine("A new session will be created the next time you run loop <goal>.");
+        Console.WriteLine("A new session will be created the next time you run wallycode run <prompt> [workflow].");
     }
 
     private static string[] SplitArguments(string commandLine)

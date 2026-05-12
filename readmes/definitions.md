@@ -1,6 +1,6 @@
 # Definitions and Steps
 
-Workflow definitions are WallyCode entry points selected by `loop --definition <name>`. A definition owns workflow-level instructions, aliases, a start step, and the set of shared steps allowed in that workflow. `stepIds` defines the route surface for that workflow: transitions to targets outside the set are removed from the compiled workflow before the provider prompt and resolver see them. `ask` and `act` are shortcut verbs for two common definitions.
+Workflow definitions are WallyCode entry points selected by `run <prompt> [workflow]` or `run <prompt> --workflow <name>`. A definition owns workflow-level instructions, aliases, a start step, and the set of shared steps allowed in that workflow. `stepIds` defines the route surface for that workflow: transitions to targets outside the set are removed from the compiled workflow before the provider prompt and resolver see them. `ask` and `act` are shortcut verbs for two common definitions.
 
 ## Files
 
@@ -16,17 +16,18 @@ The project file copies workflow definition, step, and transition JSON to build 
 | --- | --- | --- |
 | `ask` | `ask` | Answer a question without intending to edit files. |
 | `act` | `act` | Complete a file-changing implementation request through an implementation/review loop. |
-| `requirements` | `collect_requirements` | Clarify requirements, produce tasks, then execute. This is the default for `loop`. Aliases: `collect_requirements`, `full-pipeline`. |
+| `requirements` | `collect_requirements` | Clarify requirements, produce tasks, then execute. This is the default for `run`. Aliases: `collect_requirements`, `full-pipeline`. |
 | `tasks` | `produce_tasks` | Start at task production, then execute. |
 
 ## Run a definition
 
 ```powershell
-wallycode loop "Build a CSV importer." --definition requirements --source C:\src\MyRepo --log --verbose
-wallycode loop "Implement the prepared task list." --definition tasks --source C:\src\MyRepo --log --verbose
+wallycode run "Build a CSV importer." requirements --source C:\src\MyRepo --log --verbose
+wallycode run "Implement the prepared task list." tasks --source C:\src\MyRepo --log --verbose
 wallycode ask "Where is setup implemented?" --source C:\src\MyRepo
 wallycode act "Update setup behavior." --source C:\src\MyRepo
-wallycode act "Fix these code problems: ..." --until-complete --source C:\src\MyRepo
+wallycode act "Fix these code problems: ..." --source C:\src\MyRepo
+wallycode step "Review the current workspace changes." review_changes --source C:\src\MyRepo
 ```
 
 If an active session exists, it is tied to the workflow definition it started with. Use `--memory-root` for a parallel session with another definition.
@@ -76,7 +77,7 @@ Example transition:
 }
 ```
 
-At runtime, the provider returns `selectedStep`. Selecting `continue` stays on the current step, selecting a route like `produce_tasks` moves to that transition's `targetStepName`, selecting `stop` completes the workflow, `ask_user` blocks for `respond`, and `error` stops with the summary as the reason. `done` is still accepted as a compatibility alias for completion, but new transitions should use `stop`.
+At runtime, the provider returns `selectedStep`. Selecting `continue` stays on the current step, selecting a route like `produce_tasks` moves to that transition's `targetStepName`, selecting `stop` completes the workflow, `ask_user` blocks for `respond`, and `error` stops with the summary as the reason. `respond` saves the user's answer and immediately resumes the workflow. `done` is still accepted as a compatibility alias for completion, but new transitions should use `stop`.
 
 Steps can also update session memory by returning a top-level `memory` object:
 

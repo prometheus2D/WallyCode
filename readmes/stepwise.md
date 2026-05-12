@@ -2,36 +2,35 @@
 
 Use stepwise mode when you want to inspect or control each routed iteration.
 
-## One iteration at a time
+## One workflow iteration at a time
 
-`--step` runs exactly one iteration:
+`run` and `resume` run one workflow iteration by default:
 
 ```powershell
-wallycode loop "Build a CSV importer." --definition requirements --step --source C:\src\MyRepo --log --verbose
-wallycode loop --step --source C:\src\MyRepo --log --verbose
+wallycode run "Build a CSV importer." requirements --source C:\src\MyRepo --log --verbose
+wallycode resume --source C:\src\MyRepo --log --verbose
 ```
 
-`resume --step` is the explicit continuation form:
+Use `step` when you want to run one shared step directly without advancing a workflow session:
 
 ```powershell
-wallycode resume --step --source C:\src\MyRepo --log --verbose
+wallycode step "Review the current workspace changes." review_changes --source C:\src\MyRepo --log --verbose
 ```
 
 ## Several iterations in one call
 
-`--steps <n>` runs up to that many iterations, stopping early if the session blocks, completes, or errors:
+`--max-iterations <n>` sets the largest number of iterations to run, stopping early if the session blocks, completes, or errors:
 
 ```powershell
-wallycode loop "Review repo structure." --definition requirements --steps 3 --source C:\src\MyRepo --log --verbose
+wallycode run "Review repo structure." requirements --max-iterations 3 --source C:\src\MyRepo --log --verbose
 ```
 
 ## Respond to a blocked session
 
-When the provider selects `ask_user`, the session is blocked. Save a response, then continue:
+When the provider selects `ask_user`, the session is blocked. `respond` saves the answer and immediately resumes the workflow:
 
 ```powershell
 wallycode respond "Use SQLite and keep the API synchronous for now." --source C:\src\MyRepo --log --verbose
-wallycode resume --step --source C:\src\MyRepo --log --verbose
 ```
 
 The response is included in the next prompt and then cleared from pending responses.
@@ -49,11 +48,11 @@ The workflow engine is orchestrated: the active step is executed by a step execu
 An active session owns its workflow definition. Use `--memory-root` to keep experiments separate:
 
 ```powershell
-wallycode loop "Try an alternate task flow." --definition tasks --step --source C:\src\MyRepo --memory-root C:\temp\wally-tasks
+wallycode run "Try an alternate task flow." tasks --source C:\src\MyRepo --memory-root C:\temp\wally-tasks
 ```
 
-Use `--until-complete` when you want WallyCode to keep running bounded iterations until a step selects `stop`, `ask_user`, or `error`:
+By default WallyCode keeps running bounded iterations until a step selects `stop`, `ask_user`, `error`, or the max iteration limit is reached:
 
 ```powershell
-wallycode act "Fix these code problems: <paste problems here>" --until-complete --source C:\src\MyRepo --log --verbose
+wallycode act "Fix these code problems: <paste problems here>" --source C:\src\MyRepo --log --verbose
 ```

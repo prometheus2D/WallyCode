@@ -5,7 +5,7 @@ Use `act` when WallyCode should complete an implementation-oriented request and 
 `act` is a shortcut for:
 
 ```powershell
-wallycode loop "..." --definition act
+wallycode run "..." act
 ```
 
 The `act` definition starts at the `act` step, which may change files. When implementation changes are ready, it writes `implementation` memory and moves to `review_changes`. The review step checks the workspace against the goal and either selects `stop`, asks for input with `ask_user`, continues reviewing, or writes `review` feedback and routes back to `act` for another pass.
@@ -16,13 +16,13 @@ The `act` definition starts at the `act` step, which may change files. When impl
 wallycode act "Add a setup tutorial README." --source C:\src\MyRepo --log --verbose
 ```
 
-For fix-until-complete work, let the orchestrator run multiple bounded iterations and stop early when the review step selects `stop`:
+For larger fix work, let the orchestrator run bounded iterations and stop early when the review step selects `stop`:
 
 ```powershell
-wallycode act "Fix these code problems: <paste problems here>" --until-complete --source C:\src\MyRepo --log --verbose
+wallycode act "Fix these code problems: <paste problems here>" --source C:\src\MyRepo --log --verbose
 ```
 
-`--until-complete` uses a safety cap of 20 iterations. If the cap is reached before completion, WallyCode leaves the session active so you can continue with `resume --until-complete`.
+The default max iteration limit is 20. If the limit is reached before completion, WallyCode leaves the session active so you can continue with `resume` or raise the limit with `--max-iterations`.
 
 From the WallyCode source tree while developing WallyCode itself:
 
@@ -45,9 +45,8 @@ Inspect the diff and run the relevant validation command. For WallyCode itself, 
 dotnet build WallyCode.sln
 ```
 
-If the active session is blocked, answer it and continue:
+If the active session is blocked, answer it and continue automatically:
 
 ```powershell
 wallycode respond "Use the existing command option style." --source C:\src\MyRepo
-wallycode resume --until-complete --source C:\src\MyRepo
 ```

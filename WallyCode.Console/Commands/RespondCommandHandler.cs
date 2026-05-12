@@ -7,14 +7,16 @@ namespace WallyCode.ConsoleApp.Commands;
 
 internal sealed class RespondCommandHandler
 {
+    private readonly WorkflowRunCommandHandler _runCommandHandler;
     private readonly AppLogger _logger;
 
-    public RespondCommandHandler(AppLogger logger)
+    public RespondCommandHandler(WorkflowRunCommandHandler runCommandHandler, AppLogger logger)
     {
+        _runCommandHandler = runCommandHandler;
         _logger = logger;
     }
 
-    public Task<int> ExecuteAsync(RespondCommandOptions options, CancellationToken cancellationToken)
+    public async Task<int> ExecuteAsync(RespondCommandOptions options, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
@@ -40,6 +42,11 @@ internal sealed class RespondCommandHandler
         }
 
         var session = Session.Load(sessionRoot);
+        if (Session.IsTerminal(session.Status))
+        {
+            throw new InvalidOperationException($"Session is terminal with status '{session.Status}' and cannot accept a response.");
+        }
+
         var response = options.Response.Trim();
         session.PendingResponses.Add(response);
         if (session.Status == SessionStatus.Blocked)
@@ -51,7 +58,7 @@ internal sealed class RespondCommandHandler
         _logger.LogAction("Saved response", $"status={session.Status}; pendingResponses={session.PendingResponses.Count}");
         _logger.LogExchange("USER", "respond", response);
         _logger.Section("WallyCode Respond");
-        _logger.Success("Response saved for the next loop iteration.");
-        return Task.FromResult(0);
+        _logger.Success("Response saved. Resuming workflow.");
+        return await _runCommandHandler.ExecuteAsync(options.ToRunOptions(), cancellationToken);
     }
 }

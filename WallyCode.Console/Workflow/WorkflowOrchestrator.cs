@@ -97,10 +97,10 @@ internal sealed class WorkflowOrchestrator
         };
     }
 
-    public async Task<IReadOnlyList<IterationResult>> RunAsync(int steps, CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<IterationResult>> RunAsync(int maxIterations, CancellationToken cancellationToken)
     {
         var results = new List<IterationResult>();
-        for (var i = 0; i < steps; i++)
+        for (var i = 0; i < maxIterations; i++)
         {
             cancellationToken.ThrowIfCancellationRequested();
             var result = await RunOnceAsync(cancellationToken);

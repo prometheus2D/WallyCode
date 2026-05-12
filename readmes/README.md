@@ -15,4 +15,4 @@ Focused guides for common WallyCode tasks. The root README stays short; this fol
 
 WallyCode runs a routed workflow session against a source repo. `--source` selects the repo, `.wallycode` stores runtime state, and `--memory-root` lets you isolate a different session root for experiments or parallel runs.
 
-`ask` and `act` are shortcut commands. The general form is `loop --definition <name>`.
+`run` starts or continues workflow sessions. The general form is `run <prompt> [workflow]`; use `step <prompt> [step]` for one direct shared-step execution.

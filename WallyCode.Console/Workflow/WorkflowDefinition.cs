@@ -197,7 +197,12 @@ internal sealed class WorkflowDefinition
         return WorkflowCatalog.LoadFromBaseDirectory().GetDefinition(workflowName);
     }
 
-    public static string NormalizeStartStepName(string name) => WorkflowCatalog.LoadFromBaseDirectory().ResolveDefinitionName(name);
+    public static WorkflowDefinition LoadStepByName(string stepName)
+    {
+        return WorkflowCatalog.LoadFromBaseDirectory().GetStepDefinition(stepName);
+    }
+
+    public static string NormalizeWorkflowName(string name) => WorkflowCatalog.LoadFromBaseDirectory().ResolveDefinitionName(name);
 
     public static WorkflowDefinition LoadFromJson(string json)
     {
@@ -332,16 +337,20 @@ internal sealed class WorkflowCatalog
             return compiledDefinition;
         }
 
-        if (!_sharedSteps.ContainsKey(workflowName))
-        {
-            throw new InvalidOperationException($"Workflow definition or step '{name}' not found.");
-        }
+        throw new InvalidOperationException($"Workflow definition '{name}' not found.");
+    }
 
+    public WorkflowDefinition GetStepDefinition(string name)
+    {
+        var step = _sharedSteps.TryGetValue(name, out var sharedStep)
+            ? sharedStep
+            : throw new InvalidOperationException($"Workflow step '{name}' not found.");
+        var allowedStepIds = new HashSet<string>([step.Id], StringComparer.Ordinal);
         var definition = new WorkflowDefinition
         {
-            Name = workflowName,
-            StartStepName = workflowName,
-            Steps = [.. _sharedSteps.Values.Select(CloneSharedStep)]
+            Name = $"step:{step.Id}",
+            StartStepName = step.Id,
+            Steps = [CloneSharedStep(step, allowedStepIds)]
         };
         definition.Validate();
         return definition;

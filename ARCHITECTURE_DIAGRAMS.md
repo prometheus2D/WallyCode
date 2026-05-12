@@ -47,7 +47,7 @@ flowchart TD
 
 ```mermaid
 flowchart LR
-    CLI[loop / ask / act / resume] --> Handler[LoopCommandHandler]
+    CLI[run / step / ask / act / resume] --> Handler[Command handlers]
     Handler --> Catalog[WorkflowCatalog]
     Catalog --> Definitions[Workflow/Definitions/*.json]
     Catalog --> Steps[Workflow/Steps/*.json]

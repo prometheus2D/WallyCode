@@ -14,30 +14,36 @@ End-to-end against a repo at `C:\src\MyRepo`:
 wallycode setup --directory C:\src\MyRepo
 wallycode provider gh-copilot-claude --set --source C:\src\MyRepo
 wallycode provider gh-copilot-claude --model claude-sonnet-4 --source C:\src\MyRepo
-wallycode loop "Summarize this repository." --source C:\src\MyRepo --log --verbose
-wallycode loop --source C:\src\MyRepo --log --verbose
+wallycode run "Summarize this repository." --source C:\src\MyRepo --log --verbose
+wallycode resume --source C:\src\MyRepo --log --verbose
 ```
 
 If the session blocks for input:
 
 ```powershell
-wallycode respond "Focus on routing and docs." --source C:\src\MyRepo
-wallycode loop --source C:\src\MyRepo --log --verbose
+wallycode respond "Focus on routing and docs." --source C:\src\MyRepo --log --verbose
 ```
 
 Pick a workflow definition explicitly (`ask`, `act`, `requirements` (default)):
 
 ```powershell
-wallycode loop "What does this project do?" --definition ask --source C:\src\MyRepo
-wallycode loop "Refactor the routing code." --definition act --source C:\src\MyRepo
+wallycode run "What does this project do?" ask --source C:\src\MyRepo
+wallycode run "Refactor the routing code." act --source C:\src\MyRepo
+wallycode run "Refactor the routing code." --workflow act --source C:\src\MyRepo
 ```
 
-Run several routed steps in one call, or isolate session state:
+Run one shared step directly:
 
 ```powershell
-wallycode loop "Review repo structure." --steps 3 --source C:\src\MyRepo --log --verbose
-wallycode act "Fix these code problems: ..." --until-complete --source C:\src\MyRepo --log --verbose
-wallycode loop "Analyze docs." --source C:\src\MyRepo --memory-root C:\temp\wally-session-a
+wallycode step "Review the current workspace changes." review_changes --source C:\src\MyRepo
+```
+
+Run several workflow iterations in one call, or isolate session state:
+
+```powershell
+wallycode run "Review repo structure." requirements --max-iterations 3 --source C:\src\MyRepo --log --verbose
+wallycode act "Fix these code problems: ..." --source C:\src\MyRepo --log --verbose
+wallycode run "Analyze docs." --source C:\src\MyRepo --memory-root C:\temp\wally-session-a
 ```
 
 Inspect / refresh providers and models:
@@ -101,10 +107,10 @@ Repo-scoped. `--source` selects which repo's config/state is used.
 - `.wallycode\archive\...` -> completed sessions
 - `--memory-root <path>` -> override session state location for parallel sessions against the same repo
 
-Session lifecycle inside `loop`:
-- no active session -> `goal` is required, `--provider`/`--model` apply at start
-- active session -> omit `goal` to continue
-- blocked -> `respond`, then `loop`
+Session lifecycle inside `run`:
+- no active session -> `prompt` is required, `--provider`/`--model` apply at start
+- active session -> use `resume` or `run` without a prompt to continue
+- blocked -> `respond` saves the answer and resumes automatically
 - terminal -> archived automatically before a new one starts
 
 The provider returns a `selectedStep` from the allowed step options in the prompt:
@@ -149,33 +155,46 @@ wallycode provider [name] [--set] [--models] [--refresh] [--model <model>] [--so
 - `name --model <model>` -> set repo default model
 - `name` omitted for `--models|--refresh|--model` -> uses repo default provider
 
-### `loop`
+### `run`
 ```powershell
-wallycode loop [goal] [--definition <name>] [--provider <name>] [--model <model>]
-               [--source <path>] [--memory-root <path>] [--steps <n>] [--until-complete]
-               [--log] [--verbose]
+wallycode run [prompt] [workflow] [--workflow <name>] [--provider <name>] [--model <model>]
+              [--source <path>] [--memory-root <path>] [--max-iterations <n>]
+              [--log] [--verbose]
 ```
 
-`--until-complete` runs up to 20 iterations and stops early when the workflow completes, blocks for input, or errors. Use it for requests like `act "Fix these code problems: ..." --until-complete`.
+By default, `run` allows up to 20 workflow iterations and stops early when the workflow completes, blocks for input, or errors. Use `--max-iterations` to lower or raise that limit.
+
+The default workflow is `requirements`. The optional positional `workflow` and `--workflow` option select a workflow definition.
+
+### `step`
+```powershell
+wallycode step <prompt> [step] [--step <name>] [--provider <name>] [--model <model>]
+               [--source <path>] [--memory-root <path>] [--log] [--verbose]
+```
+
+Runs one shared step directly without advancing a durable workflow session. The default step is `ask`. If an active session exists at the selected memory root, declared `readsMemory` keys can be read for context, but step output does not mutate the workflow session.
 
 ### `respond`
 ```powershell
-wallycode respond <response> [--source <path>] [--memory-root <path>] [--log] [--verbose]
+wallycode respond <response> [--source <path>] [--memory-root <path>] [--max-iterations <n>]
+                  [--log] [--verbose]
 ```
+
+Saves a response for a blocked workflow session and immediately resumes it. Use `--max-iterations` to control how far it may continue after the response.
 
 ---
 
 ## Observability
 
-`--log --verbose` on `loop` traces prompt text, raw provider output, selected step, next step, session status, and `error` reason. Use `--steps 1` while tuning prompts or routing.
+`--log --verbose` on `run` traces prompt text, raw provider output, selected step, next step, session status, and `error` reason. Use `--max-iterations 1` while tuning prompts or routing. On `step`, verbose logging traces the single step prompt and raw provider output.
 
 ---
 
 ## Failure modes
 
 - Provider unavailable -> `wallycode provider --source <repo>`; verify external tooling is installed/authenticated
-- No active session -> start with `wallycode loop "<goal>" --source <repo>`
-- Blocked -> `respond` then `loop`
+- No active session -> start with `wallycode run "<prompt>" --source <repo>`
+- Blocked -> `respond` saves the answer and resumes automatically
 - `error` -> inspect logged summary; adjust goal/definition/workspace and retry
 - Wrong repo / session -> verify `--source` and `--memory-root`
 

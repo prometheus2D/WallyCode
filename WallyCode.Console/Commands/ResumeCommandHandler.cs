@@ -7,19 +7,18 @@ namespace WallyCode.ConsoleApp.Commands;
 
 internal sealed class ResumeCommandHandler
 {
-    private readonly LoopCommandHandler _loopCommandHandler;
+    private readonly WorkflowRunCommandHandler _runCommandHandler;
 
-    public ResumeCommandHandler(LoopCommandHandler loopCommandHandler)
+    public ResumeCommandHandler(WorkflowRunCommandHandler runCommandHandler)
     {
-        _loopCommandHandler = loopCommandHandler;
+        _runCommandHandler = runCommandHandler;
     }
 
     public async Task<int> ExecuteAsync(ResumeCommandOptions options, CancellationToken cancellationToken)
     {
-        var effectiveSteps = options.GetEffectiveSteps();
-        if (effectiveSteps <= 0)
+        if (options.MaxIterations <= 0)
         {
-            throw new InvalidOperationException("Steps must be greater than zero.");
+            throw new InvalidOperationException("Max iterations must be greater than zero.");
         }
 
         var projectRoot = ProjectSettings.ResolveProjectRoot(options.SourcePath);
@@ -28,7 +27,7 @@ internal sealed class ResumeCommandHandler
         if (!Session.Exists(sessionRoot))
         {
             throw new InvalidOperationException(
-                $"No resumable session exists at {Session.FilePath(sessionRoot)}. Start one with: loop <goal>");
+                $"No resumable session exists at {Session.FilePath(sessionRoot)}. Start one with: run <prompt> [workflow]");
         }
 
         var session = Session.Load(sessionRoot);
@@ -40,9 +39,9 @@ internal sealed class ResumeCommandHandler
         if (Session.IsTerminal(session.Status))
         {
             throw new InvalidOperationException(
-                $"Session is terminal with status '{session.Status}' and cannot be resumed. Start a new session with: loop <goal>");
+                $"Session is terminal with status '{session.Status}' and cannot be resumed. Start a new session with: run <prompt> [workflow]");
         }
 
-        return await _loopCommandHandler.ExecuteAsync(options.ToLoopOptions(), cancellationToken);
+        return await _runCommandHandler.ExecuteAsync(options.ToRunOptions(), cancellationToken);
     }
 }
