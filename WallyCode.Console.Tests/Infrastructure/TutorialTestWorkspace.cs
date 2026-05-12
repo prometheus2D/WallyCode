@@ -25,7 +25,7 @@ internal sealed class TutorialTestWorkspace : IDisposable
 
     public string WorkflowRoot => Path.Combine(_rootPath, "Workflow");
 
-    public static TutorialTestWorkspace Create(bool runSetup = false)
+    public static TutorialTestWorkspace Create(bool runSetup = false, bool forceSetup = false)
     {
         var rootPath = Path.Combine(Path.GetTempPath(), "WallyCode.Tests", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(rootPath);
@@ -33,18 +33,18 @@ internal sealed class TutorialTestWorkspace : IDisposable
         
         if (runSetup)
         {
-            workspace.RunSetup();
+            workspace.RunSetup(force: forceSetup);
         }
         
         return workspace;
     }
 
-    public void RunSetup(string providerName = "test-provider", string defaultModel = "test-model")
+    public void RunSetup(string providerName = "test-provider", string defaultModel = "test-model", bool force = false)
     {
         var provider = new TestLlmProvider { Name = providerName, DefaultModel = defaultModel };
         var registry = new ProviderRegistry([provider]);
         var handler = new SetupCommandHandler(registry, new AppLogger(), ProjectRoot);
-        handler.ExecuteAsync(new SetupCommandOptions { DirectoryPath = ProjectRoot }, CancellationToken.None).GetAwaiter().GetResult();
+        handler.ExecuteAsync(new SetupCommandOptions { DirectoryPath = ProjectRoot, Force = force }, CancellationToken.None).GetAwaiter().GetResult();
     }
 
     public void Dispose()
