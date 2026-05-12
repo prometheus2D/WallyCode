@@ -1,16 +1,10 @@
-# WallyCode Readmes
-
-This folder is retained for backward references.
-
-Canonical tutorial docs now live in ../tutorials.
-
-- [Tutorials index](../tutorials/README.md)
+# WallyCode Tutorials
 
 This folder contains test-oriented tutorials.
 
 Each tutorial now follows the same contract:
 - Step command: exact command to run.
-- Required assertions: explicit checks that must pass.
+- Acceptance criteria: explicit checks that must pass.
 - Artifacts: files or state created/updated by that step.
 
 Use this to drive both manual usage and code-based test scripts.
@@ -36,5 +30,6 @@ Use this to drive both manual usage and code-based test scripts.
 ## Test discipline
 
 - Run commands in the order shown.
-- Treat every required assertion as mandatory.
+- Treat every acceptance criterion as mandatory.
 - If one assertion fails, stop and fix before continuing.
+

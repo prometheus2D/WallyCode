@@ -22,7 +22,7 @@ Example values used below:
 wallycode ask "What does this repository do?" --source C:\src\MyRepo --log --verbose
 ```
 
-Required assertions:
+Acceptance criteria:
 - Exit code is 0.
 - C:\src\MyRepo\.wallycode\session.json exists.
 
@@ -36,7 +36,7 @@ Test-Path C:\src\MyRepo\.wallycode\session.json
 wallycode resume --source C:\src\MyRepo --log --verbose
 ```
 
-Required assertions:
+Acceptance criteria:
 - Exit code is 0.
 - C:\src\MyRepo\.wallycode\session.json still exists.
 
@@ -46,7 +46,7 @@ Required assertions:
 wallycode respond "Focus on command handlers and workflow transitions." --source C:\src\MyRepo --log --verbose
 ```
 
-Required assertions:
+Acceptance criteria:
 - If the session is blocked, exit code is 0 and session continues.
 - If the session is not blocked, command should explain that no blocked session is waiting.
 
@@ -56,7 +56,7 @@ Required assertions:
 wallycode ask "Trace the setup flow." --source C:\src\MyRepo --memory-root C:\temp\wally-ask --log --verbose
 ```
 
-Required assertions:
+Acceptance criteria:
 - Exit code is 0.
 - C:\temp\wally-ask\session.json exists.
 
@@ -70,10 +70,11 @@ Test-Path C:\temp\wally-ask\session.json
 dotnet run --project WallyCode.Console -- ask "Summarize the command handlers." --source . --memory-root .wallycode-dev --log --verbose
 ```
 
-Required assertions:
+Acceptance criteria:
 - Exit code is 0.
 - .wallycode-dev\session.json exists in the current repository.
 
 ```powershell
 Test-Path .\.wallycode-dev\session.json
 ```
+

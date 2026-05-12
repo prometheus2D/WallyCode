@@ -45,13 +45,13 @@ State lives in wallycode.json and .wallycode.
 
 The root README is intentionally minimal. Detailed command-by-command flows, expected outcomes, and testable checks are in the tutorial docs:
 
-- [Readmes index](readmes/README.md)
-- [Setup and providers](readmes/setup.md)
-- [Ask workflow](readmes/ask.md)
-- [Act workflow](readmes/act.md)
-- [Stepwise workflows](readmes/stepwise.md)
-- [Definitions and steps](readmes/definitions.md)
-- [Development mode](readmes/development-mode.md)
+- [Tutorials index](tutorials/README.md)
+- [Setup and providers](tutorials/setup.md)
+- [Ask workflow](tutorials/ask.md)
+- [Act workflow](tutorials/act.md)
+- [Stepwise workflows](tutorials/stepwise.md)
+- [Definitions and steps](tutorials/definitions.md)
+- [Development mode](tutorials/development-mode.md)
 
 ## Core commands
 

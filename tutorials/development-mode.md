@@ -20,7 +20,7 @@ Example values used below:
 dotnet run --project WallyCode.Console -- help
 ```
 
-Required assertions:
+Acceptance criteria:
 - Exit code is 0.
 - Output includes the command surface help text.
 
@@ -30,7 +30,7 @@ Required assertions:
 dotnet run --project WallyCode.Console -- setup --directory .
 ```
 
-Required assertions:
+Acceptance criteria:
 - Exit code is 0.
 - .\wallycode.json exists.
 - .\.wallycode exists.
@@ -47,7 +47,7 @@ dotnet run --project WallyCode.Console -- ask "Explain the workflow command surf
 dotnet run --project WallyCode.Console -- act "Update docs for the ask workflow." --source . --memory-root .wallycode-dev --log --verbose
 ```
 
-Required assertions:
+Acceptance criteria:
 - Both commands exit with code 0.
 - .\.wallycode-dev\session.json exists.
 
@@ -61,7 +61,7 @@ Test-Path .\.wallycode-dev\session.json
 dotnet run --project WallyCode.Console -- shell --source . --memory-root .wallycode-dev --log --verbose
 ```
 
-Required assertions:
+Acceptance criteria:
 - Exit code is 0 when shell exits normally.
 - Interactive prompt appears.
 
@@ -81,6 +81,7 @@ dotnet run --project WallyCode.Console -- setup --vs-build
 dotnet run --project WallyCode.Console -- shell --vs-build --log --verbose
 ```
 
-Required assertions:
+Acceptance criteria:
 - setup --vs-build exits with code 0 when launched from a supported build-output context.
 - shell --vs-build resolves to workspace root and starts normally.
+

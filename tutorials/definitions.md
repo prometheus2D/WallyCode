@@ -29,7 +29,7 @@ wallycode run "Build a CSV importer." requirements --source C:\src\MyRepo --log 
 wallycode run "Implement prepared tasks." tasks --source C:\src\MyRepo --log --verbose
 ```
 
-Required assertions:
+Acceptance criteria:
 - Both commands exit with code 0.
 - status output shows Session with chosen workflow name when active.
 
@@ -48,7 +48,7 @@ Example:
 }
 ```
 
-Required assertions:
+Acceptance criteria:
 - JSON file is valid.
 - run can select the definition id directly.
 
@@ -72,7 +72,7 @@ Example:
 }
 ```
 
-Required assertions:
+Acceptance criteria:
 - JSON file is valid.
 - Any definition referencing this step id can run.
 
@@ -91,7 +91,7 @@ Example:
 }
 ```
 
-Required assertions:
+Acceptance criteria:
 - JSON file is valid.
 - Steps referencing this transition id can route to targetStepName.
 
@@ -124,6 +124,7 @@ wallycode run "Schema smoke test." requirements --source C:\src\MyRepo --max-run
 wallycode status --source C:\src\MyRepo
 ```
 
-Required assertions:
+Acceptance criteria:
 - Both commands exit with code 0.
 - status command prints Session without schema errors.
+

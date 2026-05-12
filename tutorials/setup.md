@@ -15,7 +15,7 @@ Example values used below:
 
 ## Pre-check
 
-Required assertions:
+Acceptance criteria:
 - C:\src\MyRepo exists.
 
 ```powershell
@@ -28,7 +28,7 @@ Test-Path C:\src\MyRepo
 wallycode setup --directory C:\src\MyRepo
 ```
 
-Required assertions:
+Acceptance criteria:
 - Exit code is 0.
 - C:\src\MyRepo\wallycode.json exists.
 - C:\src\MyRepo\.wallycode exists.
@@ -59,7 +59,7 @@ Expected outcome:
 wallycode provider --source C:\src\MyRepo
 ```
 
-Required assertions:
+Acceptance criteria:
 - Exit code is 0.
 - Output includes provider names and readiness status lines.
 
@@ -73,7 +73,7 @@ Built-in providers:
 wallycode provider gh-copilot-claude --set --source C:\src\MyRepo
 ```
 
-Required assertions:
+Acceptance criteria:
 - Exit code is 0.
 - wallycode.json property provider equals gh-copilot-claude.
 
@@ -88,7 +88,7 @@ wallycode provider gh-copilot-claude --models --source C:\src\MyRepo
 wallycode provider gh-copilot-claude --model <model-from-previous-list> --source C:\src\MyRepo
 ```
 
-Required assertions:
+Acceptance criteria:
 - Both commands exit with code 0.
 - wallycode.json property model equals the selected model.
 
@@ -104,7 +104,7 @@ Enable default logging for future commands:
 wallycode logging --enable --verbose --source C:\src\MyRepo
 ```
 
-Required assertions:
+Acceptance criteria:
 - Exit code is 0.
 - wallycode.json logging.enabled is True.
 - wallycode.json logging.verbose is True.
@@ -121,7 +121,7 @@ Disable later if needed:
 wallycode logging --disable --quiet --source C:\src\MyRepo
 ```
 
-Required assertions:
+Acceptance criteria:
 - Exit code is 0.
 - wallycode.json logging.enabled is False.
 - wallycode.json logging.verbose is False.
@@ -138,10 +138,11 @@ $settings = Get-Content C:\src\MyRepo\wallycode.json -Raw | ConvertFrom-Json
 wallycode status --source C:\src\MyRepo
 ```
 
-Required assertions:
+Acceptance criteria:
 - Exit code is 0.
 - Output contains Source:, Memory root:, Provider:, and Model:.
 - Output contains Session: (none) when no session exists.
 
 Follow-up behavior:
 - Future run/ask/act/resume/respond/recover/step commands can omit `--source` and still reuse persisted defaults from wallycode.json when invoked from this workspace.
+
