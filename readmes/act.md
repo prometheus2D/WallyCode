@@ -1,52 +1,60 @@
 # Act Workflow
 
-Use `act` when WallyCode should complete an implementation-oriented request and may change files.
+Use act for implementation goals where file changes are expected.
 
-`act` is a shortcut for:
+act is equivalent to running run with workflow act.
 
-```powershell
-wallycode run "..." act
-```
+## Inputs
 
-The `act` definition starts at the `act` step, which may change files. When implementation changes are ready, it writes `implementation` memory and moves to `review_changes`. The review step checks the workspace against the goal and either selects `stop`, asks for input with `ask_user`, continues reviewing, or writes `review` feedback and routes back to `act` for another pass.
+- Required to start a new session: prompt text with desired change.
+- Optional: source path.
+- Optional: memory-root for isolated session state.
+- Optional: provider or model override.
+- Optional: max-run-iterations, max-total-iterations, max-step-repeats.
 
-## Basic usage
+## Step 1: Start an implementation session
 
 ```powershell
 wallycode act "Add a setup tutorial README." --source C:\src\MyRepo --log --verbose
 ```
 
-For larger fix work, let the orchestrator run bounded iterations and stop early when the review step selects `stop`:
+Expected outcome:
+- Starts or continues an act workflow session.
+- Workflow can edit files during implementation steps.
+
+## Step 2: Continue until completion or block
 
 ```powershell
-wallycode act "Fix these code problems: <paste problems here>" --source C:\src\MyRepo --log --verbose
+wallycode resume --source C:\src\MyRepo --log --verbose
 ```
 
-The default max run iteration limit is 20 per invocation. If the limit is reached before completion, WallyCode leaves the session active so you can continue with `resume` or raise the limit with `--max-run-iterations`.
+Expected outcome:
+- Continues active act session.
+- Stops if workflow reaches stop, ask_user, error, or iteration limits.
 
-From the WallyCode source tree while developing WallyCode itself:
+## Step 3: Respond if blocked
 
 ```powershell
-dotnet run --project WallyCode.Console -- act "Update the development-mode documentation." --source . --memory-root .wallycode-dev --log --verbose
+wallycode respond "Use the existing command option style." --source C:\src\MyRepo --log --verbose
 ```
 
-## Before running act
+Expected outcome:
+- Response is stored and the session resumes automatically.
 
-- Make sure the target repo is the one you expect with `--source`.
-- Use `--memory-root` if another session is already active.
-- Prefer `ask` first when the request needs investigation but not edits yet.
-- Start from a known git state so the resulting diff is easy to review.
-
-## After running act
-
-Inspect the diff and run the relevant validation command. For WallyCode itself, the usual check is:
+## Optional: allow more work per invocation
 
 ```powershell
-dotnet build WallyCode.sln
+wallycode act "Fix these code problems: <paste problems here>" --source C:\src\MyRepo --max-run-iterations 40 --log --verbose
 ```
 
-If the active session is blocked, answer it and continue automatically:
+Expected outcome:
+- One command can run more workflow iterations before returning.
+
+## Optional: local source-build usage
 
 ```powershell
-wallycode respond "Use the existing command option style." --source C:\src\MyRepo
+dotnet run --project WallyCode.Console -- act "Update development-mode documentation." --source . --memory-root .wallycode-dev --log --verbose
 ```
+
+Expected outcome:
+- Runs act with the local source build against the current repo.

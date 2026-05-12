@@ -1,43 +1,59 @@
 # Ask Workflow
 
-Use `ask` when you want WallyCode to answer a question against a repo without intending to modify files.
+Use ask for analysis-only goals.
 
-`ask` is a shortcut for:
+ask is equivalent to running run with workflow ask.
 
-```powershell
-wallycode run "..." ask
-```
+## Inputs
 
-The `ask` workflow starts at the `ask` step. Its instructions tell the provider not to change files, and it uses the shared `continue` and `stop` transitions: `continue` keeps the session active for another answer iteration, while `stop` completes it.
+- Required to start a new session: prompt text.
+- Optional: source path.
+- Optional: memory-root for isolated session state.
+- Optional: provider or model override.
+- Optional: max-run-iterations, max-total-iterations, max-step-repeats.
 
-## Basic usage
+## Step 1: Ask a question
 
 ```powershell
 wallycode ask "What does this repository do?" --source C:\src\MyRepo --log --verbose
 ```
 
-From the WallyCode source tree while developing WallyCode itself:
+Expected outcome:
+- Starts or continues an ask workflow session.
+- Writes session/runtime state under .wallycode unless memory-root is set.
+
+## Step 2: Continue if still active
+
+```powershell
+wallycode resume --source C:\src\MyRepo --log --verbose
+```
+
+Expected outcome:
+- Continues the same active session.
+
+## Step 3: Respond if blocked
+
+```powershell
+wallycode respond "Focus on command handlers and workflow transitions." --source C:\src\MyRepo --log --verbose
+```
+
+Expected outcome:
+- Saves response text and resumes automatically.
+
+## Optional: isolate analysis sessions
+
+```powershell
+wallycode ask "Trace the setup flow." --source C:\src\MyRepo --memory-root C:\temp\wally-ask --log --verbose
+```
+
+Expected outcome:
+- Uses a separate runtime root so it does not affect the default .wallycode session.
+
+## Optional: local source-build usage
 
 ```powershell
 dotnet run --project WallyCode.Console -- ask "Summarize the command handlers." --source . --memory-root .wallycode-dev --log --verbose
 ```
 
-## When to use it
-
-Use `ask` for:
-
-- Repository summaries.
-- Architecture questions.
-- Explaining command behavior.
-- Checking where a feature is implemented.
-- Getting a plan before running `act`.
-
-## Session notes
-
-Every run is still a WallyCode session. Runtime state goes to `.wallycode` unless `--memory-root` is supplied. If you want disposable analysis sessions, use a separate memory root:
-
-```powershell
-wallycode ask "Trace the setup flow." --source C:\src\MyRepo --memory-root C:\temp\wally-ask
-```
-
-If a prior terminal session exists, WallyCode archives it when you start a new session with a new goal.
+Expected outcome:
+- Executes ask using the current local source build.

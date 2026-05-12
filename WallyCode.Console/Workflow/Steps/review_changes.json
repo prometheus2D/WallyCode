@@ -4,5 +4,5 @@
   "instructions": "Review the current workspace changes against the user's goal and implementation summary. Do not make code changes in this step. If the changes are correct and complete, choose stop and summarize what was verified. If more implementation work is needed, write review as durable feedback describing the remaining fixes and choose act. Choose continue only when more review work is needed before deciding.",
   "readsMemory": ["implementation"],
   "writesMemory": ["review"],
-  "transitionIds": ["continue", "to_act", "stop"]
+  "transitionIds": ["continue", "to_act", "stop", "ask_user", "error"]
 }

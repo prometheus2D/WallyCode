@@ -8,9 +8,6 @@ namespace WallyCode.ConsoleApp.Workflow;
 
 internal sealed class ProviderStepExecutor : IStepExecutor
 {
-    private const string AskUser = "ask_user";
-    private const string Error = "error";
-
     private readonly ILlmProvider _provider;
     private readonly AppLogger? _logger;
 
@@ -69,13 +66,6 @@ internal sealed class ProviderStepExecutor : IStepExecutor
             sb.AppendLine($"  - {transition.Selection}: {DescribeTransition(context.Definition, step, transition)}{DescribeHandoffRequirements(context.Definition, step, transition)}{DescribeGuard(transition.Guard)}");
         }
 
-        sb.AppendLine("Terminal outcomes:");
-        sb.AppendLine("These outcomes stop this invocation and do not target workflow steps.");
-        foreach (var terminalOutcome in GetTerminalOutcomes())
-        {
-            sb.AppendLine($"  - {terminalOutcome.Selection}: {terminalOutcome.Description}");
-        }
-
         if (session.PendingResponses.Count > 0)
         {
             sb.AppendLine("User responses since last run:");
@@ -127,15 +117,6 @@ internal sealed class ProviderStepExecutor : IStepExecutor
     private static string FormatMemoryValue(string value)
     {
         return value.Replace("\r\n", "\n", StringComparison.Ordinal).Replace("\n", "\n    ", StringComparison.Ordinal);
-    }
-
-    private static IReadOnlyList<(string Selection, string Description)> GetTerminalOutcomes()
-    {
-        return
-        [
-            (AskUser, "Ask the user for input that is required before progress can continue."),
-            (Error, "An unrecoverable problem prevented the workflow from continuing. Put the user-visible reason in summary.")
-        ];
     }
 
     private static string DescribeTransition(WorkflowDefinition definition, WorkflowStep step, WorkflowTransition transition)

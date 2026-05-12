@@ -1,63 +1,94 @@
 # Setup and Providers
 
-Use this guide when preparing a repo that WallyCode should operate on.
+Use this tutorial to prepare one repository for WallyCode.
 
-## Initialize a repo
+## Inputs
+
+- Required: target repository path.
+- Optional: provider choice and model choice.
+- Optional: logging defaults for that repo.
+
+Example values used below:
+- Repo path: C:\src\MyRepo
+- Provider: gh-copilot-claude
+- Model: any model returned by the models command
+
+## Step 1: Initialize repo settings
 
 ```powershell
 wallycode setup --directory C:\src\MyRepo
 ```
 
-Setup creates:
+Expected outcome:
+- Creates C:\src\MyRepo\wallycode.json.
+- Creates C:\src\MyRepo\.wallycode.
 
-- `wallycode.json` for repo-scoped settings.
-- `.wallycode` for active session state and archives.
-
-If WallyCode is launched from a Visual Studio build output, `--vs-build` resolves setup back to the workspace root above `bin\Debug` or `bin\Release`:
+If launched from a Visual Studio build output folder, use:
 
 ```powershell
 wallycode setup --vs-build
 ```
 
-Use `--force` only when you want to recreate `wallycode.json` and `.wallycode` with defaults:
+Use force only when you want to regenerate defaults:
 
 ```powershell
 wallycode setup --directory C:\src\MyRepo --force
 ```
 
-## Check providers
+Expected outcome:
+- Recreates setup artifacts with default values.
+
+## Step 2: List providers and readiness
 
 ```powershell
 wallycode provider --source C:\src\MyRepo
 ```
 
-The provider list includes readiness. A provider can be unavailable if GitHub CLI is missing, Copilot CLI is missing, or `gh auth status` is not authenticated.
+Expected outcome:
+- Prints available providers.
+- Shows readiness status for each provider.
 
 Built-in providers:
+- gh-copilot-claude
+- gh-copilot-gpt
 
-- `gh-copilot-claude`
-- `gh-copilot-gpt5`
-
-## Set defaults
+## Step 3: Set default provider
 
 ```powershell
 wallycode provider gh-copilot-claude --set --source C:\src\MyRepo
-wallycode provider gh-copilot-claude --models --source C:\src\MyRepo
-wallycode provider gh-copilot-claude --model claude-sonnet-4 --source C:\src\MyRepo
 ```
 
-Provider and model defaults are saved in `wallycode.json` for that repo. A single invocation can still override them with `--provider` and `--model`.
+Expected outcome:
+- Saves default provider in wallycode.json.
+- Sets a default model for that provider if needed.
 
-## Workspace logging defaults
+## Step 4: List models and set default model
 
-For repeated development runs, saving logging defaults can be nicer than typing `--log --verbose` every time:
+```powershell
+wallycode provider gh-copilot-claude --models --source C:\src\MyRepo
+wallycode provider gh-copilot-claude --model <model-from-previous-list> --source C:\src\MyRepo
+```
+
+Expected outcome:
+- First command prints available models.
+- Second command saves selected model in wallycode.json.
+
+## Step 5: Optional workspace logging defaults
+
+Enable default logging for future commands:
 
 ```powershell
 wallycode logging --enable --verbose --source C:\src\MyRepo
 ```
 
-Disable them later with:
+Expected outcome:
+- Repo logging defaults are persisted.
+
+Disable later if needed:
 
 ```powershell
 wallycode logging --disable --quiet --source C:\src\MyRepo
 ```
+
+Expected outcome:
+- Logging defaults are persisted as disabled and non-verbose.

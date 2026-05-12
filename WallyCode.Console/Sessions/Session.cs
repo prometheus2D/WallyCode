@@ -117,6 +117,7 @@ internal sealed class Session : SessionBase
         var session = JsonSerializer.Deserialize<Session>(File.ReadAllText(path), SessionJson.Default)
             ?? throw new InvalidOperationException($"Session file is invalid: {path}");
         session.Normalize();
+        session.ValidateShape(path);
         return session;
     }
 
@@ -143,5 +144,24 @@ internal sealed class Session : SessionBase
     {
         PendingResponses ??= [];
         Memory ??= [];
+    }
+
+    private void ValidateShape(string path)
+    {
+        if (string.IsNullOrWhiteSpace(WorkflowName)
+            || string.IsNullOrWhiteSpace(ActiveStepName)
+            || string.IsNullOrWhiteSpace(ProviderName)
+            || string.IsNullOrWhiteSpace(SourcePath)
+            || string.IsNullOrWhiteSpace(Goal)
+            || string.IsNullOrWhiteSpace(Status))
+        {
+            throw new InvalidOperationException(
+                $"Session file at {path} is not in the current routed-session schema. Reset session state (for example: shell reset-memory) and start a new session.");
+        }
+
+        if (Status is not SessionStatus.Active and not SessionStatus.Blocked and not SessionStatus.Completed and not SessionStatus.Error)
+        {
+            throw new InvalidOperationException($"Session file at {path} has unsupported status '{Status}'.");
+        }
     }
 }

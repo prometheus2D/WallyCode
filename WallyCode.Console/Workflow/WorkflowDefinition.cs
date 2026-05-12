@@ -175,7 +175,6 @@ internal sealed class SharedWorkflowTransitionDefinition : WorkflowTransition
 internal sealed class SharedWorkflowDefinition
 {
     public string Id { get; set; } = string.Empty;
-    public List<string> Aliases { get; set; } = [];
     public string Instructions { get; set; } = string.Empty;
     public string StartStepName { get; set; } = string.Empty;
     public List<string> StepIds { get; set; } = [];
@@ -256,16 +255,13 @@ internal sealed class WorkflowCatalog
 {
     private readonly Dictionary<string, SharedWorkflowStepDefinition> _sharedSteps;
     private readonly Dictionary<string, SharedWorkflowDefinition> _workflowDefinitions;
-    private readonly Dictionary<string, string> _workflowAliases;
 
     private WorkflowCatalog(
         Dictionary<string, SharedWorkflowStepDefinition> sharedSteps,
-        Dictionary<string, SharedWorkflowDefinition> workflowDefinitions,
-        Dictionary<string, string> workflowAliases)
+        Dictionary<string, SharedWorkflowDefinition> workflowDefinitions)
     {
         _sharedSteps = sharedSteps;
         _workflowDefinitions = workflowDefinitions;
-        _workflowAliases = workflowAliases;
     }
 
     public static WorkflowCatalog LoadFromBaseDirectory()
@@ -321,8 +317,8 @@ internal sealed class WorkflowCatalog
             step.ValidateShape($"shared:{step.Id}");
         }
 
-        var (workflowDefinitions, workflowAliases) = LoadWorkflowDefinitions(definitionsPath);
-        var catalog = new WorkflowCatalog(sharedSteps, workflowDefinitions, workflowAliases);
+        var workflowDefinitions = LoadWorkflowDefinitions(definitionsPath);
+        var catalog = new WorkflowCatalog(sharedSteps, workflowDefinitions);
         catalog.ResolveAndValidate();
         return catalog;
     }
@@ -358,9 +354,7 @@ internal sealed class WorkflowCatalog
 
     public string ResolveDefinitionName(string name)
     {
-        return _workflowAliases.TryGetValue(name, out var workflowName)
-            ? workflowName
-            : name;
+        return name;
     }
 
     private void ResolveAndValidate()
@@ -441,14 +435,13 @@ internal sealed class WorkflowCatalog
         }
     }
 
-    private static (Dictionary<string, SharedWorkflowDefinition> Definitions, Dictionary<string, string> Aliases) LoadWorkflowDefinitions(string definitionsPath)
+    private static Dictionary<string, SharedWorkflowDefinition> LoadWorkflowDefinitions(string definitionsPath)
     {
         var definitions = new Dictionary<string, SharedWorkflowDefinition>(StringComparer.Ordinal);
-        var aliases = new Dictionary<string, string>(StringComparer.Ordinal);
 
         if (!Directory.Exists(definitionsPath))
         {
-            return (definitions, aliases);
+            return definitions;
         }
 
         foreach (var path in Directory.GetFiles(definitionsPath, "*.json", SearchOption.AllDirectories))
@@ -465,30 +458,9 @@ internal sealed class WorkflowCatalog
             {
                 throw new InvalidOperationException($"Duplicate workflow definition id '{definition.Id}'.");
             }
-
-            AddWorkflowAlias(aliases, definition.Id, definition.Id, definition.Id);
-            foreach (var alias in definition.Aliases)
-            {
-                AddWorkflowAlias(aliases, alias, definition.Id, definition.Id);
-            }
         }
 
-        return (definitions, aliases);
-    }
-
-    private static void AddWorkflowAlias(Dictionary<string, string> aliases, string alias, string definitionId, string ownerDefinitionId)
-    {
-        if (string.IsNullOrWhiteSpace(alias))
-        {
-            throw new InvalidOperationException($"Workflow definition '{ownerDefinitionId}' contains an empty alias.");
-        }
-
-        if (aliases.TryGetValue(alias, out var existingDefinitionId) && !string.Equals(existingDefinitionId, definitionId, StringComparison.Ordinal))
-        {
-            throw new InvalidOperationException($"Workflow alias '{alias}' is used by both '{existingDefinitionId}' and '{definitionId}'.");
-        }
-
-        aliases[alias] = definitionId;
+        return definitions;
     }
 
     private static List<WorkflowTransition> ResolveStepTransitions(

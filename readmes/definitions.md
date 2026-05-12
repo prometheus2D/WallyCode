@@ -1,72 +1,79 @@
 # Definitions and Steps
 
-Workflow definitions are WallyCode entry points selected by `run <prompt> [workflow]` or `run <prompt> --workflow <name>`. A definition owns workflow-level instructions, aliases, a start step, and the set of shared steps allowed in that workflow. `stepIds` defines the route surface for that workflow: transitions to targets outside the set are removed from the compiled workflow before the provider prompt and resolver see them. `ask` and `act` are shortcut verbs for two common definitions.
+Use this guide when you want to customize workflow behavior.
 
-## Files
+## Inputs
 
-- `WallyCode.Console/Workflow/Definitions/*.json` defines named workflows: instructions, aliases, start step, and allowed step IDs.
-- `WallyCode.Console/Workflow/Steps/*.json` defines reusable shared steps.
-- `WallyCode.Console/Workflow/Transitions/*.json` defines reusable routing transitions that steps opt into with `transitionIds`.
+- Workflow definition JSON files.
+- Shared step JSON files.
+- Shared transition JSON files.
 
-The project file copies workflow definition, step, and transition JSON to build and publish output, so edits are available to the console app after a build.
+Key folders:
+- WallyCode.Console/Workflow/Definitions
+- WallyCode.Console/Workflow/Steps
+- WallyCode.Console/Workflow/Transitions
 
-## Built-in definitions
+## Built-in workflow definitions
 
 | Definition | Start step | Purpose |
 | --- | --- | --- |
-| `ask` | `ask` | Answer a question without intending to edit files. |
-| `act` | `act` | Complete a file-changing implementation request through an implementation/review loop. |
-| `requirements` | `collect_requirements` | Clarify requirements, produce tasks, then execute. This is the default for `run`. Aliases: `collect_requirements`, `full-pipeline`. |
-| `tasks` | `produce_tasks` | Start at task production, then execute. |
+| ask | ask | Analysis-oriented responses. |
+| act | act | Implementation and review loop. |
+| requirements | collect_requirements | Requirements to tasks to execution. Default for run. |
+| tasks | produce_tasks | Start at task production and continue execution. |
 
-## Run a definition
+## Step 1: Run a specific definition
 
 ```powershell
 wallycode run "Build a CSV importer." requirements --source C:\src\MyRepo --log --verbose
-wallycode run "Implement the prepared task list." tasks --source C:\src\MyRepo --log --verbose
-wallycode ask "Where is setup implemented?" --source C:\src\MyRepo
-wallycode act "Update setup behavior." --source C:\src\MyRepo
-wallycode act "Fix these code problems: ..." --source C:\src\MyRepo
-wallycode step "Review the current workspace changes." review_changes --source C:\src\MyRepo
+wallycode run "Implement prepared tasks." tasks --source C:\src\MyRepo --log --verbose
 ```
 
-If an active session exists, it is tied to the workflow definition it started with. Use `--memory-root` for a parallel session with another definition.
+Expected outcome:
+- Starts or continues a session bound to the chosen definition.
 
-## Add or change a definition
+## Step 2: Add or edit a workflow definition
 
-1. Add or edit a workflow JSON file under `WallyCode.Console/Workflow/Definitions`.
-2. Put workflow-level instructions in `instructions`.
-3. Choose `startStepName` and the allowed `stepIds`. Only transitions targeting those steps are available in that workflow.
-4. Add or edit shared step JSON under `WallyCode.Console/Workflow/Steps`.
-5. Use step `readsMemory` and `writesMemory` when a step should consume or produce durable session context.
-6. Add reusable transitions under `WallyCode.Console/Workflow/Transitions` and reference them from steps with `transitionIds`.
-7. Run `dotnet build WallyCode.sln`.
+Create or edit a JSON file in WallyCode.Console/Workflow/Definitions.
 
-Example workflow definition:
+Example:
 
 ```json
 {
   "id": "requirements",
-  "aliases": ["collect_requirements", "full-pipeline"],
-  "instructions": "Clarify requirements, produce tasks, execute the tasks, and finish only when the requested outcome is complete.",
+  "instructions": "Clarify requirements, produce tasks, execute tasks, and finish only when the outcome is complete.",
   "startStepName": "collect_requirements",
   "stepIds": ["collect_requirements", "produce_tasks", "execute_tasks"]
 }
 ```
 
-Example shared step:
+Expected outcome:
+- Definition can be selected by run using its id.
+
+## Step 3: Add or edit shared steps
+
+Create or edit JSON in WallyCode.Console/Workflow/Steps.
+
+Example:
 
 ```json
 {
   "id": "collect_requirements",
   "executionKind": "provider",
-  "instructions": "Clarify the user's goal, constraints, and expected outcome. When ready, write requirements.",
+  "instructions": "Clarify goal, constraints, and expected outcome. When ready, write requirements.",
   "writesMemory": ["requirements"],
   "transitionIds": ["continue", "to_produce_tasks"]
 }
 ```
 
-Example transition:
+Expected outcome:
+- Step becomes available to definitions that include its id in stepIds.
+
+## Step 4: Add or edit transitions
+
+Create or edit JSON in WallyCode.Console/Workflow/Transitions.
+
+Example:
 
 ```json
 {
@@ -77,38 +84,25 @@ Example transition:
 }
 ```
 
-At runtime, the provider returns `selectedStep`. Selecting `continue` stays on the current step, selecting a route like `produce_tasks` moves to that transition's `targetStepName`, selecting `stop` completes the workflow, `ask_user` blocks for `respond`, and `error` stops with the summary as the reason. `respond` saves the user's answer and immediately resumes the workflow. `done` is still accepted as a compatibility alias for completion, but new transitions should use `stop`.
+Expected outcome:
+- Transition can be selected by steps that reference it in transitionIds.
 
-Steps can also update session memory by returning a top-level `memory` object:
+## Runtime behavior reference
 
-```json
-{
-  "selectedStep": "produce_tasks",
-  "summary": "Requirements are ready.",
-  "memory": {
-    "requirements": "Import comma-separated files and reject invalid rows."
-  }
-}
-```
+Provider responses choose selectedStep.
 
-The orchestrator stores memory in `.wallycode/session.json`, injects declared `readsMemory` keys into later prompts, and writes versioned snapshots under `.wallycode/sessions/session-0001.json`, `.wallycode/sessions/session-0002.json`, and so on. Use `null` in the returned `memory` object to remove a key.
+- continue keeps current step.
+- selection mapped to a transition moves to targetStepName.
+- stop completes the workflow.
+- ask_user blocks the session until respond.
+- error ends with failure state.
 
-The orchestrator filters memory updates through the active step's `writesMemory` list. Undeclared memory keys are ignored so one step cannot accidentally overwrite another step's durable context.
+Memory behavior:
+- Response memory is merged into session memory.
+- Only keys declared in writesMemory are persisted.
+- readsMemory keys are injected into later prompts.
+- Returning null for a memory key removes it.
 
-When a transition targets another step, the resolver derives simple handoff requirements from memory contracts. If the current step can write a key and the target step reads that same key, the key must exist before the transition can move forward. For example, `collect_requirements` writes `requirements`, `produce_tasks` reads `requirements`, so selecting `produce_tasks` requires the provider to write `memory.requirements` in the same response or have it already stored in the session.
-
-Transitions can also define explicit guards for advanced deterministic routing. Guarded transitions are evaluated before the model-selected transition, and a guarded route cannot be selected directly unless its guard matches:
-
-```json
-{
-  "selection": "review_result",
-  "targetStepName": "review_result",
-  "guard": {
-    "memoryEquals": {
-      "validation.status": "passed"
-    }
-  }
-}
-```
-
-Use guarded transitions when the route should follow verified session state instead of another model judgment.
+Guard behavior:
+- Explicit transition guards are evaluated before model-selected transition routing.
+- Handoff memory requirements are enforced when target steps depend on keys written by the current step.

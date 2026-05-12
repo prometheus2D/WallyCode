@@ -1,44 +1,54 @@
 # Development Mode
 
-Development mode means running the current WallyCode source build while you edit WallyCode itself. There is no separate `devmode` CLI verb; use `dotnet run --project WallyCode.Console -- ...` to pass commands to the local console app.
+Use development mode when you are editing WallyCode itself and want to run the local source build.
 
-## Build first
+There is no separate devmode verb. Use dotnet run with WallyCode arguments after --.
 
-From the repository root:
+## Inputs
 
-```powershell
-dotnet restore WallyCode.sln
-dotnet build WallyCode.sln
-```
+- Repository root for WallyCode.
+- Optional isolated memory root, typically .wallycode-dev.
+- Optional source path override when running against another repo.
 
-## Run the local CLI
-
-The `--` separator passes the remaining arguments to WallyCode:
+## Step 1: Run local CLI help
 
 ```powershell
 dotnet run --project WallyCode.Console -- help
-dotnet run --project WallyCode.Console -- provider --source .
 ```
 
-When WallyCode should operate on this repository, use `--source .`. Use an ignored `.wallycode-dev` memory root to keep development sessions separate from normal `.wallycode` state:
+Expected outcome:
+- Runs the local WallyCode build and prints command help.
+
+## Step 2: Initialize local repo state
 
 ```powershell
 dotnet run --project WallyCode.Console -- setup --directory .
-dotnet run --project WallyCode.Console -- ask "Explain the workflow command surface." --source . --memory-root .wallycode-dev --log --verbose
-dotnet run --project WallyCode.Console -- act "Update the docs for the ask workflow." --source . --memory-root .wallycode-dev --log --verbose
 ```
 
-The repo `.gitignore` ignores `.wallycode*`, so `.wallycode-dev` stays out of source control.
+Expected outcome:
+- Creates or updates local repo setup files for this workspace.
 
-## Use the shell while editing
+## Step 3: Run ask and act against this repo
 
-The shell keeps `--source`, `--memory-root`, and logging defaults attached to each subcommand:
+```powershell
+dotnet run --project WallyCode.Console -- ask "Explain the workflow command surface." --source . --memory-root .wallycode-dev --log --verbose
+dotnet run --project WallyCode.Console -- act "Update docs for the ask workflow." --source . --memory-root .wallycode-dev --log --verbose
+```
+
+Expected outcome:
+- Uses local source build.
+- Keeps development session data in .wallycode-dev instead of .wallycode.
+
+## Step 4: Use shell for repeated commands
 
 ```powershell
 dotnet run --project WallyCode.Console -- shell --source . --memory-root .wallycode-dev --log --verbose
 ```
 
-Inside the shell, omit the executable name:
+Expected outcome:
+- Starts interactive shell with shared defaults.
+
+Example shell usage:
 
 ```text
 wallycode> ask "What files define the command surface?"
@@ -47,21 +57,12 @@ wallycode> reset-memory
 wallycode> exit
 ```
 
-## Visual Studio build mode
-
-When the app is launched from its build output, `--vs-build` resolves the workspace root above `bin\Debug` or `bin\Release`:
+## Step 5: Optional Visual Studio build output resolution
 
 ```powershell
 dotnet run --project WallyCode.Console -- setup --vs-build
 dotnet run --project WallyCode.Console -- shell --vs-build --log --verbose
 ```
 
-This is useful when debugging the console app from Visual Studio and you want WallyCode to operate on the repository root rather than the build output directory.
-
-## Safe edit loop
-
-1. Build the solution.
-2. Run `ask` first if you only need analysis.
-3. Run `act` when file edits are intended.
-4. Inspect the resulting diff.
-5. Run `dotnet build WallyCode.sln` before keeping the change.
+Expected outcome:
+- Resolves workspace root from a standard bin\Debug or bin\Release output path.

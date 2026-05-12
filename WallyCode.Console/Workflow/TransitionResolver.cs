@@ -12,10 +12,6 @@ internal sealed class TransitionDecision
 
 internal sealed class TransitionResolver
 {
-    private const string AskUser = "ask_user";
-    private const string Done = "done";
-    private const string Error = "error";
-
     public TransitionDecision Resolve(WorkflowDefinition definition, WorkflowStep step, Session session, StepExecutionResult executionResult)
     {
         var guardedTransition = step.Transitions.FirstOrDefault(transition => transition.Guard is not null && GuardMatches(transition.Guard, session, executionResult));
@@ -28,21 +24,6 @@ internal sealed class TransitionResolver
         if (string.IsNullOrWhiteSpace(selectedStep))
         {
             throw new InvalidOperationException($"Step '{step.Name}' did not select a transition and no guarded transition matched.");
-        }
-
-        if (string.Equals(selectedStep, AskUser, StringComparison.Ordinal))
-        {
-            return new TransitionDecision { SelectedStep = AskUser, NextStepName = step.Name, Status = SessionStatus.Blocked, StopsInvocation = true };
-        }
-
-        if (string.Equals(selectedStep, Done, StringComparison.Ordinal))
-        {
-            return new TransitionDecision { SelectedStep = Done, NextStepName = step.Name, Status = SessionStatus.Completed, StopsInvocation = true };
-        }
-
-        if (string.Equals(selectedStep, Error, StringComparison.Ordinal))
-        {
-            return new TransitionDecision { SelectedStep = Error, NextStepName = step.Name, Status = SessionStatus.Error, StopsInvocation = true };
         }
 
         var transition = step.Transitions.FirstOrDefault(transition => string.Equals(transition.Selection, selectedStep, StringComparison.Ordinal))

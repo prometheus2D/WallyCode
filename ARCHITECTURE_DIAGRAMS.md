@@ -69,11 +69,11 @@ flowchart LR
 ## Key Invariants
 
 - `WorkflowOrchestrator` owns session mutation and snapshots.
-- Workflow definitions own workflow-level instructions, aliases, start step, and allowed step IDs. Compiled workflows expose only transitions whose targets stay inside those allowed step IDs.
+- Workflow definitions own workflow-level instructions, start step, and allowed step IDs. Compiled workflows expose only transitions whose targets stay inside those allowed step IDs.
 - Step executors produce `StepExecutionResult`; they do not directly mutate the session.
 - Provider steps call the LLM and parse strict JSON: `selectedStep`, `summary`, and optional `memory`.
 - Script steps are deterministic executors for future verification, build, and local command steps.
 - `writesMemory` is enforced by filtering provider or script memory updates before persistence.
 - Explicit guarded transitions are evaluated before model-selected transitions.
 - Target-step handoff memory is derived from `writesMemory` and `readsMemory`, so basic artifact readiness does not need custom guard JSON.
-- `continue`, route transitions, `ask_user`, `stop`, `done`, and `error` remain the externally visible routing vocabulary. `done` is retained as a compatibility completion alias.
+- `continue`, route transitions, `ask_user`, `stop`, and `error` are the externally visible routing vocabulary.

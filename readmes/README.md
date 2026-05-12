@@ -1,18 +1,24 @@
 # WallyCode Readmes
 
-Focused guides for common WallyCode tasks. The root README stays short; this folder is for workflows and setup notes that need examples.
+This folder contains feature tutorials with three goals:
+- Inputs: what arguments and options you must provide.
+- Steps: exact commands to run in order.
+- Expected outcome: what should happen after each step.
 
-## Start here
+## Read in this order
 
-- [Setup and providers](setup.md) - initialize a target repo and choose provider/model defaults.
-- [Development mode](development-mode.md) - run the current source build while modifying WallyCode itself.
-- [Ask workflow](ask.md) - answer questions against a repo without intending to edit files.
-- [Act workflow](act.md) - run an implementation-oriented workflow that may change files.
-- [Definitions and steps](definitions.md) - understand and edit workflow definitions and shared steps.
-- [Stepwise workflows](stepwise.md) - run one routed iteration at a time and respond to blocked sessions.
+1. [Setup and providers](setup.md)
+2. [Ask workflow](ask.md)
+3. [Act workflow](act.md)
+4. [Stepwise workflows](stepwise.md)
+5. [Definitions and steps](definitions.md)
+6. [Development mode](development-mode.md)
 
-## Core idea
+## Quick chooser
 
-WallyCode runs a routed workflow session against a source repo. `--source` selects the repo, `.wallycode` stores runtime state, and `--memory-root` lets you isolate a different session root for experiments or parallel runs.
-
-`run` starts or continues workflow sessions. The general form is `run <prompt> [workflow]`; use `step <prompt> [step]` for one direct shared-step execution.
+- Need first-time setup: [setup.md](setup.md)
+- Need analysis only: [ask.md](ask.md)
+- Need implementation changes: [act.md](act.md)
+- Need per-iteration control: [stepwise.md](stepwise.md)
+- Need to edit workflow JSON: [definitions.md](definitions.md)
+- Need to run local source build: [development-mode.md](development-mode.md)

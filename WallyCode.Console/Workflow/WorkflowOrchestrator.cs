@@ -6,8 +6,6 @@ namespace WallyCode.ConsoleApp.Workflow;
 
 internal sealed class WorkflowOrchestrator
 {
-    private const string Error = "error";
-
     private readonly WorkflowDefinition _definition;
     private readonly string _sessionRoot;
     private readonly IReadOnlyDictionary<string, IStepExecutor> _executors;
@@ -67,7 +65,7 @@ internal sealed class WorkflowOrchestrator
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             session.IterationCount++;
-            session.LastSelectedStep = Error;
+            session.LastSelectedStep = "error";
             session.LastSummary = ex.Message;
             session.Status = SessionStatus.Error;
             session.PendingResponses.Clear();
