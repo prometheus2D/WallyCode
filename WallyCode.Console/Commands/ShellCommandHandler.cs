@@ -20,12 +20,17 @@ internal sealed class ShellCommandHandler
 
     public async Task<int> ExecuteAsync(CancellationToken cancellationToken)
     {
-        var resolvedSourcePath = ResolveSourcePath();
-        var sessionRoot = ProjectSettings.ResolveRuntimeRoot(resolvedSourcePath, _options.MemoryRoot);
+        var (resolvedSourcePath, settings) = ResolveProjectContext();
+        var effectiveMemoryRoot = string.IsNullOrWhiteSpace(_options.MemoryRoot)
+            ? settings.RuntimeDefaults.MemoryRoot
+            : _options.MemoryRoot;
+        var sessionRoot = ProjectSettings.ResolveRuntimeRoot(resolvedSourcePath, effectiveMemoryRoot);
+
+        PersistShellDefaults(settings, resolvedSourcePath, effectiveMemoryRoot);
 
         if (_options.ResetMemory)
         {
-            ResetMemory(resolvedSourcePath, _options.MemoryRoot);
+            ResetMemory(resolvedSourcePath, effectiveMemoryRoot);
         }
 
         ConfigureShellLogging(sessionRoot);
@@ -44,9 +49,9 @@ internal sealed class ShellCommandHandler
             Console.WriteLine($"Shell initialized with source: {resolvedSourcePath}");
         }
 
-        if (!string.IsNullOrWhiteSpace(_options.MemoryRoot))
+        if (!string.IsNullOrWhiteSpace(effectiveMemoryRoot))
         {
-            Console.WriteLine($"Shell initialized with memory root: {Path.GetFullPath(_options.MemoryRoot)}");
+            Console.WriteLine($"Shell initialized with memory root: {Path.GetFullPath(effectiveMemoryRoot)}");
         }
         else
         {
@@ -103,7 +108,7 @@ internal sealed class ShellCommandHandler
 
             if (string.Equals(args[0], "reset-memory", StringComparison.OrdinalIgnoreCase))
             {
-                ResetMemory(resolvedSourcePath, _options.MemoryRoot);
+                ResetMemory(resolvedSourcePath, effectiveMemoryRoot);
                 Console.WriteLine();
                 continue;
             }
@@ -115,7 +120,7 @@ internal sealed class ShellCommandHandler
                 continue;
             }
 
-            var effectiveArgs = ApplyShellDefaults(args, resolvedSourcePath);
+            var effectiveArgs = ApplyShellDefaults(args, resolvedSourcePath, effectiveMemoryRoot);
             _logger.LogAction("Executing shell subcommand", string.Join(" ", effectiveArgs), verboseOnly: true);
             await Program.RunAsync(effectiveArgs, cancellationToken, _appDirectoryPath);
             Console.WriteLine();
@@ -134,18 +139,54 @@ internal sealed class ShellCommandHandler
         });
     }
 
-    private string ResolveSourcePath()
+    private (string ProjectRoot, ProjectSettings Settings) ResolveProjectContext()
     {
-        var sourcePath = !string.IsNullOrWhiteSpace(_options.SourcePath)
-            ? _options.SourcePath
-            : _options.VsBuild
-                ? WorkspacePathResolver.ResolveVsBuildWorkspaceRoot(_appDirectoryPath)
-                : null;
+        if (!string.IsNullOrWhiteSpace(_options.SourcePath))
+        {
+            var explicitRoot = ProjectSettings.ResolveProjectRoot(_options.SourcePath);
+            return (explicitRoot, ProjectSettings.Load(explicitRoot));
+        }
 
-        return ProjectSettings.ResolveProjectRoot(sourcePath);
+        if (_options.VsBuild)
+        {
+            var resolvedSourcePath = WorkspacePathResolver.ResolveVsBuildWorkspaceRoot(_appDirectoryPath);
+            var projectRoot = ProjectSettings.ResolveProjectRoot(resolvedSourcePath);
+            return (projectRoot, ProjectSettings.Load(projectRoot));
+        }
+
+        return ProjectSettings.ResolveProjectContext(null);
     }
 
-    private string[] ApplyShellDefaults(string[] args, string resolvedSourcePath)
+    private void PersistShellDefaults(ProjectSettings settings, string projectRoot, string? effectiveMemoryRoot)
+    {
+        var changed = false;
+        if (!string.IsNullOrWhiteSpace(_options.SourcePath) || _options.VsBuild)
+        {
+            if (!string.Equals(settings.RuntimeDefaults.SourcePath, projectRoot, StringComparison.Ordinal))
+            {
+                settings.RuntimeDefaults.SourcePath = projectRoot;
+                changed = true;
+            }
+        }
+
+        if (!string.IsNullOrWhiteSpace(_options.MemoryRoot))
+        {
+            var memoryRoot = Path.GetFullPath(_options.MemoryRoot);
+            if (!string.Equals(settings.RuntimeDefaults.MemoryRoot, memoryRoot, StringComparison.Ordinal))
+            {
+                settings.RuntimeDefaults.MemoryRoot = memoryRoot;
+                changed = true;
+            }
+        }
+
+        if (changed)
+        {
+            settings.Save(projectRoot);
+            _logger.LogAction("Saved shell defaults", $"source={settings.RuntimeDefaults.SourcePath}; memoryRoot={effectiveMemoryRoot}");
+        }
+    }
+
+    private string[] ApplyShellDefaults(string[] args, string resolvedSourcePath, string? effectiveMemoryRoot)
     {
         var effectiveArgs = args.ToList();
 
@@ -157,10 +198,10 @@ internal sealed class ShellCommandHandler
 
         if (SupportsMemoryRoot(args[0])
             && !HasOption(args, "memory-root")
-            && !string.IsNullOrWhiteSpace(_options.MemoryRoot))
+            && !string.IsNullOrWhiteSpace(effectiveMemoryRoot))
         {
             effectiveArgs.Add("--memory-root");
-            effectiveArgs.Add(_options.MemoryRoot);
+            effectiveArgs.Add(effectiveMemoryRoot);
         }
 
         if (SupportsLogging(args[0]) && _options.Log && !HasOption(args, "log"))

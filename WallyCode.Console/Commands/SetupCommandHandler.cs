@@ -133,7 +133,11 @@ internal sealed class SetupCommandHandler
         var settings = new ProjectSettings
         {
             Provider = provider.Name,
-            Model = provider.DefaultModel
+            Model = provider.DefaultModel,
+            RuntimeDefaults = new RuntimeDefaultsSettings
+            {
+                SourcePath = targetDirectory
+            }
         };
 
         settings.Save(targetDirectory);

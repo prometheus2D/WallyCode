@@ -28,9 +28,8 @@ internal sealed class StepCommandHandler
             throw new InvalidOperationException("Prompt is required. Use: step <prompt> [step]");
         }
 
-        var projectRoot = ProjectSettings.ResolveProjectRoot(options.SourcePath);
-        var settings = ProjectSettings.Load(projectRoot);
-        var sessionRoot = ProjectSettings.ResolveRuntimeRoot(projectRoot, options.MemoryRoot);
+        var (projectRoot, settings) = ProjectSettings.ResolveProjectContext(options.SourcePath);
+        var sessionRoot = ProjectSettings.ResolveSessionRoot(settings, projectRoot, options.MemoryRoot);
         Directory.CreateDirectory(sessionRoot);
 
         var loggingMode = new LoggingMode

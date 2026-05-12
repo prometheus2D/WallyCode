@@ -22,6 +22,7 @@ wallycode setup --directory C:\src\MyRepo
 Expected outcome:
 - Creates C:\src\MyRepo\wallycode.json.
 - Creates C:\src\MyRepo\.wallycode.
+- Seeds runtime defaults with source path C:\src\MyRepo.
 
 If launched from a Visual Studio build output folder, use:
 
@@ -102,4 +103,8 @@ wallycode status --source C:\src\MyRepo
 Expected outcome:
 - Prints the resolved source path and memory root.
 - Shows the configured provider and model.
+- Shows persisted runtime defaults (source, memory root if set, iteration defaults if set).
 - Shows `Session: (none)` if no session has been started yet.
+
+Follow-up behavior:
+- Future run/ask/act/resume/respond/recover/step commands can omit `--source` and still reuse persisted defaults from wallycode.json when invoked from this workspace.

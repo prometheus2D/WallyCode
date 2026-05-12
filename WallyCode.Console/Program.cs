@@ -98,9 +98,10 @@ internal static class Program
 		}
 
 		var sourcePath = TryGetOptionValue(args, "source");
-		var projectRoot = ProjectSettings.ResolveProjectRoot(sourcePath);
+		var (projectRoot, settings) = ProjectSettings.ResolveProjectContext(sourcePath);
 		var memoryRoot = TryGetOptionValue(args, "memory-root");
-		var runtimeRoot = ProjectSettings.ResolveRuntimeRoot(projectRoot, memoryRoot);
+		var runtimeRoot = ProjectSettings.ResolveRuntimeRoot(projectRoot,
+			string.IsNullOrWhiteSpace(memoryRoot) ? settings.RuntimeDefaults.MemoryRoot : memoryRoot);
 		logger.ConfigureLogging(runtimeRoot, new LoggingMode
 		{
 			Enabled = true,

@@ -17,15 +17,19 @@ internal sealed class StatusCommandHandler
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        var projectRoot = ProjectSettings.ResolveProjectRoot(options.SourcePath);
-        var sessionRoot = ProjectSettings.ResolveRuntimeRoot(projectRoot, options.MemoryRoot);
-        var settings = ProjectSettings.Load(projectRoot);
+        var (projectRoot, settings) = ProjectSettings.ResolveProjectContext(options.SourcePath);
+        var sessionRoot = ProjectSettings.ResolveSessionRoot(settings, projectRoot, options.MemoryRoot);
 
         _logger.Section("WallyCode Status");
         _logger.Info($"Source:       {projectRoot}");
         _logger.Info($"Memory root:  {sessionRoot}");
         _logger.Info($"Provider:     {settings.Provider}");
         _logger.Info($"Model:        {settings.Model ?? "(provider default)"}");
+        _logger.Info($"Default source:     {settings.RuntimeDefaults.SourcePath ?? "(none)"}");
+        _logger.Info($"Default memory root:{settings.RuntimeDefaults.MemoryRoot ?? "(none)"}");
+        _logger.Info($"Default max-run:    {settings.RuntimeDefaults.MaxRunIterations?.ToString() ?? "(none)"}");
+        _logger.Info($"Default max-total:  {settings.RuntimeDefaults.MaxTotalIterations?.ToString() ?? "(none)"}");
+        _logger.Info($"Default max-repeat: {settings.RuntimeDefaults.MaxStepRepeats?.ToString() ?? "(none)"}");
 
         if (Session.Exists(sessionRoot))
         {

@@ -106,6 +106,7 @@ Inputs:
 
 What happens:
 - Prints the resolved source, memory root, default provider, and model.
+- Prints persisted runtime defaults from wallycode.json (default source, memory root, and iteration limits).
 - Prints active session state (workflow, step, iteration, goal) if a session exists.
 
 ### logging
@@ -140,7 +141,8 @@ Inputs:
 
 What happens:
 - Starts or continues one durable workflow session.
-- Uses default max-run-iterations 20 per invocation.
+- Uses persisted runtime defaults from wallycode.json when source, memory-root, or iteration flags are omitted.
+- Uses max-run-iterations 20 when neither CLI nor settings specifies a value.
 - Stops early on stop, ask_user, error, or limits.
 
 ### ask
@@ -225,6 +227,7 @@ Shell built-ins (no executable prefix needed):
 ## Runtime files
 
 - wallycode.json: repo-scoped defaults and provider catalog.
+- wallycode.json runtimeDefaults: optional persisted source path, memory root, and iteration limits reused by run/ask/act/resume/respond/recover/step/status/shell.
 - .wallycode\session.json: current active session.
 - .wallycode\sessions\session-000N.json: per-iteration snapshots.
 - .wallycode\archive\...: archived terminal sessions.

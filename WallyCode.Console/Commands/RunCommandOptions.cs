@@ -1,4 +1,5 @@
 using CommandLine;
+using WallyCode.ConsoleApp.Project;
 
 namespace WallyCode.ConsoleApp.Commands;
 
@@ -34,14 +35,14 @@ internal sealed class RunCommandOptions
     [Option("memory-root", HelpText = "Optional folder for session state.")]
     public string? MemoryRoot { get; set; }
 
-    [Option("max-run-iterations", Default = DefaultMaxRunIterations, HelpText = "Maximum workflow step iterations to execute in this invocation.")]
-    public int MaxRunIterations { get; set; } = DefaultMaxRunIterations;
+    [Option("max-run-iterations", HelpText = "Maximum workflow step iterations to execute in this invocation.")]
+    public int? MaxRunIterations { get; set; }
 
-    [Option("max-total-iterations", Default = 0, HelpText = "Maximum total workflow iterations allowed for the active session. Use 0 for no limit.")]
-    public int MaxTotalIterations { get; set; }
+    [Option("max-total-iterations", HelpText = "Maximum total workflow iterations allowed for the active session. Use 0 for no limit.")]
+    public int? MaxTotalIterations { get; set; }
 
-    [Option("max-step-repeats", Default = 0, HelpText = "Maximum times the same step may run in one invocation. Use 0 for no limit.")]
-    public int MaxStepRepeats { get; set; }
+    [Option("max-step-repeats", HelpText = "Maximum times the same step may run in one invocation. Use 0 for no limit.")]
+    public int? MaxStepRepeats { get; set; }
 
     [Option("log", HelpText = "Enable transcript logging for this invocation.")]
     public bool Log { get; set; }
@@ -49,7 +50,47 @@ internal sealed class RunCommandOptions
     [Option("verbose", HelpText = "Enable verbose transcript logging for this invocation.")]
     public bool Verbose { get; set; }
 
-    public int ResolveMaxRunIterations() => MaxRunIterations;
+    public int ResolveMaxRunIterations(ProjectSettings settings)
+    {
+        var maxRunIterations = MaxRunIterations
+            ?? settings.RuntimeDefaults.MaxRunIterations
+            ?? DefaultMaxRunIterations;
+
+        if (maxRunIterations <= 0)
+        {
+            throw new InvalidOperationException("Max run iterations must be greater than zero.");
+        }
+
+        return maxRunIterations;
+    }
+
+    public int ResolveMaxTotalIterations(ProjectSettings settings)
+    {
+        var maxTotalIterations = MaxTotalIterations
+            ?? settings.RuntimeDefaults.MaxTotalIterations
+            ?? 0;
+
+        if (maxTotalIterations < 0)
+        {
+            throw new InvalidOperationException("Max total iterations must be zero (no limit) or greater.");
+        }
+
+        return maxTotalIterations;
+    }
+
+    public int ResolveMaxStepRepeats(ProjectSettings settings)
+    {
+        var maxStepRepeats = MaxStepRepeats
+            ?? settings.RuntimeDefaults.MaxStepRepeats
+            ?? 0;
+
+        if (maxStepRepeats < 0)
+        {
+            throw new InvalidOperationException("Max step repeats must be zero (no limit) or greater.");
+        }
+
+        return maxStepRepeats;
+    }
 
     public string? GetRequestedPrompt()
     {

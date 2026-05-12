@@ -10,6 +10,24 @@ internal sealed class LoggingSettings
     public bool Verbose { get; set; }
 }
 
+internal sealed class RuntimeDefaultsSettings
+{
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? SourcePath { get; set; }
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? MemoryRoot { get; set; }
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public int? MaxRunIterations { get; set; }
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public int? MaxTotalIterations { get; set; }
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public int? MaxStepRepeats { get; set; }
+}
+
 internal sealed class ProviderModelCatalog
 {
     public string Name { get; set; } = string.Empty;
@@ -52,6 +70,8 @@ internal sealed class ProjectSettings
 
     public LoggingSettings Logging { get; set; } = new();
 
+    public RuntimeDefaultsSettings RuntimeDefaults { get; set; } = new();
+
     public ProviderCatalogSettings ProviderCatalog { get; set; } = new();
 
     public DateTimeOffset UpdatedAtUtc { get; set; } = DateTimeOffset.UtcNow;
@@ -72,6 +92,7 @@ internal sealed class ProjectSettings
         settings.Model = ResolveModelName(settings.Model);
         settings.GlobalPrompt = ResolveGlobalPrompt(settings.GlobalPrompt);
         settings.Logging ??= new LoggingSettings();
+        settings.RuntimeDefaults = NormalizeRuntimeDefaults(settings.RuntimeDefaults);
         settings.ProviderCatalog ??= new ProviderCatalogSettings();
         settings.ProviderCatalog.Providers ??= [];
 
@@ -90,6 +111,7 @@ internal sealed class ProjectSettings
         Model = ResolveModelName(Model);
         GlobalPrompt = ResolveGlobalPrompt(GlobalPrompt);
         Logging ??= new LoggingSettings();
+        RuntimeDefaults = NormalizeRuntimeDefaults(RuntimeDefaults);
         ProviderCatalog ??= new ProviderCatalogSettings();
         ProviderCatalog.Providers ??= [];
         UpdatedAtUtc = DateTimeOffset.UtcNow;
@@ -112,6 +134,33 @@ internal sealed class ProjectSettings
         return projectRoot;
     }
 
+    public static (string ProjectRoot, ProjectSettings Settings) ResolveProjectContext(string? sourcePath)
+    {
+        if (!string.IsNullOrWhiteSpace(sourcePath))
+        {
+            var explicitRoot = ResolveProjectRoot(sourcePath);
+            return (explicitRoot, Load(explicitRoot));
+        }
+
+        var currentRoot = ResolveProjectRoot(null);
+        var currentSettings = Load(currentRoot);
+        var defaultSourcePath = NormalizeRuntimePath(currentSettings.RuntimeDefaults.SourcePath);
+        if (string.IsNullOrWhiteSpace(defaultSourcePath))
+        {
+            return (currentRoot, currentSettings);
+        }
+
+        try
+        {
+            var preferredRoot = ResolveProjectRoot(defaultSourcePath);
+            return (preferredRoot, Load(preferredRoot));
+        }
+        catch (DirectoryNotFoundException)
+        {
+            return (currentRoot, currentSettings);
+        }
+    }
+
     public static string GetFilePath(string projectRoot)
     {
         return Path.Combine(projectRoot, "wallycode.json");
@@ -122,6 +171,15 @@ internal sealed class ProjectSettings
         return string.IsNullOrWhiteSpace(memoryRoot)
             ? Path.Combine(projectRoot, ".wallycode")
             : Path.GetFullPath(memoryRoot);
+    }
+
+    public static string ResolveSessionRoot(ProjectSettings settings, string projectRoot, string? memoryRoot)
+    {
+        var effectiveMemoryRoot = string.IsNullOrWhiteSpace(memoryRoot)
+            ? settings.RuntimeDefaults.MemoryRoot
+            : memoryRoot;
+
+        return ResolveRuntimeRoot(projectRoot, effectiveMemoryRoot);
     }
 
     private static string ResolveProviderName(string? providerName)
@@ -146,5 +204,39 @@ internal sealed class ProjectSettings
         return string.IsNullOrWhiteSpace(globalPrompt)
             ? null
             : globalPrompt.Trim();
+    }
+
+    private static RuntimeDefaultsSettings NormalizeRuntimeDefaults(RuntimeDefaultsSettings? runtimeDefaults)
+    {
+        var normalized = runtimeDefaults ?? new RuntimeDefaultsSettings();
+        normalized.SourcePath = NormalizeRuntimePath(normalized.SourcePath);
+        normalized.MemoryRoot = NormalizeRuntimePath(normalized.MemoryRoot);
+        normalized.MaxRunIterations = normalized.MaxRunIterations.HasValue && normalized.MaxRunIterations.Value > 0
+            ? normalized.MaxRunIterations
+            : null;
+        normalized.MaxTotalIterations = normalized.MaxTotalIterations.HasValue && normalized.MaxTotalIterations.Value >= 0
+            ? normalized.MaxTotalIterations
+            : null;
+        normalized.MaxStepRepeats = normalized.MaxStepRepeats.HasValue && normalized.MaxStepRepeats.Value >= 0
+            ? normalized.MaxStepRepeats
+            : null;
+        return normalized;
+    }
+
+    private static string? NormalizeRuntimePath(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            return null;
+        }
+
+        try
+        {
+            return Path.GetFullPath(path.Trim());
+        }
+        catch (Exception) when (true)
+        {
+            return null;
+        }
     }
 }

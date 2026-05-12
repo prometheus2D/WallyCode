@@ -25,9 +25,8 @@ internal sealed class RecoverCommandHandler
             throw new InvalidOperationException("A non-empty recovery action is required.");
         }
 
-        var projectRoot = ProjectSettings.ResolveProjectRoot(options.SourcePath);
-        var settings = ProjectSettings.Load(projectRoot);
-        var sessionRoot = ProjectSettings.ResolveRuntimeRoot(projectRoot, options.MemoryRoot);
+        var (projectRoot, settings) = ProjectSettings.ResolveProjectContext(options.SourcePath);
+        var sessionRoot = ProjectSettings.ResolveSessionRoot(settings, projectRoot, options.MemoryRoot);
         var loggingMode = new LoggingMode
         {
             Enabled = options.Log || settings.Logging.Enabled,

@@ -23,25 +23,14 @@ internal sealed class WorkflowRunCommandHandler
     public async Task<int> ExecuteAsync(RunCommandOptions options, CancellationToken cancellationToken)
     {
         var requestedPrompt = options.GetRequestedPrompt();
-        var maxRunIterations = options.ResolveMaxRunIterations();
-        if (maxRunIterations <= 0)
-        {
-            throw new InvalidOperationException("Max run iterations must be greater than zero.");
-        }
+        var (projectRoot, settings) = ProjectSettings.ResolveProjectContext(options.SourcePath);
+        PersistRuntimeDefaults(options, projectRoot, settings);
 
-        if (options.MaxTotalIterations < 0)
-        {
-            throw new InvalidOperationException("Max total iterations must be zero (no limit) or greater.");
-        }
+        var maxRunIterations = options.ResolveMaxRunIterations(settings);
+        var maxTotalIterations = options.ResolveMaxTotalIterations(settings);
+        var maxStepRepeats = options.ResolveMaxStepRepeats(settings);
 
-        if (options.MaxStepRepeats < 0)
-        {
-            throw new InvalidOperationException("Max step repeats must be zero (no limit) or greater.");
-        }
-
-        var projectRoot = ProjectSettings.ResolveProjectRoot(options.SourcePath);
-        var settings = ProjectSettings.Load(projectRoot);
-        var sessionRoot = ProjectSettings.ResolveRuntimeRoot(projectRoot, options.MemoryRoot);
+        var sessionRoot = ProjectSettings.ResolveSessionRoot(settings, projectRoot, options.MemoryRoot);
         Directory.CreateDirectory(sessionRoot);
 
         var loggingMode = new LoggingMode
@@ -119,9 +108,9 @@ internal sealed class WorkflowRunCommandHandler
                 _logger.LogAction("Provider ready", $"provider={provider.Name}; model={session.Model ?? "<default>"}", verboseOnly: true);
 
                 var orchestrator = CreateOrchestrator(provider, definition, sessionRoot);
-                var results = await RunWithLimitsAsync(orchestrator, sessionRoot, options, cancellationToken);
+                var results = await RunWithLimitsAsync(orchestrator, sessionRoot, maxRunIterations, maxTotalIterations, maxStepRepeats, cancellationToken);
 
-                LogResults(options, results, session);
+                LogResults(maxRunIterations, results, session);
                 return 0;
             }
         }
@@ -153,13 +142,13 @@ internal sealed class WorkflowRunCommandHandler
         _logger.LogAction("Provider ready", $"provider={provider.Name}; model={model ?? "<default>"}", verboseOnly: true);
 
         var orchestratorNew = CreateOrchestrator(provider, definition, sessionRoot);
-        var resultsNew = await RunWithLimitsAsync(orchestratorNew, sessionRoot, options, cancellationToken);
+        var resultsNew = await RunWithLimitsAsync(orchestratorNew, sessionRoot, maxRunIterations, maxTotalIterations, maxStepRepeats, cancellationToken);
 
-        LogResults(options, resultsNew, session);
+        LogResults(maxRunIterations, resultsNew, session);
         return 0;
     }
 
-    private void LogResults(RunCommandOptions options, IReadOnlyList<IterationResult> results, Session session)
+    private void LogResults(int maxRunIterations, IReadOnlyList<IterationResult> results, Session session)
     {
         foreach (var result in results)
         {
@@ -176,7 +165,6 @@ internal sealed class WorkflowRunCommandHandler
             _logger.Warning($"Error: {finalResult.Summary}");
         }
 
-        var maxRunIterations = options.ResolveMaxRunIterations();
         if (results.Count >= maxRunIterations && finalResult?.StopsInvocation != true)
         {
             _logger.Warning($"Reached max run iteration limit ({maxRunIterations}). Run resume --max-run-iterations <n> to continue.");
@@ -205,12 +193,11 @@ internal sealed class WorkflowRunCommandHandler
     private async Task<IReadOnlyList<IterationResult>> RunWithLimitsAsync(
         WorkflowOrchestrator orchestrator,
         string sessionRoot,
-        RunCommandOptions options,
+        int maxRunIterations,
+        int maxTotalIterations,
+        int maxStepRepeats,
         CancellationToken cancellationToken)
     {
-        var maxRunIterations = options.ResolveMaxRunIterations();
-        var maxTotalIterations = options.MaxTotalIterations;
-        var maxStepRepeats = options.MaxStepRepeats;
         var results = new List<IterationResult>();
         var stepExecutions = new Dictionary<string, int>(StringComparer.Ordinal);
 
@@ -248,5 +235,61 @@ internal sealed class WorkflowRunCommandHandler
         }
 
         return results;
+    }
+
+    private static void PersistRuntimeDefaults(RunCommandOptions options, string projectRoot, ProjectSettings settings)
+    {
+        var changed = false;
+
+        if (!string.IsNullOrWhiteSpace(options.SourcePath))
+        {
+            if (!string.Equals(settings.RuntimeDefaults.SourcePath, projectRoot, StringComparison.Ordinal))
+            {
+                settings.RuntimeDefaults.SourcePath = projectRoot;
+                changed = true;
+            }
+        }
+
+        if (!string.IsNullOrWhiteSpace(options.MemoryRoot))
+        {
+            var memoryRoot = Path.GetFullPath(options.MemoryRoot);
+            if (!string.Equals(settings.RuntimeDefaults.MemoryRoot, memoryRoot, StringComparison.Ordinal))
+            {
+                settings.RuntimeDefaults.MemoryRoot = memoryRoot;
+                changed = true;
+            }
+        }
+
+        if (options.MaxRunIterations.HasValue)
+        {
+            if (settings.RuntimeDefaults.MaxRunIterations != options.MaxRunIterations.Value)
+            {
+                settings.RuntimeDefaults.MaxRunIterations = options.MaxRunIterations.Value;
+                changed = true;
+            }
+        }
+
+        if (options.MaxTotalIterations.HasValue)
+        {
+            if (settings.RuntimeDefaults.MaxTotalIterations != options.MaxTotalIterations.Value)
+            {
+                settings.RuntimeDefaults.MaxTotalIterations = options.MaxTotalIterations.Value;
+                changed = true;
+            }
+        }
+
+        if (options.MaxStepRepeats.HasValue)
+        {
+            if (settings.RuntimeDefaults.MaxStepRepeats != options.MaxStepRepeats.Value)
+            {
+                settings.RuntimeDefaults.MaxStepRepeats = options.MaxStepRepeats.Value;
+                changed = true;
+            }
+        }
+
+        if (changed)
+        {
+            settings.Save(projectRoot);
+        }
     }
 }
