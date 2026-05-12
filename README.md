@@ -94,6 +94,20 @@ What happens:
 - --refresh: refreshes model catalog for selected or default provider.
 - --model <model>: sets repo default model for selected or default provider.
 
+### status
+
+```powershell
+wallycode status [--source <path>] [--memory-root <path>]
+```
+
+Inputs:
+- Optional source path.
+- Optional memory-root override.
+
+What happens:
+- Prints the resolved source, memory root, default provider, and model.
+- Prints active session state (workflow, step, iteration, goal) if a session exists.
+
 ### logging
 
 ```powershell
@@ -202,6 +216,11 @@ wallycode shell [--source <path>] [--memory-root <path>] [--vs-build] [--reset-m
 
 What happens:
 - Starts an interactive shell with shared defaults across subcommands.
+
+Shell built-ins (no executable prefix needed):
+- `status` — print current source, memory root, provider, model, and session state.
+- `reset-memory` — delete the active session and all snapshots.
+- `exit` — quit the shell.
 
 ## Runtime files
 

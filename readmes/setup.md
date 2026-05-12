@@ -92,3 +92,14 @@ wallycode logging --disable --quiet --source C:\src\MyRepo
 
 Expected outcome:
 - Logging defaults are persisted as disabled and non-verbose.
+
+## Step 6: Verify setup
+
+```powershell
+wallycode status --source C:\src\MyRepo
+```
+
+Expected outcome:
+- Prints the resolved source path and memory root.
+- Shows the configured provider and model.
+- Shows `Session: (none)` if no session has been started yet.

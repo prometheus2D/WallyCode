@@ -1,5 +1,6 @@
 using WallyCode.ConsoleApp.Project;
 using WallyCode.ConsoleApp.Runtime;
+using WallyCode.ConsoleApp.Sessions;
 
 namespace WallyCode.ConsoleApp.Commands;
 
@@ -107,6 +108,13 @@ internal sealed class ShellCommandHandler
                 continue;
             }
 
+            if (string.Equals(trimmed, "status", StringComparison.OrdinalIgnoreCase))
+            {
+                PrintStatus(resolvedSourcePath, sessionRoot);
+                Console.WriteLine();
+                continue;
+            }
+
             var effectiveArgs = ApplyShellDefaults(args, resolvedSourcePath);
             _logger.LogAction("Executing shell subcommand", string.Join(" ", effectiveArgs), verboseOnly: true);
             await Program.RunAsync(effectiveArgs, cancellationToken, _appDirectoryPath);
@@ -208,6 +216,33 @@ internal sealed class ShellCommandHandler
         _logger.LogAction("Reset memory", $"sessionRoot={sessionRoot}");
         Console.WriteLine($"Reset session state at {sessionRoot}");
         Console.WriteLine("A new session will be created the next time you run wallycode run <prompt> [workflow].");
+    }
+
+    private void PrintStatus(string resolvedSourcePath, string sessionRoot)
+    {
+        var settings = ProjectSettings.Load(resolvedSourcePath);
+        Console.WriteLine($"Source:       {resolvedSourcePath}");
+        Console.WriteLine($"Memory root:  {sessionRoot}");
+        Console.WriteLine($"Provider:     {settings.Provider}");
+        Console.WriteLine($"Model:        {settings.Model ?? "(provider default)"}");
+
+        if (Session.Exists(sessionRoot))
+        {
+            try
+            {
+                var session = Session.Load(sessionRoot);
+                Console.WriteLine($"Session:      [{session.Status}] {session.WorkflowName} → {session.ActiveStepName} (iteration {session.IterationCount})");
+                Console.WriteLine($"Goal:         {session.Goal}");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Session file exists but could not be read: {ex.Message}");
+            }
+        }
+        else
+        {
+            Console.WriteLine("Session:      (none)");
+        }
     }
 
     private static string[] SplitArguments(string commandLine)

@@ -39,7 +39,7 @@ internal static class Program
 			settings.AutoVersion = true;
 		});
 
-		var result = parser.ParseArguments<RunCommandOptions, StepCommandOptions, ResumeCommandOptions, AskCommandOptions, ActCommandOptions, ProviderCommandOptions, RespondCommandOptions, RecoverCommandOptions, LoggingCommandOptions, ShellCommandOptions, SetupCommandOptions>(args);
+		var result = parser.ParseArguments<RunCommandOptions, StepCommandOptions, ResumeCommandOptions, AskCommandOptions, ActCommandOptions, ProviderCommandOptions, StatusCommandOptions, RespondCommandOptions, RecoverCommandOptions, LoggingCommandOptions, ShellCommandOptions, SetupCommandOptions>(args);
 
 		try
 		{
@@ -50,6 +50,7 @@ internal static class Program
 				(AskCommandOptions options) => new WorkflowRunCommandHandler(providerRegistry, logger).ExecuteAsync(options.ToRunOptions(), cancellationToken),
 				(ActCommandOptions options) => new WorkflowRunCommandHandler(providerRegistry, logger).ExecuteAsync(options.ToRunOptions(), cancellationToken),
 				(ProviderCommandOptions options) => new ProviderCommandHandler(providerRegistry, logger).ExecuteAsync(options, cancellationToken),
+				(StatusCommandOptions options) => new StatusCommandHandler(logger).ExecuteAsync(options, cancellationToken),
 				(RespondCommandOptions options) => new RespondCommandHandler(new WorkflowRunCommandHandler(providerRegistry, logger), logger).ExecuteAsync(options, cancellationToken),
 				(RecoverCommandOptions options) => new RecoverCommandHandler(new WorkflowRunCommandHandler(providerRegistry, logger), logger).ExecuteAsync(options, cancellationToken),
 				(LoggingCommandOptions options) => new LoggingCommandHandler(logger).ExecuteAsync(options, cancellationToken),
