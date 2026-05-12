@@ -1,0 +1,6 @@
+{
+  "id": "tasks",
+  "instructions": "Start from task planning, execute the resulting tasks, and finish only when the requested outcome is complete.",
+  "startStepName": "produce_tasks",
+  "stepIds": ["produce_tasks", "execute_tasks"]
+}

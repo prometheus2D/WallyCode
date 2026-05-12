@@ -1,0 +1,6 @@
+{
+  "id": "to_produce_tasks",
+  "selection": "produce_tasks",
+  "description": "Requirements are clear enough to break the work into concrete implementation tasks.",
+  "targetStepName": "produce_tasks"
+}

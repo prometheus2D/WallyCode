@@ -1,0 +1,23 @@
+ PROJECT_README.md                                  | 156 [31m---------------------[m
+ README.md                                          |  19 [32m++[m[31m-[m
+ WallyCode.Console/Commands/LoopCommandHandler.cs   |   4 [32m+[m[31m-[m
+ WallyCode.Console/Sessions/Session.cs              |   2 [32m+[m[31m-[m
+ WallyCode.Console/WallyCode.Console.csproj         |   6 [31m-[m
+ WallyCode.Console/Workflow/Runner.cs               |  92 [32m++++++[m[31m------[m
+ WallyCode.Console/Workflow/Steps/act.json          |  23 [32m++[m[31m-[m
+ WallyCode.Console/Workflow/Steps/ask.json          |  23 [32m++[m[31m-[m
+ .../Workflow/Steps/collect_requirements.json       |  29 [32m++[m[31m--[m
+ .../Workflow/Steps/execute_tasks.json              |  23 [32m+[m[31m--[m
+ .../Workflow/Steps/produce_tasks.json              |  29 [32m++[m[31m--[m
+ WallyCode.Console/Workflow/WorkflowDefinition.cs   |  85 [32m+++++[m[31m------[m
+ WallyCode.Tests/Commands/CommandFailureTests.cs    |  16 [32m+[m[31m--[m
+ .../Commands/WorkingDirectoryBehaviorTests.cs      |  12 [32m+[m[31m-[m
+ .../EndToEnd/StepwiseWorkflowEndToEndTests.cs      |  62 [32m++++[m[31m----[m
+ WallyCode.Tests/Workflow/RunnerTests.cs            |  66 [32m++++[m[31m-----[m
+ WallyCode.Tests/Workflow/SessionTests.cs           |   8 [32m+[m[31m-[m
+ .../Workflow/WorkflowDefinitionTests.cs            |  55 [32m++[m[31m------[m
+ readmes/README.md                                  |   2 [32m+[m[31m-[m
+ readmes/ask.md                                     |   2 [32m+[m[31m-[m
+ readmes/definitions.md                             |  28 [32m++[m[31m--[m
+ readmes/stepwise.md                                |   4 [32m+[m[31m-[m
+ 22 files changed, 305 insertions(+), 441 deletions(-)

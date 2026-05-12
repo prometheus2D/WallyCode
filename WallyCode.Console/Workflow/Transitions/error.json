@@ -1,0 +1,7 @@
+{
+  "id": "error",
+  "selection": "error",
+  "description": "Workflow cannot continue due to an unrecoverable problem. Put the reason in summary.",
+  "status": "error",
+  "stopsInvocation": true
+}

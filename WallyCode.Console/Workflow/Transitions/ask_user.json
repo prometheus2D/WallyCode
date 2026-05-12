@@ -1,0 +1,7 @@
+{
+  "id": "ask_user",
+  "selection": "ask_user",
+  "description": "Ask the user for required input before progress can continue.",
+  "status": "blocked",
+  "stopsInvocation": true
+}

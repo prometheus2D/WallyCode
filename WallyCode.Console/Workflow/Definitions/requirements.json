@@ -1,0 +1,6 @@
+{
+  "id": "requirements",
+  "instructions": "Clarify the user's requirements, turn them into implementation tasks, execute the tasks, and finish only when the requested outcome is complete.",
+  "startStepName": "collect_requirements",
+  "stepIds": ["collect_requirements", "produce_tasks", "execute_tasks"]
+}

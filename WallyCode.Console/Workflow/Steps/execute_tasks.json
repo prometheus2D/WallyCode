@@ -1,0 +1,8 @@
+{
+  "id": "execute_tasks",
+  "executionKind": "provider",
+  "instructions": "Execute the planned tasks and verify the requested work is complete before finishing. Write execution as durable context describing what changed, what was verified, and any remaining work.",
+  "readsMemory": ["requirements", "tasks"],
+  "writesMemory": ["execution"],
+  "transitionIds": ["continue", "stop", "ask_user", "error"]
+}

@@ -1,0 +1,7 @@
+{
+  "id": "ask",
+  "executionKind": "provider",
+  "instructions": "Do not change files. Answer the user's request directly and concisely based on the current workspace.",
+  "writesMemory": ["answer"],
+  "transitionIds": ["continue", "stop", "ask_user", "error"]
+}

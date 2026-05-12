@@ -1,0 +1,5 @@
+{
+  "id": "continue",
+  "selection": "continue",
+  "description": "Continue the current step because more work is needed before choosing another route."
+}

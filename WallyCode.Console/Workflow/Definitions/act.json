@@ -1,0 +1,6 @@
+{
+  "id": "act",
+  "instructions": "Complete implementation requests through an implementation and review loop. Make changes in act, review them in review_changes, and continue until the goal is complete, blocked on user input, or in error.",
+  "startStepName": "act",
+  "stepIds": ["act", "review_changes"]
+}

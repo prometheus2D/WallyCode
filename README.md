@@ -1,162 +1,99 @@
 # WallyCode
 
-WallyCode is a small .NET 8 console app for running GitHub Copilot CLI prompts against a repo.
+Deterministic CLI workflows for getting real progress on a codebase with durable session state.
 
-## Requirements
+## Fastest path to value
 
-- .NET 8 SDK
-- GitHub CLI installed and authenticated
-- a runnable `copilot` CLI
-
-## Quick Start
-
-Build:
+Use this when you want results in minutes.
 
 ```powershell
-dotnet build WallyCode.sln
+# 1) Initialize a target repository (--source only needed here)
+wallycode setup --directory C:\src\MyRepo
+
+# 2) Navigate to that directory
+cd C:\src\MyRepo
+
+# 3) Set provider + model once
+wallycode provider gh-copilot-claude --set
+wallycode provider gh-copilot-claude --models
+wallycode provider gh-copilot-claude --model claude-sonnet-4
+
+# 4) Start work
+wallycode run "Summarize architecture and propose next actions."
 ```
 
-Show the built-in walkthrough:
+If the session blocks:
 
-```text
-tutorial
+```powershell
+wallycode respond "Proceed with docs and routing first."
 ```
 
-Run a prompt in the current repo:
+If still active:
 
-```text
-prompt "Summarize this repository in one short paragraph."
+```powershell
+wallycode resume
 ```
 
-Run a prompt against a different folder:
+**Optional flags** (all commands above support these):
+- `--log` — Write workflow logs to `.wallycode/logs/`
+- `--verbose` — Include step-by-step output during execution
+- `--memory-root <path>` — Use an alternate session directory (default: `.wallycode`)
+- `--source <path>` — Override the default source path from wallycode.json
+- `--provider <name>` — Override the default provider
+- `--model <name>` — Override the default model
+- `--max-run-iterations <n>` — Limit iterations for this run (default from wallycode.json or 3)
 
-```text
-prompt "Summarize this repository in one short paragraph." --source C:\src\my-repo
+## Setup first: why it matters
+
+The `setup` command is the one-time step that defines your project context.
+
+**What setup does:**
+- Creates wallycode.json to store provider, model, and iteration defaults.
+- Creates .wallycode to store all session state and artifacts.
+- Persists the source path in wallycode.json so future commands don't need `--source` (unless you want to override it).
+
+**Why this matters:**
+- **Simplicity**: After setup, `wallycode ask "..."` works from that directory; no need to repeat `--source C:\src\MyRepo --provider gh-copilot-claude --model <model>` every time.
+- **Predictability**: All commands use the same provider and model unless explicitly overridden.
+- **Consistency**: Session snapshots, memory, and logs are always in one place (.wallycode) so you can pause, resume, and recover workflows reliably.
+
+Always run setup first on any new repository or when you want to reset your workflow context. See [tutorials/setup.md](tutorials/setup.md) for the step-by-step guide.
+
+## Mental model
+
+- setup creates project defaults and runtime state.
+- provider locks in the default backend and model.
+- run starts or continues a durable workflow session.
+- respond unblocks and automatically resumes.
+- resume continues the active session.
+
+State lives in wallycode.json and .wallycode.
+
+## Use tutorials for explicit, testable steps
+
+The root README is intentionally minimal. Detailed command-by-command flows, expected outcomes, and testable checks are in the tutorial docs:
+
+- [Tutorials index](tutorials/README.md)
+- [Setup and providers](tutorials/setup.md)
+- [Ask workflow](tutorials/ask.md)
+- [Act workflow](tutorials/act.md)
+- [Stepwise workflows](tutorials/stepwise.md)
+- [Definitions and steps](tutorials/definitions.md)
+- [Development mode](tutorials/development-mode.md)
+
+## Core commands
+
+```powershell
+wallycode setup
+wallycode provider
+wallycode status
+wallycode run
+wallycode ask
+wallycode act
+wallycode resume
+wallycode respond
+wallycode recover
+wallycode step
+wallycode shell
 ```
 
-That is the fastest way to get started.
-
-## Simple Loop Start
-
-Use `loop` when you want WallyCode to keep state between iterations.
-
-Start a loop:
-
-```text
-loop "Analyze this repo, do one bounded chunk of work, update memory, and stop when the goal is complete."
-```
-
-Continue the active loop:
-
-```text
-loop
-```
-
-Add user input for the next iteration:
-
-```text
-respond "Use the simpler approach"
-```
-
-Run multiple iterations in one invocation:
-
-```text
-loop --steps 3
-```
-
-Use a separate memory folder for an isolated session:
-
-```text
-loop "Work on issue 123" --memory-root .\.wallycode-issue-123
-```
-
-## Simple Tutorial: Tic-Tac-Toe
-
-Example prompt-first workflow:
-
-1. Create or open a repo for the sample.
-2. Run a prompt that asks Copilot to build the first version.
-3. Review the output.
-4. If you want iterative progress, switch to `loop`.
-
-One-shot prompt example:
-
-```text
-prompt "Create a simple browser-based tic-tac-toe game in this repo. Keep it minimal: HTML, CSS, and JavaScript only. Add clear file-by-file steps and then implement the code."
-```
-
-Iterative loop example:
-
-```text
-loop "Build a simple browser-based tic-tac-toe game in this repo. Do one small bounded chunk per iteration, keep the implementation minimal, and stop when the game is complete."
-```
-
-Then continue as needed:
-
-```text
-loop
-respond "Now polish the UI a little, but keep it simple."
-```
-
-## Shell
-
-Start interactive mode:
-
-```text
-shell
-```
-
-Start a shell with a specific source and memory root:
-
-```text
-shell --source C:\src\my-repo --memory-root C:\temp\wallycode-session
-```
-
-When you start the shell this way, commands entered inside it inherit those defaults unless you override them explicitly.
-
-Inside the shell, run the same commands directly:
-
-```text
-prompt "Summarize this repository"
-loop "Work on issue 123"
-loop
-respond "Use the simpler approach"
-exit
-```
-
-## Providers and Models
-
-WallyCode saves a default provider and optional model in `wallycode.json` at the project root.
-
-Useful commands:
-
-```text
-provider
-provider --models
-provider gh-copilot-gpt5 --set
-provider --model gpt-5
-```
-
-Current providers:
-
-- `gh-copilot-claude` default
-- `gh-copilot-gpt5`
-
-If you do nothing, WallyCode uses `gh-copilot-claude`.
-
-You can also override provider or model for a single prompt or new loop session:
-
-```text
-prompt "Summarize this repository" --provider gh-copilot-gpt5
-prompt "Summarize this repository" --model gpt-5
-```
-
-## Files Written
-
-WallyCode stores project settings in `wallycode.json`.
-
-`source` is the folder WallyCode and the provider operate against.
-
-`memory-root` is the folder where WallyCode stores loop memory, prompts, raw output, logs, and session state.
-
-Runtime files are written under `.wallycode/` by default, or under the folder passed to `--memory-root`.
