@@ -22,6 +22,7 @@ internal sealed class WorkflowRunCommandHandler
 
     public async Task<int> ExecuteAsync(RunCommandOptions options, CancellationToken cancellationToken)
     {
+        var requestedPrompt = options.GetRequestedPrompt();
         var maxRunIterations = options.ResolveMaxRunIterations();
         if (maxRunIterations <= 0)
         {
@@ -81,7 +82,7 @@ internal sealed class WorkflowRunCommandHandler
                     _logger.Warning($"Previous error: {session.LastSummary}");
                 }
 
-                if (string.IsNullOrWhiteSpace(options.Prompt))
+                if (string.IsNullOrWhiteSpace(requestedPrompt))
                 {
                     _logger.Success($"Session is already {session.Status}.");
                     _logger.LogAction("Invocation completed", "Existing terminal session reported without starting a new session.");
@@ -90,7 +91,7 @@ internal sealed class WorkflowRunCommandHandler
             }
             else
             {
-                if (!string.IsNullOrWhiteSpace(options.Prompt))
+                if (!string.IsNullOrWhiteSpace(requestedPrompt))
                 {
                     throw new InvalidOperationException(
                         "An active workflow session already exists. Use resume to continue it, or use --memory-root for a different session.");
@@ -125,7 +126,7 @@ internal sealed class WorkflowRunCommandHandler
             }
         }
 
-        if (string.IsNullOrWhiteSpace(options.Prompt))
+        if (string.IsNullOrWhiteSpace(requestedPrompt))
         {
             throw new InvalidOperationException("No active session. Start one with: run <prompt> [workflow]");
         }
@@ -137,7 +138,7 @@ internal sealed class WorkflowRunCommandHandler
             : options.Model!.Trim();
 
         definition = WorkflowDefinition.LoadByName(options.GetRequestedWorkflowName()?.Trim() ?? DefaultWorkflowName);
-        session = Session.Start(definition, options.Prompt!, provider.Name, model, projectRoot);
+        session = Session.Start(definition, requestedPrompt!, provider.Name, model, projectRoot);
         session.Save(sessionRoot);
         _logger.LogAction("Started session", $"workflow={definition.Name}; provider={provider.Name}; model={model ?? "<default>"}; prompt={session.Goal}");
         _logger.Info($"Started session for workflow '{definition.Name}'.");

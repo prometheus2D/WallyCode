@@ -46,6 +46,16 @@ wallycode respond "Use SQLite and keep the API synchronous for now." --source C:
 Expected outcome:
 - Stores response and resumes automatically.
 
+## Step 4b: Recover from terminal error state
+
+```powershell
+wallycode recover "Retry with a narrower scope and keep existing routing." --source C:\src\MyRepo --log --verbose
+```
+
+Expected outcome:
+- Archives the terminal session.
+- Starts a new run on the same workflow/provider/model with your recovery text.
+
 ## Step 5: Run a direct shared step
 
 ```powershell

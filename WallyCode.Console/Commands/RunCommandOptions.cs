@@ -10,6 +10,12 @@ internal sealed class RunCommandOptions
     [Value(0, MetaName = "prompt", Required = false, HelpText = "Prompt for a new workflow session. Omit to continue the active session.")]
     public string? Prompt { get; set; }
 
+    [Option("prompt", HelpText = "Prompt for a new workflow session. Equivalent to the positional prompt.")]
+    public string? PromptOption { get; set; }
+
+    [Option("action", HelpText = "Action text for a new workflow session. Equivalent to prompt.")]
+    public string? Action { get; set; }
+
     [Value(1, MetaName = "workflow", Required = false, HelpText = "Workflow definition name. Defaults to 'requirements'.")]
     public string? WorkflowName { get; set; }
 
@@ -44,6 +50,21 @@ internal sealed class RunCommandOptions
     public bool Verbose { get; set; }
 
     public int ResolveMaxRunIterations() => MaxRunIterations;
+
+    public string? GetRequestedPrompt()
+    {
+        if (!string.IsNullOrWhiteSpace(Prompt))
+        {
+            return Prompt;
+        }
+
+        if (!string.IsNullOrWhiteSpace(PromptOption))
+        {
+            return PromptOption;
+        }
+
+        return string.IsNullOrWhiteSpace(Action) ? null : Action;
+    }
 
     public string? GetRequestedWorkflowName() =>
         string.IsNullOrWhiteSpace(Workflow) ? WorkflowName : Workflow;

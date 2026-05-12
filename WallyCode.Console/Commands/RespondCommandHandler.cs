@@ -19,8 +19,9 @@ internal sealed class RespondCommandHandler
     public async Task<int> ExecuteAsync(RespondCommandOptions options, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
+        var responseText = options.ResolveResponse();
 
-        if (string.IsNullOrWhiteSpace(options.Response))
+        if (string.IsNullOrWhiteSpace(responseText))
         {
             throw new InvalidOperationException("A non-empty response is required.");
         }
@@ -47,7 +48,7 @@ internal sealed class RespondCommandHandler
             throw new InvalidOperationException($"Session is terminal with status '{session.Status}' and cannot accept a response.");
         }
 
-        var response = options.Response.Trim();
+        var response = responseText.Trim();
         session.PendingResponses.Add(response);
         if (session.Status == SessionStatus.Blocked)
         {

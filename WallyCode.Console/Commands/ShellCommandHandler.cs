@@ -176,6 +176,7 @@ internal sealed class ShellCommandHandler
             || string.Equals(commandName, "ask", StringComparison.OrdinalIgnoreCase)
             || string.Equals(commandName, "act", StringComparison.OrdinalIgnoreCase)
             || string.Equals(commandName, "respond", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(commandName, "recover", StringComparison.OrdinalIgnoreCase)
             || string.Equals(commandName, "shell", StringComparison.OrdinalIgnoreCase);
     }
 
@@ -185,7 +186,8 @@ internal sealed class ShellCommandHandler
             || string.Equals(commandName, "step", StringComparison.OrdinalIgnoreCase)
             || string.Equals(commandName, "ask", StringComparison.OrdinalIgnoreCase)
             || string.Equals(commandName, "act", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(commandName, "respond", StringComparison.OrdinalIgnoreCase);
+            || string.Equals(commandName, "respond", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(commandName, "recover", StringComparison.OrdinalIgnoreCase);
     }
 
     private static bool HasOption(IEnumerable<string> args, string optionName)

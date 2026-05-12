@@ -112,12 +112,13 @@ What happens:
 
 ```powershell
 wallycode run [prompt] [workflow] [--workflow <name>] [--provider <name>] [--model <model>]
-              [--source <path>] [--memory-root <path>] [--max-run-iterations <n>]
+              [--prompt <text>] [--action <text>] [--source <path>] [--memory-root <path>] [--max-run-iterations <n>]
               [--max-total-iterations <n>] [--max-step-repeats <n>] [--log] [--verbose]
 ```
 
 Inputs:
 - Optional prompt if starting a new session.
+- Optional --prompt or --action text, equivalent to positional prompt.
 - Optional workflow name; default is requirements.
 - Optional provider/model overrides.
 - Optional source and memory-root.
@@ -132,7 +133,7 @@ What happens:
 
 ```powershell
 wallycode ask [prompt] [--provider <name>] [--model <model>] [--source <path>]
-              [--memory-root <path>] [--max-run-iterations <n>] [--max-total-iterations <n>]
+              [--prompt <text>] [--action <text>] [--memory-root <path>] [--max-run-iterations <n>] [--max-total-iterations <n>]
               [--max-step-repeats <n>] [--log] [--verbose]
 ```
 
@@ -143,7 +144,7 @@ What happens:
 
 ```powershell
 wallycode act [prompt] [--provider <name>] [--model <model>] [--source <path>]
-              [--memory-root <path>] [--max-run-iterations <n>] [--max-total-iterations <n>]
+              [--prompt <text>] [--action <text>] [--memory-root <path>] [--max-run-iterations <n>] [--max-total-iterations <n>]
               [--max-step-repeats <n>] [--log] [--verbose]
 ```
 
@@ -164,17 +165,30 @@ What happens:
 
 ```powershell
 wallycode respond <response> [--source <path>] [--memory-root <path>] [--max-run-iterations <n>]
-                  [--max-total-iterations <n>] [--max-step-repeats <n>] [--log] [--verbose]
+                  [--action <text>] [--prompt <text>] [--max-total-iterations <n>] [--max-step-repeats <n>] [--log] [--verbose]
 ```
 
 What happens:
 - Appends a response to a blocked session and resumes.
 
+### recover
+
+```powershell
+wallycode recover [action] [--action <text>] [--prompt <text>] [--source <path>] [--memory-root <path>]
+                 [--max-run-iterations <n>] [--max-total-iterations <n>] [--max-step-repeats <n>]
+                 [--log] [--verbose]
+```
+
+What happens:
+- Requires a terminal session (`error` or `completed`) in the selected memory root.
+- Archives that terminal session.
+- Starts a new run on the same workflow/provider/model using your recovery text.
+
 ### step
 
 ```powershell
 wallycode step <prompt> [step] [--step <name>] [--provider <name>] [--model <model>]
-               [--source <path>] [--memory-root <path>] [--log] [--verbose]
+               [--prompt <text>] [--action <text>] [--source <path>] [--memory-root <path>] [--log] [--verbose]
 ```
 
 What happens:

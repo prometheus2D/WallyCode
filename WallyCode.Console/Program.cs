@@ -39,7 +39,7 @@ internal static class Program
 			settings.AutoVersion = true;
 		});
 
-		var result = parser.ParseArguments<RunCommandOptions, StepCommandOptions, ResumeCommandOptions, AskCommandOptions, ActCommandOptions, ProviderCommandOptions, RespondCommandOptions, LoggingCommandOptions, ShellCommandOptions, SetupCommandOptions>(args);
+		var result = parser.ParseArguments<RunCommandOptions, StepCommandOptions, ResumeCommandOptions, AskCommandOptions, ActCommandOptions, ProviderCommandOptions, RespondCommandOptions, RecoverCommandOptions, LoggingCommandOptions, ShellCommandOptions, SetupCommandOptions>(args);
 
 		try
 		{
@@ -51,6 +51,7 @@ internal static class Program
 				(ActCommandOptions options) => new WorkflowRunCommandHandler(providerRegistry, logger).ExecuteAsync(options.ToRunOptions(), cancellationToken),
 				(ProviderCommandOptions options) => new ProviderCommandHandler(providerRegistry, logger).ExecuteAsync(options, cancellationToken),
 				(RespondCommandOptions options) => new RespondCommandHandler(new WorkflowRunCommandHandler(providerRegistry, logger), logger).ExecuteAsync(options, cancellationToken),
+				(RecoverCommandOptions options) => new RecoverCommandHandler(new WorkflowRunCommandHandler(providerRegistry, logger), logger).ExecuteAsync(options, cancellationToken),
 				(LoggingCommandOptions options) => new LoggingCommandHandler(logger).ExecuteAsync(options, cancellationToken),
 				(ShellCommandOptions options) => new ShellCommandHandler(options, appDirectoryPath).ExecuteAsync(cancellationToken),
 				(SetupCommandOptions options) => new SetupCommandHandler(providerRegistry, logger, appDirectoryPath).ExecuteAsync(options, cancellationToken),
@@ -116,6 +117,7 @@ internal static class Program
 			|| string.Equals(commandName, "ask", StringComparison.OrdinalIgnoreCase)
 			|| string.Equals(commandName, "act", StringComparison.OrdinalIgnoreCase)
 			|| string.Equals(commandName, "respond", StringComparison.OrdinalIgnoreCase)
+			|| string.Equals(commandName, "recover", StringComparison.OrdinalIgnoreCase)
 			|| string.Equals(commandName, "shell", StringComparison.OrdinalIgnoreCase);
 	}
 

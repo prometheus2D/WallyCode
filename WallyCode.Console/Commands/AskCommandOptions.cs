@@ -8,6 +8,12 @@ internal sealed class AskCommandOptions
     [Value(0, MetaName = "prompt", Required = false, HelpText = "Prompt for a new ask session. Omit to continue the active session.")]
     public string? Prompt { get; set; }
 
+    [Option("prompt", HelpText = "Prompt for a new ask session. Equivalent to the positional prompt.")]
+    public string? PromptOption { get; set; }
+
+    [Option("action", HelpText = "Action text for a new ask session. Equivalent to prompt.")]
+    public string? Action { get; set; }
+
     [Option("provider", HelpText = "Optional provider override.")]
     public string? Provider { get; set; }
 
@@ -35,9 +41,24 @@ internal sealed class AskCommandOptions
     [Option("verbose", HelpText = "Enable verbose logging for this invocation.")]
     public bool Verbose { get; set; }
 
+    public string? ResolvePrompt()
+    {
+        if (!string.IsNullOrWhiteSpace(Prompt))
+        {
+            return Prompt;
+        }
+
+        if (!string.IsNullOrWhiteSpace(PromptOption))
+        {
+            return PromptOption;
+        }
+
+        return string.IsNullOrWhiteSpace(Action) ? null : Action;
+    }
+
     public RunCommandOptions ToRunOptions() => new()
     {
-        Prompt = Prompt,
+        Prompt = ResolvePrompt(),
         WorkflowName = "ask",
         Provider = Provider,
         Model = Model,

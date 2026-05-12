@@ -22,7 +22,8 @@ internal sealed class StepCommandHandler
 
     public async Task<int> ExecuteAsync(StepCommandOptions options, CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(options.Prompt))
+        var requestedPrompt = options.GetRequestedPrompt();
+        if (string.IsNullOrWhiteSpace(requestedPrompt))
         {
             throw new InvalidOperationException("Prompt is required. Use: step <prompt> [step]");
         }
@@ -57,7 +58,7 @@ internal sealed class StepCommandHandler
             model = string.IsNullOrWhiteSpace(model) ? provider.DefaultModel : model;
         }
 
-        var session = Session.Start(definition, options.Prompt!, provider?.Name ?? providerName, model, projectRoot);
+        var session = Session.Start(definition, requestedPrompt!, provider?.Name ?? providerName, model, projectRoot);
         if (Session.Exists(sessionRoot))
         {
             var existingSession = Session.Load(sessionRoot);
