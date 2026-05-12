@@ -1,5 +1,8 @@
 using System.Text.Json;
+using WallyCode.ConsoleApp.Commands;
+using WallyCode.ConsoleApp.Copilot;
 using WallyCode.ConsoleApp.Project;
+using WallyCode.ConsoleApp.Runtime;
 using WallyCode.ConsoleApp.Sessions;
 using WallyCode.ConsoleApp.Workflow;
 
@@ -22,11 +25,26 @@ internal sealed class TutorialTestWorkspace : IDisposable
 
     public string WorkflowRoot => Path.Combine(_rootPath, "Workflow");
 
-    public static TutorialTestWorkspace Create()
+    public static TutorialTestWorkspace Create(bool runSetup = false)
     {
         var rootPath = Path.Combine(Path.GetTempPath(), "WallyCode.Tests", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(rootPath);
-        return new TutorialTestWorkspace(rootPath);
+        var workspace = new TutorialTestWorkspace(rootPath);
+        
+        if (runSetup)
+        {
+            workspace.RunSetup();
+        }
+        
+        return workspace;
+    }
+
+    public void RunSetup(string providerName = "test-provider", string defaultModel = "test-model")
+    {
+        var provider = new TestLlmProvider { Name = providerName, DefaultModel = defaultModel };
+        var registry = new ProviderRegistry([provider]);
+        var handler = new SetupCommandHandler(registry, new AppLogger(), ProjectRoot);
+        handler.ExecuteAsync(new SetupCommandOptions { DirectoryPath = ProjectRoot }, CancellationToken.None).GetAwaiter().GetResult();
     }
 
     public void Dispose()

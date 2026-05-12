@@ -4,6 +4,10 @@ Use act for implementation goals where file changes are expected.
 
 act is equivalent to running run with workflow act.
 
+## Prerequisites
+
+Run [Setup and providers](setup.md) first. The setup command must create wallycode.json and .wallycode in your target repository.
+
 ## Inputs
 
 - Required to start a new session: prompt text with desired change.

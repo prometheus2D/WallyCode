@@ -2,6 +2,10 @@
 
 Use this tutorial when you want deliberate control over workflow progress.
 
+## Prerequisites
+
+Run [Setup and providers](setup.md) first. The setup command must create wallycode.json and .wallycode in your target repository.
+
 ## Inputs
 
 - Prompt to start session.

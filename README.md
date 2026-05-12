@@ -7,29 +7,57 @@ Deterministic CLI workflows for getting real progress on a codebase with durable
 Use this when you want results in minutes.
 
 ```powershell
-# 1) Initialize a target repository
+# 1) Initialize a target repository (--source only needed here)
 wallycode setup --directory C:\src\MyRepo
 
-# 2) Set provider + model once
-wallycode provider gh-copilot-claude --set --source C:\src\MyRepo
-wallycode provider gh-copilot-claude --models --source C:\src\MyRepo
-wallycode provider gh-copilot-claude --model <model> --source C:\src\MyRepo
+# 2) Navigate to that directory
+cd C:\src\MyRepo
 
-# 3) Start work
-wallycode run "Summarize architecture and propose next actions." --source C:\src\MyRepo --log --verbose
+# 3) Set provider + model once
+wallycode provider gh-copilot-claude --set
+wallycode provider gh-copilot-claude --models
+wallycode provider gh-copilot-claude --model claude-sonnet-4
+
+# 4) Start work
+wallycode run "Summarize architecture and propose next actions."
 ```
 
 If the session blocks:
 
 ```powershell
-wallycode respond "Proceed with docs and routing first." --source C:\src\MyRepo --log --verbose
+wallycode respond "Proceed with docs and routing first."
 ```
 
 If still active:
 
 ```powershell
-wallycode resume --source C:\src\MyRepo --log --verbose
+wallycode resume
 ```
+
+**Optional flags** (all commands above support these):
+- `--log` — Write workflow logs to `.wallycode/logs/`
+- `--verbose` — Include step-by-step output during execution
+- `--memory-root <path>` — Use an alternate session directory (default: `.wallycode`)
+- `--source <path>` — Override the default source path from wallycode.json
+- `--provider <name>` — Override the default provider
+- `--model <name>` — Override the default model
+- `--max-run-iterations <n>` — Limit iterations for this run (default from wallycode.json or 3)
+
+## Setup first: why it matters
+
+The `setup` command is the one-time step that defines your project context.
+
+**What setup does:**
+- Creates wallycode.json to store provider, model, and iteration defaults.
+- Creates .wallycode to store all session state and artifacts.
+- Persists the source path in wallycode.json so future commands don't need `--source` (unless you want to override it).
+
+**Why this matters:**
+- **Simplicity**: After setup, `wallycode ask "..."` works from that directory; no need to repeat `--source C:\src\MyRepo --provider gh-copilot-claude --model <model>` every time.
+- **Predictability**: All commands use the same provider and model unless explicitly overridden.
+- **Consistency**: Session snapshots, memory, and logs are always in one place (.wallycode) so you can pause, resume, and recover workflows reliably.
+
+Always run setup first on any new repository or when you want to reset your workflow context. See [tutorials/setup.md](tutorials/setup.md) for the step-by-step guide.
 
 ## Mental model
 

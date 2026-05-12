@@ -2,6 +2,10 @@
 
 Use this guide when you want to customize workflow behavior.
 
+## Prerequisites
+
+Run [Setup and providers](setup.md) first. The setup command must create wallycode.json and .wallycode in your target repository.
+
 ## Inputs
 
 - Workflow definition JSON files.

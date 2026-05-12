@@ -4,6 +4,10 @@ Use development mode when you are editing WallyCode itself and want to run the l
 
 There is no separate devmode verb. Use dotnet run with WallyCode arguments after --.
 
+## Prerequisites
+
+Run [Setup and providers](setup.md) first, or use `dotnet run --project WallyCode.Console -- setup` for local source builds. The setup command must create wallycode.json and .wallycode in your target repository.
+
 ## Inputs
 
 - Repository root for WallyCode.

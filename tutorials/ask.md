@@ -4,6 +4,10 @@ Use ask for analysis-only goals.
 
 ask is equivalent to running run with workflow ask.
 
+## Prerequisites
+
+Run [Setup and providers](setup.md) first. The setup command must create wallycode.json and .wallycode in your target repository.
+
 ## Inputs
 
 - Required to start a new session: prompt text.
