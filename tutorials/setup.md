@@ -13,6 +13,9 @@ Example values used below:
 - Provider: gh-copilot-claude
 - Model: any model returned by the models command
 
+Tutorial test:
+- SetupTutorialTests.Save_creates_wallycode_json_and_round_trips_defaults
+
 ## Pre-check
 
 Acceptance criteria:

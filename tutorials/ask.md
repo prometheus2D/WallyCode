@@ -16,6 +16,9 @@ Example values used below:
 - Repo path: C:\src\MyRepo
 - Isolated memory root: C:\temp\wally-ask
 
+Tutorial test:
+- AskTutorialTests.Ask_flow_persists_session_and_memory
+
 ## Step 1: Ask a question
 
 ```powershell

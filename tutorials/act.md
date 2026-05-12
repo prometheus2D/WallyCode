@@ -16,6 +16,9 @@ Example values used below:
 - Repo path: C:\src\MyRepo
 - Isolated memory root: C:\temp\wally-act
 
+Tutorial test:
+- ActTutorialTests.Act_flow_moves_to_review_changes_and_keeps_implementation_context
+
 ## Step 1: Start an implementation session
 
 ```powershell

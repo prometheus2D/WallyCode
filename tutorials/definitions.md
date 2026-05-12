@@ -13,6 +13,10 @@ Key folders:
 - WallyCode.Console/Workflow/Steps
 - WallyCode.Console/Workflow/Transitions
 
+Tutorial test:
+- DefinitionsTutorialTests.Workflow_definition_json_validates_and_catalog_compiles_from_workspace_files
+- TransitionsTutorialTests.Handoff_memory_routes_to_next_step
+
 ## Built-in workflow definitions
 
 | Definition | Start step | Purpose |

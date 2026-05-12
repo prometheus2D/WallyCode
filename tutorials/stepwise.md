@@ -13,6 +13,9 @@ Example values used below:
 - Repo path: C:\src\MyRepo
 - Isolated memory root: C:\temp\wally-tasks
 
+Tutorial test:
+- StepwiseTutorialTests.Requirements_flow_persists_snapshots_across_iterations
+
 ## Step 1: Start a session
 
 ```powershell

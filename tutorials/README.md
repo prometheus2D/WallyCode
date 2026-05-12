@@ -9,6 +9,8 @@ Each tutorial now follows the same contract:
 
 Use this to drive both manual usage and code-based test scripts.
 
+Matching unit tests live in WallyCode.Console.Tests/Tutorials.
+
 ## Read in this order
 
 1. [Setup and providers](setup.md)
