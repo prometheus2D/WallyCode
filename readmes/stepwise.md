@@ -19,10 +19,10 @@ wallycode step "Review the current workspace changes." review_changes --source C
 
 ## Several iterations in one call
 
-`--max-iterations <n>` sets the largest number of iterations to run, stopping early if the session blocks, completes, or errors:
+`--max-run-iterations <n>` sets the largest number of iterations to run in one invocation, stopping early if the session blocks, completes, or errors:
 
 ```powershell
-wallycode run "Review repo structure." requirements --max-iterations 3 --source C:\src\MyRepo --log --verbose
+wallycode run "Review repo structure." requirements --max-run-iterations 3 --source C:\src\MyRepo --log --verbose
 ```
 
 ## Respond to a blocked session

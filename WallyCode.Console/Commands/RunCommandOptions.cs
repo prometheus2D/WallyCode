@@ -5,7 +5,7 @@ namespace WallyCode.ConsoleApp.Commands;
 [Verb("run", HelpText = "Runs a workflow definition.")]
 internal sealed class RunCommandOptions
 {
-    public const int DefaultMaxIterations = 20;
+    public const int DefaultMaxRunIterations = 20;
 
     [Value(0, MetaName = "prompt", Required = false, HelpText = "Prompt for a new workflow session. Omit to continue the active session.")]
     public string? Prompt { get; set; }
@@ -28,14 +28,25 @@ internal sealed class RunCommandOptions
     [Option("memory-root", HelpText = "Optional folder for session state.")]
     public string? MemoryRoot { get; set; }
 
-    [Option("max-iterations", Default = DefaultMaxIterations, HelpText = "Maximum workflow iterations to run before stopping.")]
-    public int MaxIterations { get; set; } = DefaultMaxIterations;
+    [Option("max-run-iterations", Default = DefaultMaxRunIterations, HelpText = "Maximum workflow step iterations to execute in this invocation.")]
+    public int MaxRunIterations { get; set; } = DefaultMaxRunIterations;
+
+    [Option("max-iterations", HelpText = "Deprecated alias for --max-run-iterations.")]
+    public int? DeprecatedMaxIterations { get; set; }
+
+    [Option("max-total-iterations", Default = 0, HelpText = "Maximum total workflow iterations allowed for the active session. Use 0 for no limit.")]
+    public int MaxTotalIterations { get; set; }
+
+    [Option("max-step-repeats", Default = 0, HelpText = "Maximum times the same step may run in one invocation. Use 0 for no limit.")]
+    public int MaxStepRepeats { get; set; }
 
     [Option("log", HelpText = "Enable transcript logging for this invocation.")]
     public bool Log { get; set; }
 
     [Option("verbose", HelpText = "Enable verbose transcript logging for this invocation.")]
     public bool Verbose { get; set; }
+
+    public int ResolveMaxRunIterations() => DeprecatedMaxIterations ?? MaxRunIterations;
 
     public string? GetRequestedWorkflowName() =>
         string.IsNullOrWhiteSpace(Workflow) ? WorkflowName : Workflow;

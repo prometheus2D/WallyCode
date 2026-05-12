@@ -16,9 +16,9 @@ internal sealed class ResumeCommandHandler
 
     public async Task<int> ExecuteAsync(ResumeCommandOptions options, CancellationToken cancellationToken)
     {
-        if (options.MaxIterations <= 0)
+        if ((options.DeprecatedMaxIterations ?? options.MaxRunIterations) <= 0)
         {
-            throw new InvalidOperationException("Max iterations must be greater than zero.");
+            throw new InvalidOperationException("Max run iterations must be greater than zero.");
         }
 
         var projectRoot = ProjectSettings.ResolveProjectRoot(options.SourcePath);

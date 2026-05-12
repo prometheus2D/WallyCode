@@ -22,10 +22,20 @@ internal sealed class WorkflowRunCommandHandler
 
     public async Task<int> ExecuteAsync(RunCommandOptions options, CancellationToken cancellationToken)
     {
-        var maxIterations = options.MaxIterations;
-        if (maxIterations <= 0)
+        var maxRunIterations = options.ResolveMaxRunIterations();
+        if (maxRunIterations <= 0)
         {
-            throw new InvalidOperationException("Max iterations must be greater than zero.");
+            throw new InvalidOperationException("Max run iterations must be greater than zero.");
+        }
+
+        if (options.MaxTotalIterations < 0)
+        {
+            throw new InvalidOperationException("Max total iterations must be zero (no limit) or greater.");
+        }
+
+        if (options.MaxStepRepeats < 0)
+        {
+            throw new InvalidOperationException("Max step repeats must be zero (no limit) or greater.");
         }
 
         var projectRoot = ProjectSettings.ResolveProjectRoot(options.SourcePath);
@@ -108,7 +118,7 @@ internal sealed class WorkflowRunCommandHandler
                 _logger.LogAction("Provider ready", $"provider={provider.Name}; model={session.Model ?? "<default>"}", verboseOnly: true);
 
                 var orchestrator = CreateOrchestrator(provider, definition, sessionRoot);
-                var results = await orchestrator.RunAsync(maxIterations, cancellationToken);
+                var results = await RunWithLimitsAsync(orchestrator, sessionRoot, options, cancellationToken);
 
                 LogResults(options, results, session);
                 return 0;
@@ -142,7 +152,7 @@ internal sealed class WorkflowRunCommandHandler
         _logger.LogAction("Provider ready", $"provider={provider.Name}; model={model ?? "<default>"}", verboseOnly: true);
 
         var orchestratorNew = CreateOrchestrator(provider, definition, sessionRoot);
-        var resultsNew = await orchestratorNew.RunAsync(maxIterations, cancellationToken);
+        var resultsNew = await RunWithLimitsAsync(orchestratorNew, sessionRoot, options, cancellationToken);
 
         LogResults(options, resultsNew, session);
         return 0;
@@ -165,9 +175,10 @@ internal sealed class WorkflowRunCommandHandler
             _logger.Warning($"Error: {finalResult.Summary}");
         }
 
-        if (results.Count >= options.MaxIterations && finalResult?.StopsInvocation != true)
+        var maxRunIterations = options.ResolveMaxRunIterations();
+        if (results.Count >= maxRunIterations && finalResult?.StopsInvocation != true)
         {
-            _logger.Warning($"Reached max iteration limit ({options.MaxIterations}). Run resume --max-iterations <n> to continue.");
+            _logger.Warning($"Reached max run iteration limit ({maxRunIterations}). Run resume --max-run-iterations <n> to continue.");
         }
 
         _logger.Success($"Run complete after {results.Count} iteration(s).");
@@ -188,5 +199,53 @@ internal sealed class WorkflowRunCommandHandler
             sessionRoot,
             [new ProviderStepExecutor(provider, _logger), new ScriptStepExecutor(_logger)],
             _logger);
+    }
+
+    private async Task<IReadOnlyList<IterationResult>> RunWithLimitsAsync(
+        WorkflowOrchestrator orchestrator,
+        string sessionRoot,
+        RunCommandOptions options,
+        CancellationToken cancellationToken)
+    {
+        var maxRunIterations = options.ResolveMaxRunIterations();
+        var maxTotalIterations = options.MaxTotalIterations;
+        var maxStepRepeats = options.MaxStepRepeats;
+        var results = new List<IterationResult>();
+        var stepExecutions = new Dictionary<string, int>(StringComparer.Ordinal);
+
+        for (var i = 0; i < maxRunIterations; i++)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            var session = Session.Load(sessionRoot);
+            if (maxTotalIterations > 0 && session.IterationCount >= maxTotalIterations)
+            {
+                _logger.Warning($"Reached max total iteration limit ({maxTotalIterations}) for this session.");
+                break;
+            }
+
+            if (maxStepRepeats > 0)
+            {
+                var activeStepName = session.ActiveStepName;
+                stepExecutions.TryGetValue(activeStepName, out var count);
+                count++;
+                if (count > maxStepRepeats)
+                {
+                    _logger.Warning($"Stopped before running step '{activeStepName}' because max step repeats ({maxStepRepeats}) was reached for this invocation.");
+                    break;
+                }
+
+                stepExecutions[activeStepName] = count;
+            }
+
+            var result = await orchestrator.RunOnceAsync(cancellationToken);
+            results.Add(result);
+            if (result.StopsInvocation)
+            {
+                break;
+            }
+        }
+
+        return results;
     }
 }

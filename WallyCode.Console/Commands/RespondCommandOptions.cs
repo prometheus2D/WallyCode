@@ -14,8 +14,17 @@ internal sealed class RespondCommandOptions
     [Option("memory-root", HelpText = "Optional folder for workflow session state.")]
     public string? MemoryRoot { get; set; }
 
-    [Option("max-iterations", Default = RunCommandOptions.DefaultMaxIterations, HelpText = "Maximum workflow iterations to run after saving the response.")]
-    public int MaxIterations { get; set; } = RunCommandOptions.DefaultMaxIterations;
+    [Option("max-run-iterations", Default = RunCommandOptions.DefaultMaxRunIterations, HelpText = "Maximum workflow step iterations to execute in this invocation after saving the response.")]
+    public int MaxRunIterations { get; set; } = RunCommandOptions.DefaultMaxRunIterations;
+
+    [Option("max-iterations", HelpText = "Deprecated alias for --max-run-iterations.")]
+    public int? DeprecatedMaxIterations { get; set; }
+
+    [Option("max-total-iterations", Default = 0, HelpText = "Maximum total workflow iterations allowed for the active session. Use 0 for no limit.")]
+    public int MaxTotalIterations { get; set; }
+
+    [Option("max-step-repeats", Default = 0, HelpText = "Maximum times the same step may run in one invocation. Use 0 for no limit.")]
+    public int MaxStepRepeats { get; set; }
 
     [Option("log", HelpText = "Enable transcript logging for this invocation.")]
     public bool Log { get; set; }
@@ -29,9 +38,11 @@ internal sealed class RespondCommandOptions
         {
             SourcePath = SourcePath,
             MemoryRoot = MemoryRoot,
-            MaxIterations = MaxIterations,
+            MaxRunIterations = DeprecatedMaxIterations ?? MaxRunIterations,
             Log = Log,
-            Verbose = Verbose
+            Verbose = Verbose,
+            MaxTotalIterations = MaxTotalIterations,
+            MaxStepRepeats = MaxStepRepeats
         };
     }
 }

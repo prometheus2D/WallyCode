@@ -41,7 +41,7 @@ wallycode step "Review the current workspace changes." review_changes --source C
 Run several workflow iterations in one call, or isolate session state:
 
 ```powershell
-wallycode run "Review repo structure." requirements --max-iterations 3 --source C:\src\MyRepo --log --verbose
+wallycode run "Review repo structure." requirements --max-run-iterations 3 --source C:\src\MyRepo --log --verbose
 wallycode act "Fix these code problems: ..." --source C:\src\MyRepo --log --verbose
 wallycode run "Analyze docs." --source C:\src\MyRepo --memory-root C:\temp\wally-session-a
 ```
@@ -158,11 +158,14 @@ wallycode provider [name] [--set] [--models] [--refresh] [--model <model>] [--so
 ### `run`
 ```powershell
 wallycode run [prompt] [workflow] [--workflow <name>] [--provider <name>] [--model <model>]
-              [--source <path>] [--memory-root <path>] [--max-iterations <n>]
+              [--source <path>] [--memory-root <path>] [--max-run-iterations <n>]
+              [--max-total-iterations <n>] [--max-step-repeats <n>]
               [--log] [--verbose]
 ```
 
-By default, `run` allows up to 20 workflow iterations and stops early when the workflow completes, blocks for input, or errors. Use `--max-iterations` to lower or raise that limit.
+By default, `run` allows up to 20 workflow iterations per invocation and stops early when the workflow completes, blocks for input, or errors. Use `--max-run-iterations` to lower or raise that invocation limit.
+
+Use `--max-total-iterations` to cap total iterations across the active session lifetime. Use `--max-step-repeats` to cap how many times the same step can execute in one invocation. A value of `0` disables each cap.
 
 The default workflow is `requirements`. The optional positional `workflow` and `--workflow` option select a workflow definition.
 
@@ -176,17 +179,18 @@ Runs one shared step directly without advancing a durable workflow session. The 
 
 ### `respond`
 ```powershell
-wallycode respond <response> [--source <path>] [--memory-root <path>] [--max-iterations <n>]
+wallycode respond <response> [--source <path>] [--memory-root <path>] [--max-run-iterations <n>]
+                  [--max-total-iterations <n>] [--max-step-repeats <n>]
                   [--log] [--verbose]
 ```
 
-Saves a response for a blocked workflow session and immediately resumes it. Use `--max-iterations` to control how far it may continue after the response.
+Saves a response for a blocked workflow session and immediately resumes it. Use `--max-run-iterations` to control how far it may continue after the response.
 
 ---
 
 ## Observability
 
-`--log --verbose` on `run` traces prompt text, raw provider output, selected step, next step, session status, and `error` reason. Use `--max-iterations 1` while tuning prompts or routing. On `step`, verbose logging traces the single step prompt and raw provider output.
+`--log --verbose` on `run` traces prompt text, raw provider output, selected step, next step, session status, and `error` reason. Use `--max-run-iterations 1` while tuning prompts or routing. On `step`, verbose logging traces the single step prompt and raw provider output.
 
 ---
 

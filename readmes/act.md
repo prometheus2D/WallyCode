@@ -22,7 +22,7 @@ For larger fix work, let the orchestrator run bounded iterations and stop early 
 wallycode act "Fix these code problems: <paste problems here>" --source C:\src\MyRepo --log --verbose
 ```
 
-The default max iteration limit is 20. If the limit is reached before completion, WallyCode leaves the session active so you can continue with `resume` or raise the limit with `--max-iterations`.
+The default max run iteration limit is 20 per invocation. If the limit is reached before completion, WallyCode leaves the session active so you can continue with `resume` or raise the limit with `--max-run-iterations`.
 
 From the WallyCode source tree while developing WallyCode itself:
 
