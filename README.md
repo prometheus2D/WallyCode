@@ -57,6 +57,16 @@ The `setup` command is the one-time step that defines your project context.
 - **Predictability**: All commands use the same provider and model unless explicitly overridden.
 - **Consistency**: Session snapshots, memory, and logs are always in one place (.wallycode) so you can pause, resume, and recover workflows reliably.
 
+**Starting fresh:**
+
+If you want to reset to a clean workspace state, use:
+
+```powershell
+wallycode setup --directory C:\src\MyRepo --force
+```
+
+This deletes and recreates wallycode.json and .wallycode, clearing all previous sessions and state. Useful for testing, troubleshooting, or starting a new workflow iteration.
+
 Always run setup first on any new repository or when you want to reset your workflow context. See [tutorials/setup.md](tutorials/setup.md) for the step-by-step guide.
 
 ## Mental model
