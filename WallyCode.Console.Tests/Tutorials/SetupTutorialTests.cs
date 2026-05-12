@@ -22,7 +22,7 @@ public sealed class SetupTutorialTests
         var registry = new ProviderRegistry([provider]);
         var handler = new SetupCommandHandler(registry, new AppLogger(), workspace.ProjectRoot);
 
-        var exitCode = await handler.ExecuteAsync(new SetupCommandOptions { DirectoryPath = workspace.ProjectRoot }, CancellationToken.None);
+        var exitCode = await handler.ExecuteAsync(new SetupCommandOptions { SourcePath = workspace.ProjectRoot }, CancellationToken.None);
 
         Assert.Equal(0, exitCode);
 

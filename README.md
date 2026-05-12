@@ -8,7 +8,7 @@ Use this when you want results in minutes.
 
 ```powershell
 # 1) Initialize a target repository (--source only needed here)
-wallycode setup --directory C:\src\MyRepo
+wallycode setup --source C:\src\MyRepo
 
 # 2) Navigate to that directory
 cd C:\src\MyRepo
@@ -62,7 +62,7 @@ The `setup` command is the one-time step that defines your project context.
 If you want to reset to a clean workspace state, use:
 
 ```powershell
-wallycode setup --directory C:\src\MyRepo --force
+wallycode setup --source C:\src\MyRepo --force
 ```
 
 This deletes and recreates wallycode.json and .wallycode, clearing all previous sessions and state. Useful for testing, troubleshooting, or starting a new workflow iteration.

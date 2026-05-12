@@ -34,7 +34,7 @@ Acceptance criteria:
 ## Step 2: Initialize local repo state
 
 ```powershell
-dotnet run --project WallyCode.Console -- setup --directory .
+dotnet run --project WallyCode.Console -- setup --source .
 ```
 
 Acceptance criteria:

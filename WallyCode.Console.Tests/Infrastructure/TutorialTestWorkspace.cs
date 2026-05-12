@@ -44,7 +44,7 @@ internal sealed class TutorialTestWorkspace : IDisposable
         var provider = new TestLlmProvider { Name = providerName, DefaultModel = defaultModel };
         var registry = new ProviderRegistry([provider]);
         var handler = new SetupCommandHandler(registry, new AppLogger(), ProjectRoot);
-        handler.ExecuteAsync(new SetupCommandOptions { DirectoryPath = ProjectRoot, Force = force }, CancellationToken.None).GetAwaiter().GetResult();
+        handler.ExecuteAsync(new SetupCommandOptions { SourcePath = ProjectRoot, Force = force }, CancellationToken.None).GetAwaiter().GetResult();
     }
 
     public void Dispose()

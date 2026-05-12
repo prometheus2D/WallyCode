@@ -28,7 +28,7 @@ Test-Path C:\src\MyRepo
 ## Step 1: Initialize repo settings
 
 ```powershell
-wallycode setup --directory C:\src\MyRepo
+wallycode setup --source C:\src\MyRepo
 ```
 
 Acceptance criteria:
@@ -50,7 +50,7 @@ wallycode setup --vs-build
 Use force only when you want to regenerate defaults:
 
 ```powershell
-wallycode setup --directory C:\src\MyRepo --force
+wallycode setup --source C:\src\MyRepo --force
 ```
 
 Expected outcome:

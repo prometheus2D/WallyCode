@@ -63,16 +63,16 @@ internal sealed class SetupCommandHandler
 
     private string ResolveTargetDirectory(SetupCommandOptions options)
     {
-        if (!string.IsNullOrWhiteSpace(options.DirectoryPath))
+        if (!string.IsNullOrWhiteSpace(options.SourcePath))
         {
             try
             {
-                return Path.GetFullPath(options.DirectoryPath.Trim());
+                return Path.GetFullPath(options.SourcePath.Trim());
             }
             catch (Exception exception) when (exception is ArgumentException or NotSupportedException or PathTooLongException)
             {
                 throw new InvalidOperationException(
-                    $"Invalid setup target '{options.DirectoryPath}'. {exception.Message}",
+                    $"Invalid setup target '{options.SourcePath}'. {exception.Message}",
                     exception);
             }
         }

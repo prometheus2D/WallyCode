@@ -5,8 +5,8 @@ namespace WallyCode.ConsoleApp.Commands;
 [Verb("setup", HelpText = "Initializes WallyCode in a target directory.")]
 internal sealed class SetupCommandOptions
 {
-    [Option("directory", HelpText = "Target directory for setup. Defaults to the app folder.")]
-    public string? DirectoryPath { get; set; }
+    [Option("source", HelpText = "Target source directory for setup. Defaults to the app folder.")]
+    public string? SourcePath { get; set; }
 
     [Option("vs-build", HelpText = "Resolve the setup target from a standard Visual Studio build output path.")]
     public bool VsBuild { get; set; }
