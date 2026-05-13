@@ -43,6 +43,8 @@ internal sealed class CleanupCommandHandler
             removedAny = true;
         }
 
+        ProjectSettings.ClearActiveProjectPathIfMatches(targetDirectory, _appDirectoryPath);
+
         if (!removedAny)
         {
             _logger.Info("No WallyCode artifacts found.");
@@ -72,6 +74,6 @@ internal sealed class CleanupCommandHandler
             return WorkspacePathResolver.ResolveVsBuildWorkspaceRoot(_appDirectoryPath);
         }
 
-        return Environment.CurrentDirectory;
+        return ProjectSettings.ResolveProjectRoot(null);
     }
 }

@@ -111,11 +111,10 @@ internal sealed class SetupCommandHandler
             createdAny = true;
         }
 
-        // Persist the resolved environment folder in wallycode.json
-        var runtimeDefaults = new RuntimeDefaultsSettings { SourcePath = targetDirectory };
-        // Set RuntimeDefaults and save settings
-        var projectSettings = new ProjectSettings { RuntimeDefaults = runtimeDefaults };
-        projectSettings.Save(targetDirectory);
+        ProjectSettings.Load(targetDirectory).Save(targetDirectory);
+        ProjectSettings.SaveActiveProjectPath(targetDirectory, _appDirectoryPath);
+        _logger.Success("Updated wallycode.active.json.");
+        createdAny = true;
 
         return createdAny;
     }
@@ -127,10 +126,7 @@ internal sealed class SetupCommandHandler
         {
             Provider = provider.Name,
             Model = provider.DefaultModel,
-            RuntimeDefaults = new RuntimeDefaultsSettings
-            {
-                SourcePath = targetDirectory
-            }
+            RuntimeDefaults = new RuntimeDefaultsSettings()
         };
 
         settings.Save(targetDirectory);
@@ -145,7 +141,7 @@ internal sealed class SetupCommandHandler
     {
         Console.WriteLine();
         Console.WriteLine("Next commands:");
-        Console.WriteLine($"cd {targetDirectory}");
+        Console.WriteLine($"Active source: {targetDirectory}");
         Console.WriteLine("wallycode provider");
         Console.WriteLine("wallycode run \"Summarize this repository in one short paragraph.\" ask");
         Console.WriteLine();

@@ -13,9 +13,6 @@ internal sealed class LoggingSettings
 internal sealed class RuntimeDefaultsSettings
 {
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public string? SourcePath { get; set; }
-
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? MemoryRoot { get; set; }
 
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
@@ -26,6 +23,12 @@ internal sealed class RuntimeDefaultsSettings
 
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public int? MaxStepRepeats { get; set; }
+}
+
+internal sealed class ActiveProjectSettings
+{
+    public string ActiveProjectPath { get; set; } = string.Empty;
+    public DateTimeOffset UpdatedAtUtc { get; set; } = DateTimeOffset.UtcNow;
 }
 
 internal sealed class ProviderModelCatalog
@@ -52,6 +55,7 @@ internal sealed class ProviderCatalogSettings
 internal sealed class ProjectSettings
 {
     private static readonly string DefaultProviderName = ProviderRegistry.DefaultProviderName;
+    private static string AppDirectoryPath = Path.GetFullPath(AppContext.BaseDirectory);
 
     private static readonly JsonSerializerOptions SerializerOptions = new()
     {
@@ -75,6 +79,13 @@ internal sealed class ProjectSettings
     public ProviderCatalogSettings ProviderCatalog { get; set; } = new();
 
     public DateTimeOffset UpdatedAtUtc { get; set; } = DateTimeOffset.UtcNow;
+
+    public static void ConfigureAppDirectory(string? appDirectoryPath)
+    {
+        AppDirectoryPath = Path.GetFullPath(string.IsNullOrWhiteSpace(appDirectoryPath)
+            ? AppContext.BaseDirectory
+            : appDirectoryPath);
+    }
 
     public static ProjectSettings Load(string projectRoot)
     {
@@ -123,7 +134,7 @@ internal sealed class ProjectSettings
     public static string ResolveProjectRoot(string? sourcePath)
     {
         var projectRoot = string.IsNullOrWhiteSpace(sourcePath)
-            ? Environment.CurrentDirectory
+            ? ResolveActiveProjectPath() ?? Environment.CurrentDirectory
             : Path.GetFullPath(sourcePath);
 
         if (!Directory.Exists(projectRoot))
@@ -143,22 +154,7 @@ internal sealed class ProjectSettings
         }
 
         var currentRoot = ResolveProjectRoot(null);
-        var currentSettings = Load(currentRoot);
-        var defaultSourcePath = NormalizeRuntimePath(currentSettings.RuntimeDefaults.SourcePath);
-        if (string.IsNullOrWhiteSpace(defaultSourcePath))
-        {
-            return (currentRoot, currentSettings);
-        }
-
-        try
-        {
-            var preferredRoot = ResolveProjectRoot(defaultSourcePath);
-            return (preferredRoot, Load(preferredRoot));
-        }
-        catch (DirectoryNotFoundException)
-        {
-            return (currentRoot, currentSettings);
-        }
+        return (currentRoot, Load(currentRoot));
     }
 
     public static ProjectSettings LoadRequired(string projectRoot)
@@ -178,29 +174,65 @@ internal sealed class ProjectSettings
 
         var currentRoot = ResolveProjectRoot(null);
         EnsureSetupInitialized(currentRoot);
-
-        var currentSettings = Load(currentRoot);
-        var defaultSourcePath = NormalizeRuntimePath(currentSettings.RuntimeDefaults.SourcePath);
-        if (string.IsNullOrWhiteSpace(defaultSourcePath))
-        {
-            return (currentRoot, currentSettings);
-        }
-
-        try
-        {
-            var preferredRoot = ResolveProjectRoot(defaultSourcePath);
-            EnsureSetupInitialized(preferredRoot);
-            return (preferredRoot, Load(preferredRoot));
-        }
-        catch (DirectoryNotFoundException)
-        {
-            return (currentRoot, currentSettings);
-        }
+        return (currentRoot, Load(currentRoot));
     }
 
     public static string GetFilePath(string projectRoot)
     {
         return Path.Combine(projectRoot, "wallycode.json");
+    }
+
+    public static string GetActiveProjectFilePath(string? appDirectoryPath = null)
+    {
+        var directoryPath = Path.GetFullPath(string.IsNullOrWhiteSpace(appDirectoryPath)
+            ? AppDirectoryPath
+            : appDirectoryPath);
+
+        return Path.Combine(directoryPath, "wallycode.active.json");
+    }
+
+    public static string? ResolveActiveProjectPath(string? appDirectoryPath = null)
+    {
+        var activeProjectPath = GetActiveProjectFilePath(appDirectoryPath);
+        if (!File.Exists(activeProjectPath))
+        {
+            return null;
+        }
+
+        var activeProject = JsonSerializer.Deserialize<ActiveProjectSettings>(File.ReadAllText(activeProjectPath), SerializerOptions)
+            ?? new ActiveProjectSettings();
+
+        return NormalizeRuntimePath(activeProject.ActiveProjectPath);
+    }
+
+    public static void SaveActiveProjectPath(string projectRoot, string? appDirectoryPath = null)
+    {
+        var activeProject = new ActiveProjectSettings
+        {
+            ActiveProjectPath = ResolveProjectRoot(projectRoot),
+            UpdatedAtUtc = DateTimeOffset.UtcNow
+        };
+
+        var activeProjectPath = GetActiveProjectFilePath(appDirectoryPath);
+        Directory.CreateDirectory(Path.GetDirectoryName(activeProjectPath)!);
+        var json = JsonSerializer.Serialize(activeProject, SerializerOptions);
+        File.WriteAllText(activeProjectPath, json + Environment.NewLine);
+    }
+
+    public static void ClearActiveProjectPathIfMatches(string projectRoot, string? appDirectoryPath = null)
+    {
+        var activeProjectPath = GetActiveProjectFilePath(appDirectoryPath);
+        if (!File.Exists(activeProjectPath))
+        {
+            return;
+        }
+
+        var activeProjectRoot = ResolveActiveProjectPath(appDirectoryPath);
+        var targetProjectRoot = Path.GetFullPath(projectRoot);
+        if (string.Equals(activeProjectRoot, targetProjectRoot, StringComparison.Ordinal))
+        {
+            File.Delete(activeProjectPath);
+        }
     }
 
     public static string ResolveRuntimeRoot(string projectRoot, string? memoryRoot)
@@ -269,7 +301,6 @@ internal sealed class ProjectSettings
     private static RuntimeDefaultsSettings NormalizeRuntimeDefaults(RuntimeDefaultsSettings? runtimeDefaults)
     {
         var normalized = runtimeDefaults ?? new RuntimeDefaultsSettings();
-        normalized.SourcePath = NormalizeRuntimePath(normalized.SourcePath);
         normalized.MemoryRoot = NormalizeRuntimePath(normalized.MemoryRoot);
         normalized.MaxRunIterations = normalized.MaxRunIterations.HasValue && normalized.MaxRunIterations.Value > 0
             ? normalized.MaxRunIterations

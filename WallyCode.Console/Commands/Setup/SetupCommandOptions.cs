@@ -2,7 +2,7 @@ using CommandLine;
 
 namespace WallyCode.ConsoleApp.Commands;
 
-[Verb("setup", HelpText = "Initializes WallyCode in a target directory.")]
+[Verb("setup", HelpText = "Initializes WallyCode in a target directory and makes it the active project.")]
 internal sealed class SetupCommandOptions
 {
     [Option("source", HelpText = "Target source directory for setup. Defaults to the app folder.")]

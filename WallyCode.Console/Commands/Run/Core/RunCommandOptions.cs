@@ -29,7 +29,7 @@ internal sealed class RunCommandOptions
     [Option("model", HelpText = "Optional model override.")]
     public string? Model { get; set; }
 
-    [Option("source", HelpText = "Repo or folder path used as the project root and provider source context.")]
+    [Option("source", HelpText = "Repo or folder path used as the project root and provider source context. Overrides and updates the active project path.")]
     public string? SourcePath { get; set; }
 
     [Option("memory-root", HelpText = "Optional folder for session state.")]

@@ -9,12 +9,6 @@ internal static class WorkspacePathResolver
             ?? throw new InvalidOperationException(
                 $"--vs-build requires the app directory to be under bin{Path.DirectorySeparatorChar}Debug or bin{Path.DirectorySeparatorChar}Release. Current app directory: {normalizedAppDirectoryPath}");
 
-        // Ensure the resolved workspace root is persisted
-        var runtimeDefaults = new RuntimeDefaultsSettings { SourcePath = buildProjectDirectory };
-        // Set RuntimeDefaults and save settings
-        var projectSettings = new ProjectSettings { RuntimeDefaults = runtimeDefaults };
-        projectSettings.Save(buildProjectDirectory);
-
         return FindTopmostWorkspaceMarker(buildProjectDirectory)
             ?? throw new InvalidOperationException(
                 $"Could not find a workspace root above {buildProjectDirectory}. Looked for .git, *.sln, or wallycode.json.");

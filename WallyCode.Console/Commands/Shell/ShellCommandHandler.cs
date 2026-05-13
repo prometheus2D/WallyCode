@@ -162,11 +162,7 @@ internal sealed class ShellCommandHandler
         var changed = false;
         if (!string.IsNullOrWhiteSpace(_options.SourcePath) || _options.VsBuild)
         {
-            if (!string.Equals(settings.RuntimeDefaults.SourcePath, projectRoot, StringComparison.Ordinal))
-            {
-                settings.RuntimeDefaults.SourcePath = projectRoot;
-                changed = true;
-            }
+            ProjectSettings.SaveActiveProjectPath(projectRoot);
         }
 
         if (!string.IsNullOrWhiteSpace(_options.MemoryRoot))
@@ -182,7 +178,7 @@ internal sealed class ShellCommandHandler
         if (changed)
         {
             settings.Save(projectRoot);
-            _logger.LogAction("Saved shell defaults", $"source={settings.RuntimeDefaults.SourcePath}; memoryRoot={effectiveMemoryRoot}");
+            _logger.LogAction("Saved shell defaults", $"memoryRoot={effectiveMemoryRoot}");
         }
     }
 

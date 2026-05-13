@@ -32,6 +32,7 @@ Acceptance criteria:
 - Exit code is 0.
 - C:\src\MyRepo\wallycode.json exists.
 - C:\src\MyRepo\.wallycode exists.
+- wallycode.active.json next to the exe points to C:\src\MyRepo.
 
 ```powershell
 Test-Path C:\src\MyRepo\wallycode.json
@@ -48,6 +49,7 @@ Expected behavior for --vs-build:
 - Command must be launched from a path under bin\Debug or bin\Release.
 - WallyCode resolves the workspace root above that output folder.
 - setup artifacts are created at the resolved workspace root, not in the output folder.
+- wallycode.active.json points to the resolved workspace root.
 
 ## Step 1b: Optional cleanup + regenerate
 
@@ -58,6 +60,7 @@ wallycode setup --source C:\src\MyRepo --cleanup
 Expected outcome:
 - Removes existing wallycode.json and .wallycode first.
 - Recreates setup artifacts with default values.
+- Updates wallycode.active.json to point at C:\src\MyRepo.
 
 ## Step 1c: Remove setup artifacts cleanly
 
@@ -69,6 +72,7 @@ Acceptance criteria:
 - Exit code is 0.
 - C:\src\MyRepo\wallycode.json does not exist.
 - C:\src\MyRepo\.wallycode does not exist.
+- If C:\src\MyRepo was active, wallycode.active.json is removed.
 
 ```powershell
 Test-Path C:\src\MyRepo\wallycode.json
@@ -84,7 +88,7 @@ wallycode setup --source C:\src\MyRepo
 ## Step 2: List providers and readiness
 
 ```powershell
-wallycode provider --source C:\src\MyRepo
+wallycode provider
 ```
 
 Acceptance criteria:

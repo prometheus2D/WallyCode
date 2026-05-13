@@ -242,11 +242,7 @@ internal sealed class WorkflowRunCommandHandler
 
         if (!string.IsNullOrWhiteSpace(options.SourcePath))
         {
-            if (!string.Equals(settings.RuntimeDefaults.SourcePath, projectRoot, StringComparison.Ordinal))
-            {
-                settings.RuntimeDefaults.SourcePath = projectRoot;
-                changed = true;
-            }
+            ProjectSettings.SaveActiveProjectPath(projectRoot);
         }
 
         if (!string.IsNullOrWhiteSpace(options.MemoryRoot))

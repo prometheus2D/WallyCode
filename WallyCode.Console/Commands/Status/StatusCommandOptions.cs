@@ -2,10 +2,10 @@ using CommandLine;
 
 namespace WallyCode.ConsoleApp.Commands;
 
-[Verb("status", HelpText = "Show the current source, memory root, provider, model, and active session state.")]
+[Verb("status", HelpText = "Show the active source, memory root, provider, model, and active session state.")]
 internal sealed class StatusCommandOptions
 {
-    [Option("source", HelpText = "Repo or folder path used as the project root.")]
+    [Option("source", HelpText = "Repo or folder path used as the project root. Overrides the active project path.")]
     public string? SourcePath { get; set; }
 
     [Option("memory-root", HelpText = "Override the default .wallycode memory root folder.")]

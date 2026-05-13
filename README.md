@@ -8,15 +8,12 @@ Deterministic CLI workflows for getting real progress on a codebase with durable
 # 1) Initialize a target repository
 wallycode setup --source C:\src\MyRepo
 
-# 2) Navigate to that directory
-cd C:\src\MyRepo
-
-# 3) Set provider + model once
+# 2) Set provider + model once
 wallycode provider gh-copilot-claude --set
 wallycode provider gh-copilot-claude --models
 wallycode provider gh-copilot-claude --model claude-sonnet-4
 
-# 4) Start work
+# 3) Start work
 wallycode run "Summarize architecture and propose next actions."
 ```
 
@@ -39,6 +36,7 @@ Setup is required before normal command use in a workspace.
 What setup creates:
 - wallycode.json for provider/model/logging/runtime defaults.
 - .wallycode for session and runtime state.
+- wallycode.active.json next to the exe, pointing to the active source directory.
 
 Commands that expect initialized setup:
 - run, ask, act, step
@@ -52,6 +50,7 @@ Commands that require an existing session:
 Notes:
 - There is no global auto-setup on run/ask/act.
 - If setup artifacts are missing, commands fail with an instruction to run setup.
+- When --source is omitted, WallyCode uses wallycode.active.json to find the active initialized source directory.
 - setup --vs-build resolves the source workspace root from a bin/Debug or bin/Release launch path.
 
 ## Common flags
@@ -70,15 +69,15 @@ Command-specific options vary, but these are common on workflow commands:
 To reset workspace state:
 
 ```powershell
-wallycode cleanup --source C:\src\MyRepo
+wallycode cleanup
 ```
 
-This removes wallycode.json and .wallycode.
+This removes wallycode.json and .wallycode from the active source. If that source was active, it also clears wallycode.active.json.
 
 ## Mental model
 
-- setup initializes workspace defaults and runtime state.
-- cleanup removes workspace defaults and runtime state.
+- setup initializes workspace defaults, runtime state, and the active source pointer.
+- cleanup removes workspace defaults and runtime state. If the cleaned source is active, it also clears the active source pointer.
 - provider and logging update persisted workspace defaults.
 - run/ask/act/step execute workflow logic against initialized workspace state.
 - respond/resume/recover operate on existing session state.

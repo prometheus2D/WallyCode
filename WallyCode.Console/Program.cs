@@ -27,6 +27,7 @@ internal static class Program
 		ProviderRegistry? providerRegistry = null)
 	{
 		var logger = new AppLogger();
+		ProjectSettings.ConfigureAppDirectory(appDirectoryPath);
 		providerRegistry ??= ProviderRegistry.Create(logger);
 		ConfigureInvocationLogging(args, logger);
 

@@ -4,6 +4,7 @@
 **/obj/
 **/TestResults/
 **/.wallycode*/
+wallycode.active.json
 *.rsuser
 *.sln.docstates
 *.suo
