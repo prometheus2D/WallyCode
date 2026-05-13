@@ -1,10 +1,10 @@
 # Setup and Providers
 
-Use this tutorial to initialize one repository for WallyCode.
+Use this tutorial to initialize one repository or new working folder for WallyCode.
 
 ## Inputs
 
-- Required: target repository path.
+- Required: target repository or working-folder path.
 - Optional: provider choice and model choice.
 - Optional: logging defaults for that repo.
 
@@ -16,25 +16,25 @@ Example values used below:
 ## Pre-check
 
 Acceptance criteria:
-- C:\src\MyRepo exists.
-
-```powershell
-Test-Path C:\src\MyRepo
-```
+- The target path is valid for the local machine.
+- The drive or root location exists.
+- The target folder may already exist, but setup can create it if it is missing.
 
 ## Step 1: Initialize repo settings
 
 ```powershell
-wallycode setup --source C:\src\MyRepo
+.\wallycode.exe setup --source C:\src\MyRepo
 ```
 
 Acceptance criteria:
 - Exit code is 0.
+- C:\src\MyRepo exists.
 - C:\src\MyRepo\wallycode.json exists.
 - C:\src\MyRepo\.wallycode exists.
 - wallycode.active.json next to the exe points to C:\src\MyRepo.
 
 ```powershell
+Test-Path C:\src\MyRepo
 Test-Path C:\src\MyRepo\wallycode.json
 Test-Path C:\src\MyRepo\.wallycode
 ```
@@ -42,7 +42,7 @@ Test-Path C:\src\MyRepo\.wallycode
 If launched from a Visual Studio build output folder, use:
 
 ```powershell
-wallycode setup --vs-build
+.\wallycode.exe setup --vs-build
 ```
 
 Expected behavior for --vs-build:
@@ -54,7 +54,7 @@ Expected behavior for --vs-build:
 ## Step 1b: Optional cleanup + regenerate
 
 ```powershell
-wallycode setup --source C:\src\MyRepo --cleanup
+.\wallycode.exe setup --source C:\src\MyRepo --cleanup
 ```
 
 Expected outcome:
@@ -65,7 +65,7 @@ Expected outcome:
 ## Step 1c: Remove setup artifacts cleanly
 
 ```powershell
-wallycode cleanup --source C:\src\MyRepo
+.\wallycode.exe cleanup --source C:\src\MyRepo
 ```
 
 Acceptance criteria:
@@ -82,13 +82,13 @@ Test-Path C:\src\MyRepo\.wallycode
 Recreate setup state after cleanup:
 
 ```powershell
-wallycode setup --source C:\src\MyRepo
+.\wallycode.exe setup --source C:\src\MyRepo
 ```
 
 ## Step 2: List providers and readiness
 
 ```powershell
-wallycode provider
+.\wallycode.exe provider
 ```
 
 Acceptance criteria:
@@ -102,7 +102,7 @@ Built-in providers:
 ## Step 3: Set default provider
 
 ```powershell
-wallycode provider gh-copilot-claude --set --source C:\src\MyRepo
+.\wallycode.exe provider gh-copilot-claude --set --source C:\src\MyRepo
 ```
 
 Acceptance criteria:
@@ -116,8 +116,8 @@ Acceptance criteria:
 ## Step 4: List models and set default model
 
 ```powershell
-wallycode provider gh-copilot-claude --models --source C:\src\MyRepo
-wallycode provider gh-copilot-claude --model <model-from-previous-list> --source C:\src\MyRepo
+.\wallycode.exe provider gh-copilot-claude --models --source C:\src\MyRepo
+.\wallycode.exe provider gh-copilot-claude --model <model-from-previous-list> --source C:\src\MyRepo
 ```
 
 Acceptance criteria:
@@ -133,7 +133,7 @@ Acceptance criteria:
 Enable default logging for future commands:
 
 ```powershell
-wallycode logging --enable --verbose --source C:\src\MyRepo
+.\wallycode.exe logging --enable --verbose --source C:\src\MyRepo
 ```
 
 Acceptance criteria:
@@ -150,7 +150,7 @@ $settings = Get-Content C:\src\MyRepo\wallycode.json -Raw | ConvertFrom-Json
 Disable later if needed:
 
 ```powershell
-wallycode logging --disable --quiet --source C:\src\MyRepo
+.\wallycode.exe logging --disable --quiet --source C:\src\MyRepo
 ```
 
 Acceptance criteria:
@@ -167,7 +167,7 @@ $settings = Get-Content C:\src\MyRepo\wallycode.json -Raw | ConvertFrom-Json
 ## Step 6: Verify setup
 
 ```powershell
-wallycode status --source C:\src\MyRepo
+.\wallycode.exe status --source C:\src\MyRepo
 ```
 
 Acceptance criteria:

@@ -2,61 +2,61 @@
 
 Deterministic CLI workflows for getting real progress on a codebase with durable session state.
 
-## Run from anywhere
+## Run from the exe folder against any source
 
-WallyCode is designed to be launched from any directory after one setup command. The exe-local `wallycode.active.json` file remembers the active source directory, so normal commands do not need `--source` once setup is complete.
+WallyCode is not assumed to be on `PATH` yet. For now, open a terminal in the folder that contains `wallycode.exe` and run it as `.\wallycode.exe`.
 
-### 1. Make the command available
+The exe-local `wallycode.active.json` file remembers the active source directory. That means the command can be launched from the exe folder while WallyCode operates on a different source folder, and normal commands do not need `--source` once setup is complete.
 
-If you already have a built `wallycode.exe`, put that folder on your `PATH`.
+### 1. Build or locate the exe
 
-From source, publish the console app to a stable tools folder, then add that folder to `PATH`:
+If you already have a built `wallycode.exe`, open a terminal in that folder. From source, publish the console app to a stable tools folder, then move into that folder:
 
 ```powershell
 dotnet publish .\WallyCode.Console\WallyCode.Console.csproj -c Release -o C:\Tools\WallyCode
-$env:Path = "C:\Tools\WallyCode;$env:Path"
-wallycode help
+Set-Location C:\Tools\WallyCode
+.\wallycode.exe help
 ```
 
-The `PATH` command above updates the current terminal. Add `C:\Tools\WallyCode` to your user or system `PATH` for new terminals.
+All command examples below assume the terminal is still in the folder that contains `wallycode.exe`.
 
 ### 2. Initialize the source repo once
 
 Run setup against the repository WallyCode should operate on:
 
 ```powershell
-wallycode setup --source C:\src\MyRepo
+.\wallycode.exe setup --source C:\src\MyRepo
 ```
 
-This creates `wallycode.json` and `.wallycode` in `C:\src\MyRepo`, then writes `wallycode.active.json` next to the exe. After that, WallyCode resolves the active source from that file when `--source` is omitted.
+This creates `C:\src\MyRepo` if needed, adds `wallycode.json` and `.wallycode` inside it, then writes `wallycode.active.json` next to the exe. After that, WallyCode resolves the active source from that file when `--source` is omitted.
 
 ### 3. Configure provider and model
 
-These commands now use the active source, so they can be run from any directory:
+These commands now use the active source, so they can be run from the exe folder without changing into `C:\src\MyRepo`:
 
 ```powershell
-wallycode provider gh-copilot-claude --set
-wallycode provider gh-copilot-claude --models
-wallycode provider gh-copilot-claude --model claude-sonnet-4
+.\wallycode.exe provider gh-copilot-claude --set
+.\wallycode.exe provider gh-copilot-claude --models
+.\wallycode.exe provider gh-copilot-claude --model claude-sonnet-4
 ```
 
 ### 4. Let WallyCode work
 
 ```powershell
-wallycode status
-wallycode run "Summarize architecture and propose next actions."
+.\wallycode.exe status
+.\wallycode.exe run "Summarize architecture and propose next actions."
 ```
 
-If the session blocks, respond from wherever you are:
+If the session blocks, respond from the exe folder:
 
 ```powershell
-wallycode respond "Proceed with docs and routing first."
+.\wallycode.exe respond "Proceed with docs and routing first."
 ```
 
 If the session is still active, resume it:
 
 ```powershell
-wallycode resume
+.\wallycode.exe resume
 ```
 
 ## Setup model (current behavior)
@@ -99,7 +99,7 @@ Command-specific options vary, but these are common on workflow commands:
 To reset workspace state:
 
 ```powershell
-wallycode cleanup
+.\wallycode.exe cleanup
 ```
 
 This removes wallycode.json and .wallycode from the active source. If that source was active, it also clears wallycode.active.json.
@@ -118,6 +118,7 @@ Project state lives in wallycode.json and .wallycode. The active project pointer
 
 - [Tutorials index](tutorials/README.md)
 - [Setup and providers](tutorials/setup.md)
+- [Scratch project from a new folder](tutorials/scratch-project.md)
 - [Ask workflow](tutorials/ask.md)
 - [Act workflow](tutorials/act.md)
 - [Stepwise workflows](tutorials/stepwise.md)
@@ -127,16 +128,16 @@ Project state lives in wallycode.json and .wallycode. The active project pointer
 ## Core commands
 
 ```powershell
-wallycode setup
-wallycode cleanup
-wallycode provider
-wallycode status
-wallycode run
-wallycode ask
-wallycode act
-wallycode resume
-wallycode respond
-wallycode recover
-wallycode step
-wallycode shell
+.\wallycode.exe setup
+.\wallycode.exe cleanup
+.\wallycode.exe provider
+.\wallycode.exe status
+.\wallycode.exe run
+.\wallycode.exe ask
+.\wallycode.exe act
+.\wallycode.exe resume
+.\wallycode.exe respond
+.\wallycode.exe recover
+.\wallycode.exe step
+.\wallycode.exe shell
 ```
