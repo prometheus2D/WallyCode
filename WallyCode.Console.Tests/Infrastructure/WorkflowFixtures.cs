@@ -9,18 +9,17 @@ internal static class WorkflowFixtures
         return new WorkflowDefinition
         {
             Name = "ask",
-            Instructions = "Answer directly without intending to modify files.",
+            Instructions = "Answer directly in a single response without intending to modify files.",
             StartStepName = "ask",
             Steps =
             [
                 new WorkflowStep
                 {
                     Name = "ask",
-                    Instructions = "Answer the user's request directly.",
+                    Instructions = "Answer the user's request directly, then stop.",
                     WritesMemory = ["answer"],
                     Transitions =
                     [
-                        new WorkflowTransition { Selection = "continue", TargetStepName = "ask", Status = "active" },
                         new WorkflowTransition { Selection = "stop", Status = "completed", StopsInvocation = true },
                         new WorkflowTransition { Selection = "ask_user", Status = "blocked", StopsInvocation = true },
                         new WorkflowTransition { Selection = "error", Status = "error", StopsInvocation = true }
@@ -35,32 +34,17 @@ internal static class WorkflowFixtures
         return new WorkflowDefinition
         {
             Name = "act",
-            Instructions = "Implement the request and then review it.",
+            Instructions = "Complete a single implementation request and return the result.",
             StartStepName = "act",
             Steps =
             [
                 new WorkflowStep
                 {
                     Name = "act",
-                    Instructions = "Make the requested change.",
-                    WritesMemory = ["implementation"],
+                    Instructions = "Make the requested change, summarize the result, then stop.",
+                    WritesMemory = ["result"],
                     Transitions =
                     [
-                        new WorkflowTransition { Selection = "continue", TargetStepName = "act", Status = "active" },
-                        new WorkflowTransition { Selection = "to_review_changes", TargetStepName = "review_changes", Status = "active" },
-                        new WorkflowTransition { Selection = "ask_user", Status = "blocked", StopsInvocation = true },
-                        new WorkflowTransition { Selection = "error", Status = "error", StopsInvocation = true }
-                    ]
-                },
-                new WorkflowStep
-                {
-                    Name = "review_changes",
-                    Instructions = "Review the changes.",
-                    ReadsMemory = ["implementation"],
-                    WritesMemory = ["review"],
-                    Transitions =
-                    [
-                        new WorkflowTransition { Selection = "continue", TargetStepName = "act", Status = "active" },
                         new WorkflowTransition { Selection = "stop", Status = "completed", StopsInvocation = true },
                         new WorkflowTransition { Selection = "ask_user", Status = "blocked", StopsInvocation = true },
                         new WorkflowTransition { Selection = "error", Status = "error", StopsInvocation = true }

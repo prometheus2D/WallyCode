@@ -1,6 +1,6 @@
 {
   "id": "ask",
-  "instructions": "Answer the user's request directly without intending to modify files. Use ask_user only when required information is missing.",
+  "instructions": "Answer the user's request directly in a single response without intending to modify files. Use ask_user only when required information is missing.",
   "startStepName": "ask",
   "stepIds": ["ask"]
 }

@@ -1,7 +1,7 @@
 {
   "id": "ask",
   "executionKind": "provider",
-  "instructions": "Do not change files. Answer the user's request directly and concisely based on the current workspace.",
+  "instructions": "Do not change files. Answer the user's request directly and concisely based on the current workspace, then choose stop. Choose ask_user only when required information is missing, or error when the request cannot be answered.",
   "writesMemory": ["answer"],
-  "transitionIds": ["continue", "stop", "ask_user", "error"]
+  "transitionIds": ["stop", "ask_user", "error"]
 }

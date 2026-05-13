@@ -25,8 +25,8 @@ Tutorial test:
 
 | Definition | Start step | Purpose |
 | --- | --- | --- |
-| ask | ask | Analysis-oriented responses. |
-| act | act | Implementation and review loop. |
+| ask | ask | One-shot analysis response. |
+| act | act | One-shot implementation action. |
 | requirements | collect_requirements | Requirements to tasks to execution. Default for run. |
 | tasks | produce_tasks | Start at task production and continue execution. |
 

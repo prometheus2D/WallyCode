@@ -1,6 +1,6 @@
 # Ask Workflow
 
-Use ask for analysis-only goals.
+Use ask for one-shot analysis-only goals.
 
 ask is equivalent to running run with workflow ask.
 
@@ -37,17 +37,7 @@ Acceptance criteria:
 Test-Path C:\src\MyRepo\.wallycode\session.json
 ```
 
-## Step 2: Continue if still active
-
-```powershell
-wallycode resume --source C:\src\MyRepo --log --verbose
-```
-
-Acceptance criteria:
-- Exit code is 0.
-- C:\src\MyRepo\.wallycode\session.json still exists.
-
-## Step 3: Respond if blocked
+## Step 2: Respond if blocked
 
 ```powershell
 wallycode respond "Focus on command handlers and workflow transitions." --source C:\src\MyRepo --log --verbose

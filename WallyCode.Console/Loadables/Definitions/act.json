@@ -1,6 +1,6 @@
 {
   "id": "act",
-  "instructions": "Complete implementation requests through an implementation and review loop. Make changes in act, review them in review_changes, and continue until the goal is complete, blocked on user input, or in error.",
+  "instructions": "Complete a single implementation request and return the result. Do not route to review or task-planning steps; choose stop after the action is complete, ask_user only when required information is missing, or error when the action cannot proceed.",
   "startStepName": "act",
-  "stepIds": ["act", "review_changes"]
+  "stepIds": ["act"]
 }

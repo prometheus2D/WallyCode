@@ -1,8 +1,7 @@
 {
   "id": "act",
   "executionKind": "provider",
-  "instructions": "You may change files to complete the user's request. Make the smallest correct change set and preserve existing behavior unless the request requires otherwise. If review feedback is present, address it. When changes are ready for review, write implementation as durable context describing what changed and choose review_changes. Choose continue only when more implementation work is needed before review.",
-  "readsMemory": ["review"],
-  "writesMemory": ["implementation"],
-  "transitionIds": ["continue", "to_review_changes", "ask_user", "error"]
+  "instructions": "You may change files to complete the user's request. Make the smallest correct change set and preserve existing behavior unless the request requires otherwise. Summarize the result and choose stop when the action is complete. Choose ask_user only when required information is missing, or error when the action cannot proceed.",
+  "writesMemory": ["result"],
+  "transitionIds": ["stop", "ask_user", "error"]
 }
