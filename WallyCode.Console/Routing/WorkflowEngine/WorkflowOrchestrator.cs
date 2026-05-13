@@ -77,9 +77,9 @@ internal sealed class WorkflowOrchestrator
         session.IterationCount++;
         session.LastSelectedStep = decision.SelectedStep;
         session.LastSummary = executionResult.Summary;
-        ApplyMemoryUpdates(session, executionResult.MemoryUpdates);
         session.ActiveStepName = decision.NextStepName;
         session.Status = decision.Status;
+        RetainMemoryForNextStep(session, _definition.GetStep(decision.NextStepName), executionResult.MemoryUpdates);
         session.PendingResponses.Clear();
         session.Save(_sessionRoot);
         session.SaveSnapshot(_sessionRoot);
@@ -142,19 +142,37 @@ internal sealed class WorkflowOrchestrator
         };
     }
 
-    private static void ApplyMemoryUpdates(Session session, IReadOnlyDictionary<string, string?> memoryUpdates)
+    private static void RetainMemoryForNextStep(Session session, WorkflowStep nextStep, IReadOnlyDictionary<string, string?> memoryUpdates)
     {
-        foreach (var update in memoryUpdates)
+        var retainedMemory = new Dictionary<string, string>(StringComparer.Ordinal);
+
+        foreach (var key in nextStep.ReadsMemory)
         {
-            if (update.Value is null)
+            if (memoryUpdates.TryGetValue(key, out var updatedValue))
             {
-                session.Memory.Remove(update.Key);
+                if (updatedValue is not null)
+                {
+                    retainedMemory[key] = updatedValue;
+                }
+
+                continue;
             }
-            else
+
+            if (session.Memory.TryGetValue(key, out var existingValue))
             {
-                session.Memory[update.Key] = update.Value;
+                retainedMemory[key] = existingValue;
             }
         }
+
+        foreach (var update in memoryUpdates)
+        {
+            if (update.Value is not null)
+            {
+                retainedMemory[update.Key] = update.Value;
+            }
+        }
+
+        session.Memory = retainedMemory;
     }
 
     private static string LoadGlobalPrompt(string sessionRoot)

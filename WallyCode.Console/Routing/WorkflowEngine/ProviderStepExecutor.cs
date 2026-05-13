@@ -111,7 +111,7 @@ internal sealed class ProviderStepExecutor : IStepExecutor
         {
             sb.AppendLine($"  - {key}");
         }
-        sb.AppendLine("Put durable context for later steps in the optional top-level memory object. Use null to remove a memory key.");
+        sb.AppendLine("Put durable context to retain after this iteration in the optional top-level memory object. Use null to prevent a memory key from being retained.");
     }
 
     private static string FormatMemoryValue(string value)

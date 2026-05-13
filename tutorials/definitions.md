@@ -114,10 +114,12 @@ Provider responses choose selectedStep.
 - error ends with failure state.
 
 Memory behavior:
-- Response memory is merged into session memory.
+- Session memory is replaced after each successful iteration.
+- The retained memory is the current non-null response memory plus existing keys declared by the next step's readsMemory.
+- Previous memory that is not retained this way is cleared before the next prompt is built.
 - Only keys declared in writesMemory are persisted.
 - readsMemory keys are injected into later prompts.
-- Returning null for a memory key removes it.
+- Returning null for a memory key prevents that key from being retained.
 
 Guard behavior:
 - Explicit transition guards are evaluated before model-selected transition routing.

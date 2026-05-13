@@ -74,6 +74,7 @@ flowchart LR
 - Provider steps call the LLM and parse strict JSON: `selectedStep`, `summary`, and optional `memory`.
 - Script steps are deterministic executors for future verification, build, and local command steps.
 - `writesMemory` is enforced by filtering provider or script memory updates before persistence.
+- After each successful iteration, session memory is replaced with the current non-null memory updates plus existing keys declared by the next step's `readsMemory`; unrelated previous memory is cleared.
 - Explicit guarded transitions are evaluated before model-selected transitions.
 - Target-step handoff memory is derived from `writesMemory` and `readsMemory`, so basic artifact readiness does not need custom guard JSON.
 - `continue`, route transitions, `ask_user`, `stop`, and `error` are the externally visible routing vocabulary.
