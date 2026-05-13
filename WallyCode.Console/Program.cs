@@ -39,7 +39,7 @@ internal static class Program
 			settings.AutoVersion = true;
 		});
 
-		var result = parser.ParseArguments<RunCommandOptions, StepCommandOptions, ResumeCommandOptions, AskCommandOptions, ActCommandOptions, ProviderCommandOptions, StatusCommandOptions, RespondCommandOptions, RecoverCommandOptions, LoggingCommandOptions, ShellCommandOptions, SetupCommandOptions>(args);
+		var result = parser.ParseArguments<RunCommandOptions, StepCommandOptions, ResumeCommandOptions, AskCommandOptions, ActCommandOptions, ProviderCommandOptions, StatusCommandOptions, RespondCommandOptions, RecoverCommandOptions, LoggingCommandOptions, ShellCommandOptions, SetupCommandOptions, CleanupCommandOptions>(args);
 
 		try
 		{
@@ -56,6 +56,7 @@ internal static class Program
 				(LoggingCommandOptions options) => new LoggingCommandHandler(logger).ExecuteAsync(options, cancellationToken),
 				(ShellCommandOptions options) => new ShellCommandHandler(options, appDirectoryPath).ExecuteAsync(cancellationToken),
 				(SetupCommandOptions options) => new SetupCommandHandler(providerRegistry, logger, appDirectoryPath).ExecuteAsync(options, cancellationToken),
+				(CleanupCommandOptions options) => new CleanupCommandHandler(logger, appDirectoryPath).ExecuteAsync(options, cancellationToken),
 				errors => Task.FromResult(errors.All(e =>
 					e.Tag == ErrorType.HelpRequestedError
 					|| e.Tag == ErrorType.HelpVerbRequestedError
