@@ -6,12 +6,7 @@ act is equivalent to running run with workflow act.
 
 ## Prerequisites
 
-Recommended: run [Setup and providers](setup.md) first for stable defaults.
-
-If setup is skipped:
-- act still runs.
-- .wallycode session state is created lazily.
-- wallycode.json is created only when a command persists settings.
+Required: run [Setup and providers](setup.md) first for this workspace.
 
 ## Inputs
 
@@ -89,4 +84,3 @@ Acceptance criteria:
 ```powershell
 Test-Path .\.wallycode-dev\session.json
 ```
-

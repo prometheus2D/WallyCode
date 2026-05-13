@@ -4,11 +4,7 @@ Use this tutorial when you want deliberate control over workflow progress.
 
 ## Prerequisites
 
-Recommended: run [Setup and providers](setup.md) first for stable defaults.
-
-If setup is skipped:
-- run, resume, respond, recover, and step still run.
-- .wallycode session state is created lazily.
+Required: run [Setup and providers](setup.md) first for this workspace.
 
 ## Inputs
 
@@ -83,7 +79,7 @@ wallycode recover "Retry with a narrower scope and keep existing routing." --sou
 ```
 
 Acceptance criteria:
-- Command is valid only when session status is error or completed.
+- Command is valid only when session status is terminal.
 - On success, C:\src\MyRepo\.wallycode\archive exists.
 
 ```powershell
@@ -120,4 +116,3 @@ With log and verbose enabled:
 - Prompts and raw provider output are logged.
 - Selected transition and next step are logged.
 - Session snapshots are written to sessions/session-000N.json.
-

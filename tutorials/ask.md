@@ -6,12 +6,7 @@ ask is equivalent to running run with workflow ask.
 
 ## Prerequisites
 
-Recommended: run [Setup and providers](setup.md) first for stable defaults.
-
-If setup is skipped:
-- ask still runs.
-- .wallycode session state is created lazily.
-- wallycode.json is created only when a command persists settings.
+Required: run [Setup and providers](setup.md) first for this workspace.
 
 ## Inputs
 
@@ -60,7 +55,7 @@ wallycode respond "Focus on command handlers and workflow transitions." --source
 
 Acceptance criteria:
 - If the session is blocked, exit code is 0 and session continues.
-- If the session is not blocked, command should explain that no blocked session is waiting.
+- If the session is not blocked, command explains that no blocked session is waiting.
 
 ## Optional: isolate analysis sessions
 
@@ -89,4 +84,3 @@ Acceptance criteria:
 ```powershell
 Test-Path .\.wallycode-dev\session.json
 ```
-

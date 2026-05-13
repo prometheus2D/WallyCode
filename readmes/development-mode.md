@@ -6,9 +6,11 @@ There is no separate devmode verb. Use dotnet run with WallyCode arguments after
 
 ## Prerequisites
 
-Recommended: run [Setup and providers](setup.md) first, or use dotnet run --project WallyCode.Console -- setup for local source builds.
+Required: initialize workspace state before workflow commands.
 
-If setup is skipped, commands still run and create runtime state lazily.
+```powershell
+dotnet run --project WallyCode.Console -- setup --source .
+```
 
 ## Inputs
 
@@ -100,4 +102,4 @@ dotnet run --project WallyCode.Console -- shell --vs-build --log --verbose
 Acceptance criteria:
 - setup --vs-build exits with code 0 when launched from a supported build-output context.
 - shell --vs-build resolves to workspace root and starts normally.
-
+- setup artifacts are read from the resolved workspace root, not from the build output folder.

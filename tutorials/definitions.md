@@ -4,9 +4,7 @@ Use this guide when you want to customize workflow behavior.
 
 ## Prerequisites
 
-Recommended: run [Setup and providers](setup.md) first for stable defaults.
-
-If setup is skipped, run still executes with lazy runtime state creation.
+Required: run [Setup and providers](setup.md) first for this workspace.
 
 ## Inputs
 
@@ -15,9 +13,9 @@ If setup is skipped, run still executes with lazy runtime state creation.
 - Shared transition JSON files.
 
 Key folders:
-- WallyCode.Console/Workflow/Definitions
-- WallyCode.Console/Workflow/Steps
-- WallyCode.Console/Workflow/Transitions
+- WallyCode.Console/Loadables/Definitions
+- WallyCode.Console/Loadables/Steps
+- WallyCode.Console/Loadables/Transitions
 
 Tutorial test:
 - DefinitionsTutorialTests.Workflow_definition_json_validates_and_catalog_compiles_from_workspace_files
@@ -45,7 +43,7 @@ Acceptance criteria:
 
 ## Step 2: Add or edit a workflow definition
 
-Create or edit a JSON file in WallyCode.Console/Workflow/Definitions.
+Create or edit a JSON file in WallyCode.Console/Loadables/Definitions.
 
 Example:
 
@@ -68,7 +66,7 @@ wallycode run "Validate custom definition." requirements_custom --source C:\src\
 
 ## Step 3: Add or edit shared steps
 
-Create or edit JSON in WallyCode.Console/Workflow/Steps.
+Create or edit JSON in WallyCode.Console/Loadables/Steps.
 
 Example:
 
@@ -88,7 +86,7 @@ Acceptance criteria:
 
 ## Step 4: Add or edit transitions
 
-Create or edit JSON in WallyCode.Console/Workflow/Transitions.
+Create or edit JSON in WallyCode.Console/Loadables/Transitions.
 
 Example:
 
@@ -137,4 +135,3 @@ wallycode status --source C:\src\MyRepo
 Acceptance criteria:
 - Both commands exit with code 0.
 - status command prints Session without schema errors.
-

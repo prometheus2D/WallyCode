@@ -4,10 +4,8 @@ Deterministic CLI workflows for getting real progress on a codebase with durable
 
 ## Fastest path to value
 
-Use this when you want results in minutes.
-
 ```powershell
-# 1) Initialize a target repository (--source only needed here)
+# 1) Initialize a target repository
 wallycode setup --source C:\src\MyRepo
 
 # 2) Navigate to that directory
@@ -34,60 +32,60 @@ If still active:
 wallycode resume
 ```
 
-**Optional flags** (all commands above support these):
-- `--log` — Write workflow logs to `.wallycode/logs/`
-- `--verbose` — Include step-by-step output during execution
-- `--memory-root <path>` — Use an alternate session directory (default: `.wallycode`)
-- `--source <path>` — Override the default source path from wallycode.json
-- `--provider <name>` — Override the default provider
-- `--model <name>` — Override the default model
-- `--max-run-iterations <n>` — Limit iterations for this run (default from wallycode.json or 3)
+## Setup model (current behavior)
 
-## Setup and cleanup model
+Setup is required before normal command use in a workspace.
 
-Setup is recommended for predictable defaults, but not required for execution.
+What setup creates:
+- wallycode.json for provider/model/logging/runtime defaults.
+- .wallycode for session and runtime state.
 
-What setup does:
-- Creates wallycode.json to store provider, model, and iteration defaults.
-- Creates .wallycode to store all session state and artifacts.
-- Persists the source path in wallycode.json so future commands don't need `--source` (unless you want to override it).
+Commands that expect initialized setup:
+- run, ask, act, step
+- provider, logging, status, shell
+- recover
 
-Why this matters:
-- Simplicity: After setup, wallycode ask "..." works from that directory with stable defaults.
-- Predictability: Provider and model remain fixed unless overridden.
-- Consistency: Session snapshots, memory, and logs stay under .wallycode.
+Commands that require an existing session:
+- resume
+- respond
 
-If setup was not run:
-- Commands still run.
-- Runtime session state is created lazily under .wallycode.
-- wallycode.json is created only when a command persists settings.
+Notes:
+- There is no global auto-setup on run/ask/act.
+- If setup artifacts are missing, commands fail with an instruction to run setup.
+- setup --vs-build resolves the source workspace root from a bin/Debug or bin/Release launch path.
 
-Starting fresh:
+## Common flags
 
-If you want a clean workspace state, use:
+Command-specific options vary, but these are common on workflow commands:
+- --source <path>
+- --memory-root <path>
+- --log
+- --verbose
+- --max-run-iterations <n>
+- --max-total-iterations <n>
+- --max-step-repeats <n>
+
+## Cleanup
+
+To reset workspace state:
 
 ```powershell
 wallycode cleanup --source C:\src\MyRepo
 ```
 
-This removes wallycode.json and .wallycode. You can recreate defaults with setup immediately after.
-
-Use setup on new repositories when you want pinned defaults. See [tutorials/setup.md](tutorials/setup.md) for the full flow.
+This removes wallycode.json and .wallycode.
 
 ## Mental model
 
-- setup creates project defaults and runtime state.
-- cleanup removes project defaults and runtime state.
-- provider locks in the default backend and model.
-- run starts or continues a durable workflow session.
-- respond unblocks and automatically resumes.
-- resume continues the active session.
+- setup initializes workspace defaults and runtime state.
+- cleanup removes workspace defaults and runtime state.
+- provider and logging update persisted workspace defaults.
+- run/ask/act/step execute workflow logic against initialized workspace state.
+- respond/resume/recover operate on existing session state.
 
 State lives in wallycode.json and .wallycode.
 
 ## Use tutorials for explicit, testable steps
-
-The root README is intentionally minimal. Detailed command-by-command flows, expected outcomes, and testable checks are in the tutorial docs:
 
 - [Tutorials index](tutorials/README.md)
 - [Setup and providers](tutorials/setup.md)
@@ -113,4 +111,3 @@ wallycode recover
 wallycode step
 wallycode shell
 ```
-

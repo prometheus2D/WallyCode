@@ -1,6 +1,6 @@
 # Setup and Providers
 
-Use this tutorial to prepare one repository for WallyCode.
+Use this tutorial to initialize one repository for WallyCode.
 
 ## Inputs
 
@@ -12,10 +12,6 @@ Example values used below:
 - Repo path: C:\src\MyRepo
 - Provider: gh-copilot-claude
 - Model: any model returned by the models command
-
-Tutorial test:
-- SetupTutorialTests.Setup_creates_wallycode_json_and_runtime_folder
-- SetupTutorialTests.Cleanup_removes_wallycode_json_and_runtime_folder
 
 ## Pre-check
 
@@ -48,17 +44,22 @@ If launched from a Visual Studio build output folder, use:
 wallycode setup --vs-build
 ```
 
-To cleanup and regenerate setup artifacts, use --cleanup which removes existing state first:
+Expected behavior for --vs-build:
+- Command must be launched from a path under bin\Debug or bin\Release.
+- WallyCode resolves the workspace root above that output folder.
+- setup artifacts are created at the resolved workspace root, not in the output folder.
+
+## Step 1b: Optional cleanup + regenerate
 
 ```powershell
 wallycode setup --source C:\src\MyRepo --cleanup
 ```
 
 Expected outcome:
-- Removes wallycode.json and .wallycode if they exist.
-- Creates fresh setup artifacts with default values.
+- Removes existing wallycode.json and .wallycode first.
+- Recreates setup artifacts with default values.
 
-## Step 1b: Remove setup artifacts cleanly
+## Step 1c: Remove setup artifacts cleanly
 
 ```powershell
 wallycode cleanup --source C:\src\MyRepo
@@ -171,6 +172,6 @@ Acceptance criteria:
 - Output contains Session: (none) when no session exists.
 
 Follow-up behavior:
-- Future run/ask/act/resume/respond/recover/step commands can omit `--source` and still reuse persisted defaults from wallycode.json when invoked from this workspace.
-- If setup is skipped, commands still run; .wallycode is created lazily and wallycode.json appears only when settings are persisted.
-
+- run/ask/act/step require setup artifacts in the target workspace.
+- provider/logging/status/shell also require initialized setup state.
+- respond/resume/recover require an existing session at the selected memory root.
