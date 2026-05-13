@@ -54,7 +54,7 @@ internal sealed class ProviderCommandHandler
             return 1;
         }
 
-        var settings = ProjectSettings.Load(projectRoot);
+        var settings = ProjectSettings.LoadRequired(projectRoot);
         var provider = _registry.Get(options.Name);
         var catalogEntry = GetOrCreateCatalogEntry(settings, provider);
         var selectedModel = ResolvePreferredModel(catalogEntry, provider);
@@ -73,7 +73,7 @@ internal sealed class ProviderCommandHandler
         _logger.Section("WallyCode Provider");
         _logger.Info($"Initialized source: {projectRoot}");
 
-        var settings = ProjectSettings.Load(projectRoot);
+        var settings = ProjectSettings.LoadRequired(projectRoot);
         var providerName = string.IsNullOrWhiteSpace(options.Name)
             ? settings.Provider
             : options.Name.Trim();
@@ -113,7 +113,7 @@ internal sealed class ProviderCommandHandler
         _logger.Section("WallyCode Provider");
         _logger.Info($"Initialized source: {projectRoot}");
 
-        var settings = ProjectSettings.Load(projectRoot);
+        var settings = ProjectSettings.LoadRequired(projectRoot);
         var providerName = string.IsNullOrWhiteSpace(options.Name)
             ? settings.Provider
             : options.Name.Trim();
@@ -151,7 +151,7 @@ internal sealed class ProviderCommandHandler
         _logger.Section("WallyCode Provider");
         _logger.Info($"Initialized source: {projectRoot}");
 
-        var settings = ProjectSettings.Load(projectRoot);
+        var settings = ProjectSettings.LoadRequired(projectRoot);
         var providerName = string.IsNullOrWhiteSpace(options.Name)
             ? settings.Provider
             : options.Name.Trim();
@@ -182,7 +182,7 @@ internal sealed class ProviderCommandHandler
         _logger.Section("WallyCode Provider");
         _logger.Info($"Initialized source: {projectRoot}");
 
-        var settings = ProjectSettings.Load(projectRoot);
+        var settings = ProjectSettings.LoadRequired(projectRoot);
         var current = _registry.Get(settings.Provider);
 
         foreach (var provider in _registry.All)

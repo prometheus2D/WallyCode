@@ -1,19 +1,22 @@
-# WallyCode Readmes
-
-This folder is retained for backward references.
-
-Canonical tutorial docs now live in ../tutorials.
-
-- [Tutorials index](../tutorials/README.md)
+# WallyCode Tutorials
 
 This folder contains test-oriented tutorials.
 
 Each tutorial now follows the same contract:
 - Step command: exact command to run.
-- Required assertions: explicit checks that must pass.
+- Acceptance criteria: explicit checks that must pass.
 - Artifacts: files or state created/updated by that step.
 
 Use this to drive both manual usage and code-based test scripts.
+
+Matching unit tests live in WallyCode.Console.Tests/Tutorials.
+
+## High-signal conventions
+
+- Treat each command as a state transition.
+- Verify acceptance criteria before moving to the next step.
+- Prefer explicit source and memory-root when reproducing behavior.
+- Tutorial tests use mocked LLM providers to verify request and response contracts deterministically.
 
 ## Read in this order
 
@@ -36,5 +39,6 @@ Use this to drive both manual usage and code-based test scripts.
 ## Test discipline
 
 - Run commands in the order shown.
-- Treat every required assertion as mandatory.
+- Treat every acceptance criterion as mandatory.
 - If one assertion fails, stop and fix before continuing.
+

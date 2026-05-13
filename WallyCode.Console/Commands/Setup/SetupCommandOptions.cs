@@ -11,6 +11,9 @@ internal sealed class SetupCommandOptions
     [Option("vs-build", HelpText = "Resolve the setup target from a standard Visual Studio build output path.")]
     public bool VsBuild { get; set; }
 
-    [Option("force", HelpText = "Recreate setup artifacts even when they already exist.")]
-    public bool Force { get; set; }
+    [Option("cleanup", HelpText = "Runs cleanup first, then recreates setup artifacts.")]
+    public bool Cleanup { get; set; }
+
+    [Option("requires-setup", HelpText = "Indicates if a setup environment is required.")]
+    public bool RequiresSetup { get; set; }
 }

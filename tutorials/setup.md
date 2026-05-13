@@ -14,7 +14,8 @@ Example values used below:
 - Model: any model returned by the models command
 
 Tutorial test:
-- SetupTutorialTests.Save_creates_wallycode_json_and_round_trips_defaults
+- SetupTutorialTests.Setup_creates_wallycode_json_and_runtime_folder
+- SetupTutorialTests.Cleanup_removes_wallycode_json_and_runtime_folder
 
 ## Pre-check
 
@@ -47,14 +48,37 @@ If launched from a Visual Studio build output folder, use:
 wallycode setup --vs-build
 ```
 
-Use force only when you want to regenerate defaults:
+To cleanup and regenerate setup artifacts, use --cleanup which removes existing state first:
 
 ```powershell
-wallycode setup --source C:\src\MyRepo --force
+wallycode setup --source C:\src\MyRepo --cleanup
 ```
 
 Expected outcome:
-- Recreates setup artifacts with default values.
+- Removes wallycode.json and .wallycode if they exist.
+- Creates fresh setup artifacts with default values.
+
+## Step 1b: Remove setup artifacts cleanly
+
+```powershell
+wallycode cleanup --source C:\src\MyRepo
+```
+
+Acceptance criteria:
+- Exit code is 0.
+- C:\src\MyRepo\wallycode.json does not exist.
+- C:\src\MyRepo\.wallycode does not exist.
+
+```powershell
+Test-Path C:\src\MyRepo\wallycode.json
+Test-Path C:\src\MyRepo\.wallycode
+```
+
+Recreate setup state after cleanup:
+
+```powershell
+wallycode setup --source C:\src\MyRepo
+```
 
 ## Step 2: List providers and readiness
 
@@ -148,4 +172,5 @@ Acceptance criteria:
 
 Follow-up behavior:
 - Future run/ask/act/resume/respond/recover/step commands can omit `--source` and still reuse persisted defaults from wallycode.json when invoked from this workspace.
+- If setup is skipped, commands still run; .wallycode is created lazily and wallycode.json appears only when settings are persisted.
 

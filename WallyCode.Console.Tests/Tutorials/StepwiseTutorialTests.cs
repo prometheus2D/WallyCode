@@ -27,6 +27,8 @@ public sealed class StepwiseTutorialTests
         var results = await orchestrator.RunAsync(3, CancellationToken.None);
 
         Assert.Equal(3, results.Count);
+        Assert.Equal(3, provider.Requests.Count);
+        Assert.Contains("Build a CSV importer.", provider.Requests[0].Prompt, StringComparison.Ordinal);
         Assert.True(File.Exists(Session.FilePath(workspace.RuntimeRoot)));
         Assert.True(File.Exists(Session.SnapshotFilePath(workspace.RuntimeRoot, 1)));
         Assert.True(File.Exists(Session.SnapshotFilePath(workspace.RuntimeRoot, 2)));

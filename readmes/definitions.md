@@ -2,6 +2,12 @@
 
 Use this guide when you want to customize workflow behavior.
 
+## Prerequisites
+
+Recommended: run [Setup and providers](setup.md) first for stable defaults.
+
+If setup is skipped, run still executes with lazy runtime state creation.
+
 ## Inputs
 
 - Workflow definition JSON files.
@@ -12,6 +18,10 @@ Key folders:
 - WallyCode.Console/Workflow/Definitions
 - WallyCode.Console/Workflow/Steps
 - WallyCode.Console/Workflow/Transitions
+
+Tutorial test:
+- DefinitionsTutorialTests.Workflow_definition_json_validates_and_catalog_compiles_from_workspace_files
+- TransitionsTutorialTests.Handoff_memory_routes_to_next_step
 
 ## Built-in workflow definitions
 
@@ -29,7 +39,7 @@ wallycode run "Build a CSV importer." requirements --source C:\src\MyRepo --log 
 wallycode run "Implement prepared tasks." tasks --source C:\src\MyRepo --log --verbose
 ```
 
-Required assertions:
+Acceptance criteria:
 - Both commands exit with code 0.
 - status output shows Session with chosen workflow name when active.
 
@@ -48,7 +58,7 @@ Example:
 }
 ```
 
-Required assertions:
+Acceptance criteria:
 - JSON file is valid.
 - run can select the definition id directly.
 
@@ -72,7 +82,7 @@ Example:
 }
 ```
 
-Required assertions:
+Acceptance criteria:
 - JSON file is valid.
 - Any definition referencing this step id can run.
 
@@ -91,7 +101,7 @@ Example:
 }
 ```
 
-Required assertions:
+Acceptance criteria:
 - JSON file is valid.
 - Steps referencing this transition id can route to targetStepName.
 
@@ -124,6 +134,7 @@ wallycode run "Schema smoke test." requirements --source C:\src\MyRepo --max-run
 wallycode status --source C:\src\MyRepo
 ```
 
-Required assertions:
+Acceptance criteria:
 - Both commands exit with code 0.
 - status command prints Session without schema errors.
+

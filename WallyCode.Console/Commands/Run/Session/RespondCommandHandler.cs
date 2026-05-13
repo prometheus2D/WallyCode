@@ -26,7 +26,7 @@ internal sealed class RespondCommandHandler
             throw new InvalidOperationException("A non-empty response is required.");
         }
 
-        var (projectRoot, settings) = ProjectSettings.ResolveProjectContext(options.SourcePath);
+        var (projectRoot, settings) = ProjectSettings.ResolveInitializedProjectContext(options.SourcePath);
         var sessionRoot = ProjectSettings.ResolveSessionRoot(settings, projectRoot, options.MemoryRoot);
         var loggingMode = new LoggingMode
         {

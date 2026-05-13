@@ -266,7 +266,7 @@ internal sealed class WorkflowCatalog
 
     public static WorkflowCatalog LoadFromBaseDirectory()
     {
-        var workflowRoot = Path.Combine(AppContext.BaseDirectory, "Workflow");
+        var workflowRoot = Path.Combine(AppContext.BaseDirectory, "Loadables");
         return LoadFromDirectory(workflowRoot);
     }
 

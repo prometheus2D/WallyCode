@@ -17,7 +17,7 @@ internal sealed class StatusCommandHandler
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        var (projectRoot, settings) = ProjectSettings.ResolveProjectContext(options.SourcePath);
+        var (projectRoot, settings) = ProjectSettings.ResolveInitializedProjectContext(options.SourcePath);
         var sessionRoot = ProjectSettings.ResolveSessionRoot(settings, projectRoot, options.MemoryRoot);
 
         _logger.Section("WallyCode Status");

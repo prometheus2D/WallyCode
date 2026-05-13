@@ -12,7 +12,7 @@ public sealed class DefinitionsTutorialTests
         using var workspace = TutorialTestWorkspace.Create();
         workspace.WriteWorkflowCatalogFromSource();
 
-        var catalog = WorkflowCatalog.LoadFromDirectory(workspace.WorkflowRoot);
+        var catalog = WorkflowCatalog.LoadFromDirectory(workspace.LoadablesRoot);
         var ask = catalog.GetDefinition("ask");
         var act = catalog.GetDefinition("act");
         var requirements = catalog.GetDefinition("requirements");

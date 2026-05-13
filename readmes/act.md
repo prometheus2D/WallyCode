@@ -4,6 +4,15 @@ Use act for implementation goals where file changes are expected.
 
 act is equivalent to running run with workflow act.
 
+## Prerequisites
+
+Recommended: run [Setup and providers](setup.md) first for stable defaults.
+
+If setup is skipped:
+- act still runs.
+- .wallycode session state is created lazily.
+- wallycode.json is created only when a command persists settings.
+
 ## Inputs
 
 - Required to start a new session: prompt text with desired change.
@@ -16,13 +25,16 @@ Example values used below:
 - Repo path: C:\src\MyRepo
 - Isolated memory root: C:\temp\wally-act
 
+Tutorial test:
+- ActTutorialTests.Act_flow_moves_to_review_changes_and_keeps_implementation_context
+
 ## Step 1: Start an implementation session
 
 ```powershell
 wallycode act "Add a setup tutorial README." --source C:\src\MyRepo --log --verbose
 ```
 
-Required assertions:
+Acceptance criteria:
 - Exit code is 0.
 - C:\src\MyRepo\.wallycode\session.json exists.
 
@@ -36,7 +48,7 @@ Test-Path C:\src\MyRepo\.wallycode\session.json
 wallycode resume --source C:\src\MyRepo --log --verbose
 ```
 
-Required assertions:
+Acceptance criteria:
 - Exit code is 0.
 - Session snapshot folder exists after one or more iterations.
 
@@ -50,7 +62,7 @@ Test-Path C:\src\MyRepo\.wallycode\sessions
 wallycode respond "Use the existing command option style." --source C:\src\MyRepo --log --verbose
 ```
 
-Required assertions:
+Acceptance criteria:
 - If blocked, exit code is 0 and run continues.
 - If not blocked, command explains no blocked session is waiting.
 
@@ -60,7 +72,7 @@ Required assertions:
 wallycode act "Fix these code problems: <paste problems here>" --source C:\src\MyRepo --max-run-iterations 40 --log --verbose
 ```
 
-Required assertions:
+Acceptance criteria:
 - Exit code is 0.
 - session.json iterationCount increases compared to before the command.
 
@@ -70,10 +82,11 @@ Required assertions:
 dotnet run --project WallyCode.Console -- act "Update development-mode documentation." --source . --memory-root .wallycode-dev --log --verbose
 ```
 
-Required assertions:
+Acceptance criteria:
 - Exit code is 0.
 - .wallycode-dev\session.json exists in the current repository.
 
 ```powershell
 Test-Path .\.wallycode-dev\session.json
 ```
+

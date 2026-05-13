@@ -144,17 +144,17 @@ internal sealed class ShellCommandHandler
         if (!string.IsNullOrWhiteSpace(_options.SourcePath))
         {
             var explicitRoot = ProjectSettings.ResolveProjectRoot(_options.SourcePath);
-            return (explicitRoot, ProjectSettings.Load(explicitRoot));
+            return (explicitRoot, ProjectSettings.LoadRequired(explicitRoot));
         }
 
         if (_options.VsBuild)
         {
             var resolvedSourcePath = WorkspacePathResolver.ResolveVsBuildWorkspaceRoot(_appDirectoryPath);
             var projectRoot = ProjectSettings.ResolveProjectRoot(resolvedSourcePath);
-            return (projectRoot, ProjectSettings.Load(projectRoot));
+            return (projectRoot, ProjectSettings.LoadRequired(projectRoot));
         }
 
-        return ProjectSettings.ResolveProjectContext(null);
+        return ProjectSettings.ResolveInitializedProjectContext(null);
     }
 
     private void PersistShellDefaults(ProjectSettings settings, string projectRoot, string? effectiveMemoryRoot)
@@ -254,6 +254,7 @@ internal sealed class ShellCommandHandler
             Directory.Delete(sessionRoot, recursive: true);
         }
 
+        Directory.CreateDirectory(sessionRoot);
         _logger.LogAction("Reset memory", $"sessionRoot={sessionRoot}");
         Console.WriteLine($"Reset session state at {sessionRoot}");
         Console.WriteLine("A new session will be created the next time you run wallycode run <prompt> [workflow].");
@@ -261,7 +262,7 @@ internal sealed class ShellCommandHandler
 
     private void PrintStatus(string resolvedSourcePath, string sessionRoot)
     {
-        var settings = ProjectSettings.Load(resolvedSourcePath);
+        var settings = ProjectSettings.LoadRequired(resolvedSourcePath);
         Console.WriteLine($"Source:       {resolvedSourcePath}");
         Console.WriteLine($"Memory root:  {sessionRoot}");
         Console.WriteLine($"Provider:     {settings.Provider}");

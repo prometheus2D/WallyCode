@@ -6,7 +6,12 @@ ask is equivalent to running run with workflow ask.
 
 ## Prerequisites
 
-Run [Setup and providers](setup.md) first. The setup command must create wallycode.json and .wallycode in your target repository.
+Recommended: run [Setup and providers](setup.md) first for stable defaults.
+
+If setup is skipped:
+- ask still runs.
+- .wallycode session state is created lazily.
+- wallycode.json is created only when a command persists settings.
 
 ## Inputs
 

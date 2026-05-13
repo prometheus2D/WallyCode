@@ -23,9 +23,9 @@ internal sealed class TutorialTestWorkspace : IDisposable
 
     public string RuntimeRoot => Path.Combine(_rootPath, ".wallycode");
 
-    public string WorkflowRoot => Path.Combine(_rootPath, "Workflow");
+    public string LoadablesRoot => Path.Combine(_rootPath, "Loadables");
 
-    public static TutorialTestWorkspace Create(bool runSetup = false, bool forceSetup = false)
+    public static TutorialTestWorkspace Create(bool runSetup = false, bool cleanupBeforeSetup = false)
     {
         var rootPath = Path.Combine(Path.GetTempPath(), "WallyCode.Tests", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(rootPath);
@@ -33,18 +33,20 @@ internal sealed class TutorialTestWorkspace : IDisposable
         
         if (runSetup)
         {
-            workspace.RunSetup(force: forceSetup);
+            workspace.RunSetup(cleanup: cleanupBeforeSetup);
         }
         
         return workspace;
     }
 
-    public void RunSetup(string providerName = "test-provider", string defaultModel = "test-model", bool force = false)
+    public void RunSetup(string providerName = "test-provider", string defaultModel = "test-model", bool cleanup = false)
     {
-        var provider = new TestLlmProvider { Name = providerName, DefaultModel = defaultModel };
-        var registry = new ProviderRegistry([provider]);
+        var testProvider = new TestLlmProvider { Name = providerName, DefaultModel = defaultModel };
+        // Include both test provider and the default provider to avoid setup failures
+        var defaultProvider = new TestLlmProvider { Name = "gh-copilot-claude", DefaultModel = "claude-3-sonnet" };
+        var registry = new ProviderRegistry([testProvider, defaultProvider]);
         var handler = new SetupCommandHandler(registry, new AppLogger(), ProjectRoot);
-        handler.ExecuteAsync(new SetupCommandOptions { SourcePath = ProjectRoot, Force = force }, CancellationToken.None).GetAwaiter().GetResult();
+        handler.ExecuteAsync(new SetupCommandOptions { SourcePath = ProjectRoot, Cleanup = cleanup }, CancellationToken.None).GetAwaiter().GetResult();
     }
 
     public void Dispose()
@@ -65,8 +67,8 @@ internal sealed class TutorialTestWorkspace : IDisposable
 
     public void WriteWorkflowCatalogFromSource()
     {
-        var sourceRoot = GetSourceWorkflowRoot();
-        CopyDirectory(sourceRoot, WorkflowRoot);
+        var sourceRoot = GetSourceLoadablesRoot();
+        CopyDirectory(sourceRoot, LoadablesRoot);
     }
 
     public WorkflowDefinition CreateDefinition(string name, string startStepName, params WorkflowStep[] steps)
@@ -84,6 +86,7 @@ internal sealed class TutorialTestWorkspace : IDisposable
 
     public Session CreateSession(WorkflowDefinition definition, string goal, string providerName = "test-provider", string? model = "test-model")
     {
+        Directory.CreateDirectory(RuntimeRoot);
         var session = Session.Start(definition, goal, providerName, model, ProjectRoot);
         session.Save(RuntimeRoot);
         return session;
@@ -101,10 +104,10 @@ internal sealed class TutorialTestWorkspace : IDisposable
         return File.ReadAllText(Path.Combine(_rootPath, relativePath));
     }
 
-    private static string GetSourceWorkflowRoot()
+    private static string GetSourceLoadablesRoot()
     {
         var repositoryRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
-        return Path.Combine(repositoryRoot, "WallyCode.Console", "Workflow");
+        return Path.Combine(repositoryRoot, "WallyCode.Console", "Loadables");
     }
 
     private static void CopyDirectory(string sourcePath, string destinationPath)

@@ -161,6 +161,43 @@ internal sealed class ProjectSettings
         }
     }
 
+    public static ProjectSettings LoadRequired(string projectRoot)
+    {
+        EnsureSetupInitialized(projectRoot);
+        return Load(projectRoot);
+    }
+
+    public static (string ProjectRoot, ProjectSettings Settings) ResolveInitializedProjectContext(string? sourcePath)
+    {
+        if (!string.IsNullOrWhiteSpace(sourcePath))
+        {
+            var explicitRoot = ResolveProjectRoot(sourcePath);
+            EnsureSetupInitialized(explicitRoot);
+            return (explicitRoot, Load(explicitRoot));
+        }
+
+        var currentRoot = ResolveProjectRoot(null);
+        EnsureSetupInitialized(currentRoot);
+
+        var currentSettings = Load(currentRoot);
+        var defaultSourcePath = NormalizeRuntimePath(currentSettings.RuntimeDefaults.SourcePath);
+        if (string.IsNullOrWhiteSpace(defaultSourcePath))
+        {
+            return (currentRoot, currentSettings);
+        }
+
+        try
+        {
+            var preferredRoot = ResolveProjectRoot(defaultSourcePath);
+            EnsureSetupInitialized(preferredRoot);
+            return (preferredRoot, Load(preferredRoot));
+        }
+        catch (DirectoryNotFoundException)
+        {
+            return (currentRoot, currentSettings);
+        }
+    }
+
     public static string GetFilePath(string projectRoot)
     {
         return Path.Combine(projectRoot, "wallycode.json");
@@ -179,7 +216,30 @@ internal sealed class ProjectSettings
             ? settings.RuntimeDefaults.MemoryRoot
             : memoryRoot;
 
-        return ResolveRuntimeRoot(projectRoot, effectiveMemoryRoot);
+        var sessionRoot = ResolveRuntimeRoot(projectRoot, effectiveMemoryRoot);
+        if (!Directory.Exists(sessionRoot))
+        {
+            throw new InvalidOperationException($"Session root does not exist: {sessionRoot}. Run 'wallycode setup --source {projectRoot}' first.");
+        }
+
+        return sessionRoot;
+    }
+
+    private static void EnsureSetupInitialized(string projectRoot)
+    {
+        var settingsPath = GetFilePath(projectRoot);
+        if (!File.Exists(settingsPath))
+        {
+            throw new InvalidOperationException(
+                $"Project is not initialized at '{projectRoot}'. Run 'wallycode setup --source {projectRoot}' first.");
+        }
+
+        var runtimeRoot = ResolveRuntimeRoot(projectRoot, memoryRoot: null);
+        if (!Directory.Exists(runtimeRoot))
+        {
+            throw new InvalidOperationException(
+                $"Project runtime folder is missing at '{runtimeRoot}'. Run 'wallycode setup --source {projectRoot}' first.");
+        }
     }
 
     private static string ResolveProviderName(string? providerName)

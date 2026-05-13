@@ -12,19 +12,19 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Content Include="Workflow\Definitions\**\*">
+    <Content Include="Loadables\Definitions\**\*">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
     </Content>
-    <Content Include="Workflow\Steps\**\*">
+    <Content Include="Loadables\Steps\**\*">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
     </Content>
-    <Content Include="Workflow\Transitions\**\*">
+    <Content Include="Loadables\Transitions\**\*">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
     </Content>
-    <Content Include="Providers\**\*.json">
+    <Content Include="Loadables\Providers\**\*.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
     </Content>

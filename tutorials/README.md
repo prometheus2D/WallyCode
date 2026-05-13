@@ -11,6 +11,13 @@ Use this to drive both manual usage and code-based test scripts.
 
 Matching unit tests live in WallyCode.Console.Tests/Tutorials.
 
+## High-signal conventions
+
+- Treat each command as a state transition.
+- Verify acceptance criteria before moving to the next step.
+- Prefer explicit source and memory-root when reproducing behavior.
+- Tutorial tests use mocked LLM providers to verify request and response contracts deterministically.
+
 ## Read in this order
 
 1. [Setup and providers](setup.md)

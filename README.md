@@ -43,35 +43,41 @@ wallycode resume
 - `--model <name>` — Override the default model
 - `--max-run-iterations <n>` — Limit iterations for this run (default from wallycode.json or 3)
 
-## Setup first: why it matters
+## Setup and cleanup model
 
-The `setup` command is the one-time step that defines your project context.
+Setup is recommended for predictable defaults, but not required for execution.
 
-**What setup does:**
+What setup does:
 - Creates wallycode.json to store provider, model, and iteration defaults.
 - Creates .wallycode to store all session state and artifacts.
 - Persists the source path in wallycode.json so future commands don't need `--source` (unless you want to override it).
 
-**Why this matters:**
-- **Simplicity**: After setup, `wallycode ask "..."` works from that directory; no need to repeat `--source C:\src\MyRepo --provider gh-copilot-claude --model <model>` every time.
-- **Predictability**: All commands use the same provider and model unless explicitly overridden.
-- **Consistency**: Session snapshots, memory, and logs are always in one place (.wallycode) so you can pause, resume, and recover workflows reliably.
+Why this matters:
+- Simplicity: After setup, wallycode ask "..." works from that directory with stable defaults.
+- Predictability: Provider and model remain fixed unless overridden.
+- Consistency: Session snapshots, memory, and logs stay under .wallycode.
 
-**Starting fresh:**
+If setup was not run:
+- Commands still run.
+- Runtime session state is created lazily under .wallycode.
+- wallycode.json is created only when a command persists settings.
 
-If you want to reset to a clean workspace state, use:
+Starting fresh:
+
+If you want a clean workspace state, use:
 
 ```powershell
-wallycode setup --source C:\src\MyRepo --force
+wallycode cleanup --source C:\src\MyRepo
 ```
 
-This deletes and recreates wallycode.json and .wallycode, clearing all previous sessions and state. Useful for testing, troubleshooting, or starting a new workflow iteration.
+This removes wallycode.json and .wallycode. You can recreate defaults with setup immediately after.
 
-Always run setup first on any new repository or when you want to reset your workflow context. See [tutorials/setup.md](tutorials/setup.md) for the step-by-step guide.
+Use setup on new repositories when you want pinned defaults. See [tutorials/setup.md](tutorials/setup.md) for the full flow.
 
 ## Mental model
 
 - setup creates project defaults and runtime state.
+- cleanup removes project defaults and runtime state.
 - provider locks in the default backend and model.
 - run starts or continues a durable workflow session.
 - respond unblocks and automatically resumes.
@@ -95,6 +101,7 @@ The root README is intentionally minimal. Detailed command-by-command flows, exp
 
 ```powershell
 wallycode setup
+wallycode cleanup
 wallycode provider
 wallycode status
 wallycode run

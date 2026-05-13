@@ -2,6 +2,14 @@
 
 Use this tutorial when you want deliberate control over workflow progress.
 
+## Prerequisites
+
+Recommended: run [Setup and providers](setup.md) first for stable defaults.
+
+If setup is skipped:
+- run, resume, respond, recover, and step still run.
+- .wallycode session state is created lazily.
+
 ## Inputs
 
 - Prompt to start session.
@@ -13,13 +21,16 @@ Example values used below:
 - Repo path: C:\src\MyRepo
 - Isolated memory root: C:\temp\wally-tasks
 
+Tutorial test:
+- StepwiseTutorialTests.Requirements_flow_persists_snapshots_across_iterations
+
 ## Step 1: Start a session
 
 ```powershell
 wallycode run "Build a CSV importer." requirements --source C:\src\MyRepo --log --verbose
 ```
 
-Required assertions:
+Acceptance criteria:
 - Exit code is 0.
 - C:\src\MyRepo\.wallycode\session.json exists.
 
@@ -33,7 +44,7 @@ Test-Path C:\src\MyRepo\.wallycode\session.json
 wallycode resume --source C:\src\MyRepo --log --verbose
 ```
 
-Required assertions:
+Acceptance criteria:
 - Exit code is 0.
 - C:\src\MyRepo\.wallycode\sessions exists.
 
@@ -47,7 +58,7 @@ Test-Path C:\src\MyRepo\.wallycode\sessions
 wallycode run "Review repo structure." requirements --max-run-iterations 3 --source C:\src\MyRepo --log --verbose
 ```
 
-Required assertions:
+Acceptance criteria:
 - Exit code is 0.
 - Session remains valid and readable through status command.
 
@@ -61,7 +72,7 @@ wallycode status --source C:\src\MyRepo
 wallycode respond "Use SQLite and keep the API synchronous for now." --source C:\src\MyRepo --log --verbose
 ```
 
-Required assertions:
+Acceptance criteria:
 - If blocked, exit code is 0 and run resumes.
 - If not blocked, command explains no blocked session is waiting.
 
@@ -71,7 +82,7 @@ Required assertions:
 wallycode recover "Retry with a narrower scope and keep existing routing." --source C:\src\MyRepo --log --verbose
 ```
 
-Required assertions:
+Acceptance criteria:
 - Command is valid only when session status is error or completed.
 - On success, C:\src\MyRepo\.wallycode\archive exists.
 
@@ -85,7 +96,7 @@ Test-Path C:\src\MyRepo\.wallycode\archive
 wallycode step "Review the current workspace changes." review_changes --source C:\src\MyRepo --log --verbose
 ```
 
-Required assertions:
+Acceptance criteria:
 - Exit code is 0.
 - Command completes even if no workflow session is active.
 
@@ -95,7 +106,7 @@ Required assertions:
 wallycode run "Try an alternate task flow." tasks --source C:\src\MyRepo --memory-root C:\temp\wally-tasks --log --verbose
 ```
 
-Required assertions:
+Acceptance criteria:
 - Exit code is 0.
 - C:\temp\wally-tasks\session.json exists.
 
@@ -109,3 +120,4 @@ With log and verbose enabled:
 - Prompts and raw provider output are logged.
 - Selected transition and next step are logged.
 - Session snapshots are written to sessions/session-000N.json.
+

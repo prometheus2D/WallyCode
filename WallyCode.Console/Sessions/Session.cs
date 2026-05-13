@@ -65,7 +65,11 @@ internal sealed class Session : SessionBase
             throw new InvalidOperationException("Only completed or error sessions can be archived.");
         }
 
-        Directory.CreateDirectory(rootPath);
+        if (!Directory.Exists(rootPath))
+        {
+            throw new InvalidOperationException($"Session root does not exist: {rootPath}.");
+        }
+
         var archiveRoot = ArchiveRoot(rootPath);
         Directory.CreateDirectory(archiveRoot);
 
@@ -124,7 +128,11 @@ internal sealed class Session : SessionBase
     public void Save(string rootPath)
     {
         Normalize();
-        Directory.CreateDirectory(rootPath);
+        if (!Directory.Exists(rootPath))
+        {
+            throw new InvalidOperationException($"Session root does not exist: {rootPath}.");
+        }
+
         File.WriteAllText(FilePath(rootPath), JsonSerializer.Serialize(this, SessionJson.Default));
     }
 

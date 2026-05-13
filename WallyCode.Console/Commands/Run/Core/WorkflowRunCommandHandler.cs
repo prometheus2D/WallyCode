@@ -23,7 +23,7 @@ internal sealed class WorkflowRunCommandHandler
     public async Task<int> ExecuteAsync(RunCommandOptions options, CancellationToken cancellationToken)
     {
         var requestedPrompt = options.GetRequestedPrompt();
-        var (projectRoot, settings) = ProjectSettings.ResolveProjectContext(options.SourcePath);
+        var (projectRoot, settings) = ProjectSettings.ResolveInitializedProjectContext(options.SourcePath);
         PersistRuntimeDefaults(options, projectRoot, settings);
 
         var maxRunIterations = options.ResolveMaxRunIterations(settings);
@@ -31,7 +31,6 @@ internal sealed class WorkflowRunCommandHandler
         var maxStepRepeats = options.ResolveMaxStepRepeats(settings);
 
         var sessionRoot = ProjectSettings.ResolveSessionRoot(settings, projectRoot, options.MemoryRoot);
-        Directory.CreateDirectory(sessionRoot);
 
         var loggingMode = new LoggingMode
         {

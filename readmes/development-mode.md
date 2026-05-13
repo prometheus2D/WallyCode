@@ -4,6 +4,12 @@ Use development mode when you are editing WallyCode itself and want to run the l
 
 There is no separate devmode verb. Use dotnet run with WallyCode arguments after --.
 
+## Prerequisites
+
+Recommended: run [Setup and providers](setup.md) first, or use dotnet run --project WallyCode.Console -- setup for local source builds.
+
+If setup is skipped, commands still run and create runtime state lazily.
+
 ## Inputs
 
 - Repository root for WallyCode.
@@ -14,13 +20,16 @@ Example values used below:
 - Source path: .
 - Memory root: .wallycode-dev
 
+Tutorial test:
+- DevelopmentModeTutorialTests.Isolated_runtime_root_can_be_resolved_for_local_source_build_workflows
+
 ## Step 1: Run local CLI help
 
 ```powershell
 dotnet run --project WallyCode.Console -- help
 ```
 
-Required assertions:
+Acceptance criteria:
 - Exit code is 0.
 - Output includes the command surface help text.
 
@@ -30,7 +39,7 @@ Required assertions:
 dotnet run --project WallyCode.Console -- setup --source .
 ```
 
-Required assertions:
+Acceptance criteria:
 - Exit code is 0.
 - .\wallycode.json exists.
 - .\.wallycode exists.
@@ -40,6 +49,13 @@ Test-Path .\wallycode.json
 Test-Path .\.wallycode
 ```
 
+Optional clean reset:
+
+```powershell
+dotnet run --project WallyCode.Console -- cleanup --source .
+dotnet run --project WallyCode.Console -- setup --source .
+```
+
 ## Step 3: Run ask and act against this repo
 
 ```powershell
@@ -47,7 +63,7 @@ dotnet run --project WallyCode.Console -- ask "Explain the workflow command surf
 dotnet run --project WallyCode.Console -- act "Update docs for the ask workflow." --source . --memory-root .wallycode-dev --log --verbose
 ```
 
-Required assertions:
+Acceptance criteria:
 - Both commands exit with code 0.
 - .\.wallycode-dev\session.json exists.
 
@@ -61,7 +77,7 @@ Test-Path .\.wallycode-dev\session.json
 dotnet run --project WallyCode.Console -- shell --source . --memory-root .wallycode-dev --log --verbose
 ```
 
-Required assertions:
+Acceptance criteria:
 - Exit code is 0 when shell exits normally.
 - Interactive prompt appears.
 
@@ -81,6 +97,7 @@ dotnet run --project WallyCode.Console -- setup --vs-build
 dotnet run --project WallyCode.Console -- shell --vs-build --log --verbose
 ```
 
-Required assertions:
+Acceptance criteria:
 - setup --vs-build exits with code 0 when launched from a supported build-output context.
 - shell --vs-build resolves to workspace root and starts normally.
+

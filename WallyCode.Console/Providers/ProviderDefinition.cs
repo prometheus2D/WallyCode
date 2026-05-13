@@ -21,7 +21,7 @@ internal sealed class ProviderDefinition
 
     public static IReadOnlyList<ProviderDefinition> LoadAll(string baseDirectory)
     {
-        var providersDirectory = Path.Combine(baseDirectory, "Providers");
+        var providersDirectory = Path.Combine(baseDirectory, "Loadables", "Providers");
 
         if (!Directory.Exists(providersDirectory))
         {

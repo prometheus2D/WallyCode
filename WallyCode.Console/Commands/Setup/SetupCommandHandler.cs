@@ -38,23 +38,29 @@ internal sealed class SetupCommandHandler
         _logger.Section("WallyCode Setup");
         _logger.Info($"Setup target: {targetDirectory}");
 
-        if (options.Force)
+        if (options.Cleanup)
         {
-            ResetSetup(targetDirectory);
-            _logger.Success("Fresh setup complete.");
+            var cleanupHandler = new CleanupCommandHandler(_logger, _appDirectoryPath);
+            cleanupHandler.ExecuteAsync(
+                new CleanupCommandOptions { SourcePath = targetDirectory },
+                cancellationToken).GetAwaiter().GetResult();
+        }
+
+        var createdAny = EnsureSetup(targetDirectory);
+
+        // Enforce setup requirements for commands
+        if (options.RequiresSetup && !Directory.Exists(targetDirectory))
+        {
+            throw new InvalidOperationException("Setup environment is required but not found.");
+        }
+
+        if (createdAny)
+        {
+            _logger.Success("Setup complete.");
         }
         else
         {
-            var createdAny = EnsureSetup(targetDirectory);
-
-            if (createdAny)
-            {
-                _logger.Success("Setup complete.");
-            }
-            else
-            {
-                _logger.Info("Setup already in place.");
-            }
+            _logger.Info("Setup already in place.");
         }
 
         WriteNextCommands(targetDirectory);
@@ -105,26 +111,13 @@ internal sealed class SetupCommandHandler
             createdAny = true;
         }
 
+        // Persist the resolved environment folder in wallycode.json
+        var runtimeDefaults = new RuntimeDefaultsSettings { SourcePath = targetDirectory };
+        // Set RuntimeDefaults and save settings
+        var projectSettings = new ProjectSettings { RuntimeDefaults = runtimeDefaults };
+        projectSettings.Save(targetDirectory);
+
         return createdAny;
-    }
-
-    private void ResetSetup(string targetDirectory)
-    {
-        var settingsPath = ProjectSettings.GetFilePath(targetDirectory);
-        var runtimeDirectoryPath = GetRuntimeDirectoryPath(targetDirectory);
-
-        if (File.Exists(settingsPath))
-        {
-            File.Delete(settingsPath);
-        }
-
-        if (Directory.Exists(runtimeDirectoryPath))
-        {
-            Directory.Delete(runtimeDirectoryPath, recursive: true);
-        }
-
-        WriteDefaultSettings(targetDirectory);
-        Directory.CreateDirectory(runtimeDirectoryPath);
     }
 
     private void WriteDefaultSettings(string targetDirectory)

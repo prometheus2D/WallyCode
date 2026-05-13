@@ -31,6 +31,8 @@ public sealed class ActTutorialTests
         Assert.Equal(SessionStatus.Active, first.Status);
         Assert.Equal("stop", second.SelectedStep);
         Assert.Equal(SessionStatus.Completed, second.Status);
+        Assert.Equal(2, provider.Requests.Count);
+        Assert.Contains("Add a tutorial folder.", provider.Requests[0].Prompt, StringComparison.Ordinal);
 
         var saved = Session.Load(workspace.RuntimeRoot);
         Assert.Equal("changed docs", saved.Memory["implementation"]);

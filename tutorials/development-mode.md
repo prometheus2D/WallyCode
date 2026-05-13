@@ -6,7 +6,9 @@ There is no separate devmode verb. Use dotnet run with WallyCode arguments after
 
 ## Prerequisites
 
-Run [Setup and providers](setup.md) first, or use `dotnet run --project WallyCode.Console -- setup` for local source builds. The setup command must create wallycode.json and .wallycode in your target repository.
+Recommended: run [Setup and providers](setup.md) first, or use dotnet run --project WallyCode.Console -- setup for local source builds.
+
+If setup is skipped, commands still run and create runtime state lazily.
 
 ## Inputs
 
@@ -45,6 +47,13 @@ Acceptance criteria:
 ```powershell
 Test-Path .\wallycode.json
 Test-Path .\.wallycode
+```
+
+Optional clean reset:
+
+```powershell
+dotnet run --project WallyCode.Console -- cleanup --source .
+dotnet run --project WallyCode.Console -- setup --source .
 ```
 
 ## Step 3: Run ask and act against this repo

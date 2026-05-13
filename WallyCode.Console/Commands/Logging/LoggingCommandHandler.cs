@@ -27,7 +27,7 @@ internal sealed class LoggingCommandHandler
         }
 
         var projectRoot = ProjectSettings.ResolveProjectRoot(options.SourcePath);
-        var settings = ProjectSettings.Load(projectRoot);
+        var settings = ProjectSettings.LoadRequired(projectRoot);
 
         if (options.Enable)
         {
