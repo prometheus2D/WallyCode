@@ -17,9 +17,8 @@ Key folders:
 - WallyCode.Console/Loadables/Steps
 - WallyCode.Console/Loadables/Transitions
 
-Tutorial test:
-- DefinitionsTutorialTests.Workflow_definition_json_validates_and_catalog_compiles_from_workspace_files
-- TransitionsTutorialTests.Handoff_memory_routes_to_next_step
+Manual test:
+- Use the runnable commands and acceptance criteria below after editing workflow JSON.
 
 ## Built-in workflow definitions
 
@@ -33,8 +32,8 @@ Tutorial test:
 ## Step 1: Run a specific definition
 
 ```powershell
-wallycode run "Build a CSV importer." requirements --source C:\src\MyRepo --log --verbose
-wallycode run "Implement prepared tasks." tasks --source C:\src\MyRepo --log --verbose
+.\wallycode.exe run "Build a CSV importer." requirements --source C:\src\MyRepo --log --verbose
+.\wallycode.exe run "Implement prepared tasks." tasks --source C:\src\MyRepo --log --verbose
 ```
 
 Acceptance criteria:
@@ -61,7 +60,7 @@ Acceptance criteria:
 - run can select the definition id directly.
 
 ```powershell
-wallycode run "Validate custom definition." requirements_custom --source C:\src\MyRepo --log --verbose
+.\wallycode.exe run "Validate custom definition." requirements_custom --source C:\src\MyRepo --log --verbose
 ```
 
 ## Step 3: Add or edit shared steps
@@ -130,8 +129,8 @@ Guard behavior:
 Run this after any definition/step/transition edit:
 
 ```powershell
-wallycode run "Schema smoke test." requirements --source C:\src\MyRepo --max-run-iterations 1 --log --verbose
-wallycode status --source C:\src\MyRepo
+.\wallycode.exe run "Schema smoke test." requirements --source C:\src\MyRepo --max-run-iterations 1 --log --verbose
+.\wallycode.exe status --source C:\src\MyRepo
 ```
 
 Acceptance criteria:

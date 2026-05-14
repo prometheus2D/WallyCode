@@ -22,8 +22,8 @@ Example values used below:
 - Source path: .
 - Memory root: .wallycode-dev
 
-Tutorial test:
-- DevelopmentModeTutorialTests.Isolated_runtime_root_can_be_resolved_for_local_source_build_workflows
+Manual test:
+- Use the local source-build commands and acceptance criteria below.
 
 ## Step 1: Run local CLI help
 

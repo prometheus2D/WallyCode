@@ -23,7 +23,7 @@ Example values used below:
 ## Step 1: Start an implementation action
 
 ```powershell
-wallycode act "Add a setup tutorial README." --source C:\src\MyRepo --log --verbose
+.\wallycode.exe act "Add a setup tutorial README." --source C:\src\MyRepo --log --verbose
 ```
 
 Acceptance criteria:
@@ -37,7 +37,7 @@ Test-Path C:\src\MyRepo\.wallycode\session.json
 ## Step 2: Respond if blocked
 
 ```powershell
-wallycode respond "Use the existing command option style." --source C:\src\MyRepo --log --verbose
+.\wallycode.exe respond "Use the existing command option style." --source C:\src\MyRepo --log --verbose
 ```
 
 Acceptance criteria:

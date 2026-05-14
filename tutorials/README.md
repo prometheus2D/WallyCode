@@ -9,7 +9,7 @@ Each tutorial now follows the same contract:
 
 Use this to drive both manual usage and code-based test scripts.
 
-Matching unit tests live in WallyCode.Console.Tests/Tutorials.
+Some tutorial flows also have matching unit tests in WallyCode.Console.Tests/Tutorials.
 
 ## Command invocation
 

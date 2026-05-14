@@ -45,7 +45,7 @@ These commands now use the active source, so they can be run from the exe folder
 ```powershell
 .\wallycode.exe provider gh-copilot-claude --set
 .\wallycode.exe provider gh-copilot-claude --models
-.\wallycode.exe provider gh-copilot-claude --model claude-sonnet-4
+.\wallycode.exe provider gh-copilot-claude --model claude-haiku-4.5
 ```
 
 ### 4. Use ask, act, or the workflow loop
