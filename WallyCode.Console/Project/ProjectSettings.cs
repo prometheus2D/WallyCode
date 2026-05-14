@@ -13,9 +13,6 @@ internal sealed class LoggingSettings
 internal sealed class RuntimeDefaultsSettings
 {
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public string? MemoryRoot { get; set; }
-
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public int? MaxRunIterations { get; set; }
 
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
@@ -235,23 +232,17 @@ internal sealed class ProjectSettings
         }
     }
 
-    public static string ResolveRuntimeRoot(string projectRoot, string? memoryRoot)
+    public static string ResolveRuntimeRoot(string projectRoot)
     {
-        return string.IsNullOrWhiteSpace(memoryRoot)
-            ? Path.Combine(projectRoot, ".wallycode")
-            : Path.GetFullPath(memoryRoot);
+        return Path.Combine(projectRoot, ".wallycode");
     }
 
-    public static string ResolveSessionRoot(ProjectSettings settings, string projectRoot, string? memoryRoot)
+    public static string ResolveSessionRoot(string projectRoot)
     {
-        var effectiveMemoryRoot = string.IsNullOrWhiteSpace(memoryRoot)
-            ? settings.RuntimeDefaults.MemoryRoot
-            : memoryRoot;
-
-        var sessionRoot = ResolveRuntimeRoot(projectRoot, effectiveMemoryRoot);
+        var sessionRoot = ResolveRuntimeRoot(projectRoot);
         if (!Directory.Exists(sessionRoot))
         {
-            throw new InvalidOperationException($"Session root does not exist: {sessionRoot}. Run 'wallycode setup --source {projectRoot}' first.");
+            throw new InvalidOperationException($"Session state folder does not exist: {sessionRoot}. Run 'wallycode setup --source {projectRoot}' first.");
         }
 
         return sessionRoot;
@@ -266,7 +257,7 @@ internal sealed class ProjectSettings
                 $"Project is not initialized at '{projectRoot}'. Run 'wallycode setup --source {projectRoot}' first.");
         }
 
-        var runtimeRoot = ResolveRuntimeRoot(projectRoot, memoryRoot: null);
+        var runtimeRoot = ResolveRuntimeRoot(projectRoot);
         if (!Directory.Exists(runtimeRoot))
         {
             throw new InvalidOperationException(
@@ -301,7 +292,6 @@ internal sealed class ProjectSettings
     private static RuntimeDefaultsSettings NormalizeRuntimeDefaults(RuntimeDefaultsSettings? runtimeDefaults)
     {
         var normalized = runtimeDefaults ?? new RuntimeDefaultsSettings();
-        normalized.MemoryRoot = NormalizeRuntimePath(normalized.MemoryRoot);
         normalized.MaxRunIterations = normalized.MaxRunIterations.HasValue && normalized.MaxRunIterations.Value > 0
             ? normalized.MaxRunIterations
             : null;

@@ -2,6 +2,11 @@
 
 Use this tutorial to initialize one repository or new working folder for WallyCode.
 
+## Prerequisites
+
+- A terminal is open in the folder that contains `wallycode.exe`.
+- Replace `C:\src\MyRepo` with a disposable repo or working folder when running this as a user test.
+
 ## Inputs
 
 - Required: target repository or working-folder path.
@@ -11,7 +16,7 @@ Use this tutorial to initialize one repository or new working folder for WallyCo
 Example values used below:
 - Repo path: C:\src\MyRepo
 - Provider: gh-copilot-claude
-- Model: any model returned by the models command
+- Model: claude-haiku-4.5
 
 ## Pre-check
 
@@ -37,6 +42,7 @@ Acceptance criteria:
 Test-Path C:\src\MyRepo
 Test-Path C:\src\MyRepo\wallycode.json
 Test-Path C:\src\MyRepo\.wallycode
+((Get-Content .\wallycode.active.json -Raw | ConvertFrom-Json).activeProjectPath -eq 'C:\src\MyRepo')
 ```
 
 If launched from a Visual Studio build output folder, use:
@@ -79,6 +85,8 @@ Test-Path C:\src\MyRepo\wallycode.json
 Test-Path C:\src\MyRepo\.wallycode
 ```
 
+Expected output for both checks is `False`.
+
 Recreate setup state after cleanup:
 
 ```powershell
@@ -117,7 +125,7 @@ Acceptance criteria:
 
 ```powershell
 .\wallycode.exe provider gh-copilot-claude --models --source C:\src\MyRepo
-.\wallycode.exe provider gh-copilot-claude --model <model-from-previous-list> --source C:\src\MyRepo
+.\wallycode.exe provider gh-copilot-claude --model claude-haiku-4.5 --source C:\src\MyRepo
 ```
 
 Acceptance criteria:
@@ -125,7 +133,7 @@ Acceptance criteria:
 - wallycode.json property model equals the selected model.
 
 ```powershell
-((Get-Content C:\src\MyRepo\wallycode.json -Raw | ConvertFrom-Json).model -eq '<model-from-previous-list>')
+((Get-Content C:\src\MyRepo\wallycode.json -Raw | ConvertFrom-Json).model -eq 'claude-haiku-4.5')
 ```
 
 ## Step 5: Optional workspace logging defaults
@@ -172,13 +180,13 @@ $settings = Get-Content C:\src\MyRepo\wallycode.json -Raw | ConvertFrom-Json
 
 Acceptance criteria:
 - Exit code is 0.
-- Output contains Source:, Memory root:, Provider:, and Model:.
+- Output contains Source:, Provider:, and Model:.
 - Output contains Session: (none) when no session exists.
 
 Follow-up behavior:
 - run/ask/act/step require setup artifacts in the target workspace.
 - provider/logging/status/shell also require initialized setup state.
-- respond/resume/recover require an existing session at the selected memory root.
+- respond/resume/recover require an existing workspace session.
 
 ## Step 7: Use workflows immediately
 
@@ -219,3 +227,8 @@ If requirements are already clear and you want to start at task creation:
 ```powershell
 .\wallycode.exe run "Create tasks for adding score tracking, then implement them." tasks --log --verbose
 ```
+
+Acceptance criteria:
+- Each command exits with code 0.
+- Workflow commands create or update a session under C:\src\MyRepo\.wallycode.
+- If a workflow blocks, `respond` exits with code 0 and resumes the session.

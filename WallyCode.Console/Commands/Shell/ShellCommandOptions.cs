@@ -8,9 +8,6 @@ internal sealed class ShellCommandOptions
     [Option("source", HelpText = "Repo or folder path used as the project root.")]
     public string? SourcePath { get; set; }
 
-    [Option("memory-root", HelpText = "Optional folder for workflow session state.")]
-    public string? MemoryRoot { get; set; }
-
     [Option("vs-build", HelpText = "Resolve the shell source workspace from a standard Visual Studio build output path.")]
     public bool VsBuild { get; set; }
 

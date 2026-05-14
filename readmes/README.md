@@ -2,10 +2,10 @@
 
 This folder contains test-oriented tutorials.
 
-Each tutorial now follows the same contract:
+Each runnable tutorial follows the same contract:
 - Step command: exact command to run.
 - Acceptance criteria: explicit checks that must pass.
-- Artifacts: files or state created/updated by that step.
+- Verification commands or artifacts: files, output, or state to inspect.
 
 Use this to drive both manual usage and code-based test scripts.
 
@@ -15,11 +15,24 @@ Some tutorial flows also have matching unit tests in WallyCode.Console.Tests/Tut
 
 WallyCode is not assumed to be on `PATH` yet. Run examples from the folder that contains `wallycode.exe` using `.\wallycode.exe`, or replace that prefix with the full exe path.
 
+## Manual test defaults
+
+The tutorials use these copy-paste defaults unless a step says otherwise:
+- Repo path: `C:\src\MyRepo`
+- Scratch path: `C:\src\ScratchTicTacToe`
+- Default provider: `gh-copilot-claude`
+- Default model: `claude-haiku-4.5`
+- Session state: `<repo>\.wallycode`
+
+Workflow commands call the configured provider and use the workspace session state.
+
+For a clean rerun, use `setup --cleanup` for the source folder.
+
 ## High-signal conventions
 
 - Treat each command as a state transition.
 - Verify acceptance criteria before moving to the next step.
-- Prefer explicit source and memory-root when reproducing behavior.
+- Prefer explicit source paths when reproducing behavior.
 - Tutorial tests use mocked LLM providers to verify request and response contracts deterministically.
 
 ## Read in this order

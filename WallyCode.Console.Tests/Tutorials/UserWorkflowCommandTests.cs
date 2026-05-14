@@ -1,5 +1,6 @@
 using System.Text.Json;
 using WallyCode.ConsoleApp;
+using WallyCode.ConsoleApp.Commands;
 using WallyCode.ConsoleApp.Copilot;
 using WallyCode.ConsoleApp.Project;
 using WallyCode.ConsoleApp.Sessions;
@@ -11,6 +12,43 @@ namespace WallyCode.ConsoleApp.Tests.Tutorials;
 public sealed class UserWorkflowCommandTests
 {
     private const string CheapestDefaultModel = "claude-haiku-4.5";
+
+    [Fact]
+    public void UserCommandOptionsDoNotExposeMemoryRoot()
+    {
+        var userCommandOptionTypes = new[]
+        {
+            typeof(RunCommandOptions),
+            typeof(AskCommandOptions),
+            typeof(ActCommandOptions),
+            typeof(ResumeCommandOptions),
+            typeof(RespondCommandOptions),
+            typeof(RecoverCommandOptions),
+            typeof(StepCommandOptions),
+            typeof(StatusCommandOptions),
+            typeof(ShellCommandOptions)
+        };
+
+        foreach (var optionType in userCommandOptionTypes)
+        {
+            Assert.DoesNotContain(optionType.GetProperties(), property => property.Name == "MemoryRoot");
+        }
+    }
+
+    [Fact]
+    public async Task MemoryRootOptionIsRejectedOnUserCommandPath()
+    {
+        using var workspace = CommandTestWorkspace.Create();
+        await workspace.RunSetupAsync();
+
+        var alternateStatePath = Path.Combine(workspace.RootPath, "alternate-session-state");
+        var exitCode = await workspace.RunAsync("ask", "What does this project do?", "--memory-root", alternateStatePath);
+
+        Assert.Equal(1, exitCode);
+        Assert.Empty(workspace.Provider.Requests);
+        Assert.False(Directory.Exists(alternateStatePath));
+        Assert.False(Session.Exists(workspace.RuntimeRoot));
+    }
 
     [Fact]
     public async Task SetupCleanupRecreatesStateAndActivePointerWithoutRemovingProjectFiles()

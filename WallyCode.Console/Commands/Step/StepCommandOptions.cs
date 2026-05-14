@@ -29,9 +29,6 @@ internal sealed class StepCommandOptions
     [Option("source", HelpText = "Repo or folder path used as the project root and provider source context.")]
     public string? SourcePath { get; set; }
 
-    [Option("memory-root", HelpText = "Optional folder to read session memory from and store logs in.")]
-    public string? MemoryRoot { get; set; }
-
     [Option("log", HelpText = "Enable transcript logging for this invocation.")]
     public bool Log { get; set; }
 

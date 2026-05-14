@@ -87,6 +87,33 @@ If requirements are already clear and you want to start at task creation, use th
 .\wallycode.exe run "Create tasks for adding score tracking, then implement them." tasks --log --verbose
 ```
 
+## README smoke test
+
+Use this as a quick user test after publishing the exe. Replace `C:\src\MyRepo` with a disposable repo or working folder. These workflow commands call the configured provider, so they use the provider/model from setup; the default provider model is `claude-haiku-4.5`.
+
+For a clean rerun, run the setup command with `--cleanup` again.
+
+```powershell
+.\wallycode.exe setup --source C:\src\MyRepo --cleanup
+.\wallycode.exe status --source C:\src\MyRepo
+.\wallycode.exe provider
+.\wallycode.exe provider gh-copilot-claude --models --source C:\src\MyRepo
+.\wallycode.exe ask "Summarize this repository in one paragraph." --source C:\src\MyRepo --log --verbose
+.\wallycode.exe run "Collect requirements for adding a README smoke-test section." requirements --source C:\src\MyRepo --max-run-iterations 1 --log --verbose
+```
+
+Acceptance criteria:
+- Every command exits with code 0.
+- `status` prints Source:, Provider:, Model:, and Session:.
+- `provider` output includes `gh-copilot-claude` and a readiness status.
+- The ask and requirements commands create or update the workspace session file.
+
+```powershell
+Test-Path C:\src\MyRepo\wallycode.json
+Test-Path C:\src\MyRepo\.wallycode
+Test-Path C:\src\MyRepo\.wallycode\session.json
+```
+
 ## Setup model (current behavior)
 
 Setup is required before normal command use in a workspace.
@@ -115,7 +142,6 @@ Notes:
 
 Command-specific options vary, but these are common on workflow commands:
 - --source <path> to override the active source for a command
-- --memory-root <path>
 - --log
 - --verbose
 - --max-run-iterations <n>

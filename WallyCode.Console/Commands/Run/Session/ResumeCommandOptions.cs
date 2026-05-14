@@ -8,9 +8,6 @@ internal sealed class ResumeCommandOptions
     [Option("source", HelpText = "Repo or folder path used as the project root and provider source context.")]
     public string? SourcePath { get; set; }
 
-    [Option("memory-root", HelpText = "Optional folder for session state.")]
-    public string? MemoryRoot { get; set; }
-
     [Option("max-run-iterations", HelpText = "Maximum workflow step iterations to execute in this invocation.")]
     public int? MaxRunIterations { get; set; }
 
@@ -31,7 +28,6 @@ internal sealed class ResumeCommandOptions
         return new RunCommandOptions
         {
             SourcePath = SourcePath,
-            MemoryRoot = MemoryRoot,
             MaxRunIterations = MaxRunIterations,
             Log = Log,
             Verbose = Verbose,

@@ -12,13 +12,14 @@ Required: run [Setup and providers](setup.md) first for this workspace.
 
 - Required to start a new session: prompt text with desired change.
 - Optional: source path.
-- Optional: memory-root for isolated session state.
 - Optional: provider or model override.
 - Optional: max-run-iterations, max-total-iterations, max-step-repeats.
 
 Example values used below:
 - Repo path: C:\src\MyRepo
-- Isolated memory root: C:\temp\wally-act
+
+Tutorial test:
+- UserWorkflowCommandTests.AskAndActAliasesUseMockProviderThroughUserCommandPath
 
 ## Step 1: Start an implementation action
 
@@ -47,13 +48,13 @@ Acceptance criteria:
 ## Optional: local source-build usage
 
 ```powershell
-dotnet run --project WallyCode.Console -- act "Update development-mode documentation." --source . --memory-root .wallycode-dev --log --verbose
+dotnet run --project WallyCode.Console -- act "Update development-mode documentation." --source . --log --verbose
 ```
 
 Acceptance criteria:
 - Exit code is 0.
-- .wallycode-dev\session.json exists in the current repository.
+- .wallycode\session.json exists in the current repository.
 
 ```powershell
-Test-Path .\.wallycode-dev\session.json
+Test-Path .\.wallycode\session.json
 ```

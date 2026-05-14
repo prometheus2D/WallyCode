@@ -17,6 +17,8 @@ Key folders:
 - WallyCode.Console/Loadables/Steps
 - WallyCode.Console/Loadables/Transitions
 
+When testing a published exe, edit the `Loadables` folder next to `wallycode.exe`. When testing the source build, edit `WallyCode.Console/Loadables` and run with `dotnet run --project WallyCode.Console -- ...`.
+
 Manual test:
 - Use the runnable commands and acceptance criteria below after editing workflow JSON.
 
@@ -32,17 +34,20 @@ Manual test:
 ## Step 1: Run a specific definition
 
 ```powershell
-.\wallycode.exe run "Build a CSV importer." requirements --source C:\src\MyRepo --log --verbose
-.\wallycode.exe run "Implement prepared tasks." tasks --source C:\src\MyRepo --log --verbose
+.\wallycode.exe run "Build a CSV importer." requirements --source C:\src\MyRepo --max-run-iterations 1 --log --verbose
 ```
 
 Acceptance criteria:
-- Both commands exit with code 0.
-- status output shows Session with chosen workflow name when active.
+- Command exits with code 0.
+- C:\src\MyRepo\.wallycode\session.json exists.
+
+```powershell
+Test-Path C:\src\MyRepo\.wallycode\session.json
+```
 
 ## Step 2: Add or edit a workflow definition
 
-Create or edit a JSON file in WallyCode.Console/Loadables/Definitions.
+Create or edit a JSON file in the active `Loadables/Definitions` folder. Save this example as `requirements_custom.json`.
 
 Example:
 
@@ -57,15 +62,19 @@ Example:
 
 Acceptance criteria:
 - JSON file is valid.
-- run can select the definition id directly.
+- run can select the definition id directly from a clean setup state.
 
 ```powershell
-.\wallycode.exe run "Validate custom definition." requirements_custom --source C:\src\MyRepo --log --verbose
+.\wallycode.exe run "Validate custom definition." requirements_custom --source C:\src\MyRepo --max-run-iterations 1 --log --verbose
+```
+
+```powershell
+Test-Path C:\src\MyRepo\.wallycode\session.json
 ```
 
 ## Step 3: Add or edit shared steps
 
-Create or edit JSON in WallyCode.Console/Loadables/Steps.
+Create or edit JSON in the active `Loadables/Steps` folder. Save this example as `collect_requirements_custom.json`.
 
 Example:
 
@@ -85,7 +94,7 @@ Acceptance criteria:
 
 ## Step 4: Add or edit transitions
 
-Create or edit JSON in WallyCode.Console/Loadables/Transitions.
+Create or edit JSON in the active `Loadables/Transitions` folder. Save this example as `to_produce_tasks_custom.json`.
 
 Example:
 
@@ -101,6 +110,7 @@ Example:
 Acceptance criteria:
 - JSON file is valid.
 - Steps referencing this transition id can route to targetStepName.
+- The minimal verification checklist below exits with code 0, which proves the catalog loaded and validated the new JSON.
 
 ## Runtime behavior reference
 

@@ -12,13 +12,11 @@ Required: run [Setup and providers](setup.md) first for this workspace.
 
 - Required to start a new session: prompt text.
 - Optional: source path.
-- Optional: memory-root for isolated session state.
 - Optional: provider or model override.
 - Optional: max-run-iterations, max-total-iterations, max-step-repeats.
 
 Example values used below:
 - Repo path: C:\src\MyRepo
-- Isolated memory root: C:\temp\wally-ask
 
 Tutorial test:
 - UserWorkflowCommandTests.AskAndActAliasesUseMockProviderThroughUserCommandPath
@@ -47,30 +45,16 @@ Acceptance criteria:
 - If the session is blocked, exit code is 0 and session continues.
 - If the session is not blocked, command explains that no blocked session is waiting.
 
-## Optional: isolate analysis sessions
-
-```powershell
-.\wallycode.exe ask "Trace the setup flow." --source C:\src\MyRepo --memory-root C:\temp\wally-ask --log --verbose
-```
-
-Acceptance criteria:
-- Exit code is 0.
-- C:\temp\wally-ask\session.json exists.
-
-```powershell
-Test-Path C:\temp\wally-ask\session.json
-```
-
 ## Optional: local source-build usage
 
 ```powershell
-dotnet run --project WallyCode.Console -- ask "Summarize the command handlers." --source . --memory-root .wallycode-dev --log --verbose
+dotnet run --project WallyCode.Console -- ask "Summarize the command handlers." --source . --log --verbose
 ```
 
 Acceptance criteria:
 - Exit code is 0.
-- .wallycode-dev\session.json exists in the current repository.
+- .wallycode\session.json exists in the current repository.
 
 ```powershell
-Test-Path .\.wallycode-dev\session.json
+Test-Path .\.wallycode\session.json
 ```

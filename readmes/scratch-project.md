@@ -22,7 +22,7 @@ Required:
 Example values used below:
 - Scratch folder: C:\src\ScratchTicTacToe
 - Provider: gh-copilot-claude
-- Model: any model returned by the models command
+- Model: claude-haiku-4.5
 
 ## Step 1: Initialize the new folder
 
@@ -54,7 +54,7 @@ Run this from the exe folder:
 Acceptance criteria:
 - Exit code is 0.
 - Output shows C:\src\ScratchTicTacToe as the active source.
-- Output shows the session root under C:\src\ScratchTicTacToe\.wallycode unless a custom memory root is configured.
+- Output shows session state under C:\src\ScratchTicTacToe\.wallycode.
 
 ## Step 3: Set provider and model
 
@@ -63,7 +63,7 @@ These commands use the active source and do not need `--source`:
 ```powershell
 .\wallycode.exe provider gh-copilot-claude --set
 .\wallycode.exe provider gh-copilot-claude --models
-.\wallycode.exe provider gh-copilot-claude --model <model-from-previous-list>
+.\wallycode.exe provider gh-copilot-claude --model claude-haiku-4.5
 ```
 
 Acceptance criteria:
@@ -73,7 +73,7 @@ Acceptance criteria:
 ```powershell
 $settings = Get-Content C:\src\ScratchTicTacToe\wallycode.json -Raw | ConvertFrom-Json
 ($settings.provider -eq 'gh-copilot-claude')
-($settings.model -eq '<model-from-previous-list>')
+($settings.model -eq 'claude-haiku-4.5')
 ```
 
 ## Step 4: Create a simple program from scratch
@@ -148,6 +148,13 @@ If still active:
 .\wallycode.exe resume --log --verbose
 ```
 
+Verification commands:
+
+```powershell
+.\wallycode.exe status
+Test-Path C:\src\ScratchTicTacToe\.wallycode\session.json
+```
+
 ## Cleanup
 
 To remove WallyCode state from the active scratch folder:
@@ -167,6 +174,8 @@ Test-Path C:\src\ScratchTicTacToe\wallycode.json
 Test-Path C:\src\ScratchTicTacToe\.wallycode
 Test-Path C:\src\ScratchTicTacToe\index.html
 ```
+
+Expected output is `False`, `False`, then `True`.
 
 ## Support notes
 

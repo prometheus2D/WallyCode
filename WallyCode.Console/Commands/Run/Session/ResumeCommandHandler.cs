@@ -21,8 +21,8 @@ internal sealed class ResumeCommandHandler
             throw new InvalidOperationException("Max run iterations must be greater than zero.");
         }
 
-        var (projectRoot, settings) = ProjectSettings.ResolveInitializedProjectContext(options.SourcePath);
-        var sessionRoot = ProjectSettings.ResolveSessionRoot(settings, projectRoot, options.MemoryRoot);
+        var (projectRoot, _) = ProjectSettings.ResolveInitializedProjectContext(options.SourcePath);
+        var sessionRoot = ProjectSettings.ResolveSessionRoot(projectRoot);
 
         if (!Session.Exists(sessionRoot))
         {

@@ -22,7 +22,7 @@ internal sealed class CleanupCommandHandler
 
         var targetDirectory = ResolveTargetDirectory(options);
         var settingsPath = ProjectSettings.GetFilePath(targetDirectory);
-        var runtimeRoot = ProjectSettings.ResolveRuntimeRoot(targetDirectory, memoryRoot: null);
+        var runtimeRoot = ProjectSettings.ResolveRuntimeRoot(targetDirectory);
 
         _logger.Section("WallyCode Cleanup");
         _logger.Info($"Cleanup target: {targetDirectory}");

@@ -26,7 +26,7 @@ internal sealed class RecoverCommandHandler
         }
 
         var (projectRoot, settings) = ProjectSettings.ResolveInitializedProjectContext(options.SourcePath);
-        var sessionRoot = ProjectSettings.ResolveSessionRoot(settings, projectRoot, options.MemoryRoot);
+        var sessionRoot = ProjectSettings.ResolveSessionRoot(projectRoot);
         var loggingMode = new LoggingMode
         {
             Enabled = options.Log || settings.Logging.Enabled,

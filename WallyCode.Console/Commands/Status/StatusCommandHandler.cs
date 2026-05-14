@@ -18,7 +18,7 @@ internal sealed class StatusCommandHandler
         cancellationToken.ThrowIfCancellationRequested();
 
         var (projectRoot, settings) = ProjectSettings.ResolveInitializedProjectContext(options.SourcePath);
-        var sessionRoot = ProjectSettings.ResolveSessionRoot(settings, projectRoot, options.MemoryRoot);
+        var sessionRoot = ProjectSettings.ResolveSessionRoot(projectRoot);
         var activeProjectPath = ProjectSettings.ResolveActiveProjectPath();
         var activeProjectFilePath = ProjectSettings.GetActiveProjectFilePath();
 
@@ -26,10 +26,9 @@ internal sealed class StatusCommandHandler
         _logger.Info($"Source:       {projectRoot}");
         _logger.Info($"Active file:  {activeProjectFilePath}");
         _logger.Info($"Active source: {activeProjectPath ?? "(none)"}");
-        _logger.Info($"Memory root:  {sessionRoot}");
+        _logger.Info($"Session state: {sessionRoot}");
         _logger.Info($"Provider:     {settings.Provider}");
         _logger.Info($"Model:        {settings.Model ?? "(provider default)"}");
-        _logger.Info($"Default memory root:{settings.RuntimeDefaults.MemoryRoot ?? "(none)"}");
         _logger.Info($"Default max-run:    {settings.RuntimeDefaults.MaxRunIterations?.ToString() ?? "(none)"}");
         _logger.Info($"Default max-total:  {settings.RuntimeDefaults.MaxTotalIterations?.ToString() ?? "(none)"}");
         _logger.Info($"Default max-repeat: {settings.RuntimeDefaults.MaxStepRepeats?.ToString() ?? "(none)"}");

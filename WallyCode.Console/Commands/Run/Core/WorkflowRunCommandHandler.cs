@@ -30,7 +30,7 @@ internal sealed class WorkflowRunCommandHandler
         var maxTotalIterations = options.ResolveMaxTotalIterations(settings);
         var maxStepRepeats = options.ResolveMaxStepRepeats(settings);
 
-        var sessionRoot = ProjectSettings.ResolveSessionRoot(settings, projectRoot, options.MemoryRoot);
+        var sessionRoot = ProjectSettings.ResolveSessionRoot(projectRoot);
 
         var loggingMode = new LoggingMode
         {
@@ -57,7 +57,7 @@ internal sealed class WorkflowRunCommandHandler
             if (workflowName != session.WorkflowName)
             {
                 throw new InvalidOperationException(
-                    $"Active session is for workflow '{session.WorkflowName}'. Use --memory-root for a different workflow session.");
+                    $"Active session is for workflow '{session.WorkflowName}'. Use resume to continue it, or clean up the workspace state before starting a different workflow.");
             }
 
             if (Session.IsTerminal(session.Status))
@@ -82,7 +82,7 @@ internal sealed class WorkflowRunCommandHandler
                 if (!string.IsNullOrWhiteSpace(requestedPrompt))
                 {
                     throw new InvalidOperationException(
-                        "An active workflow session already exists. Use resume to continue it, or use --memory-root for a different session.");
+                        "An active workflow session already exists. Use resume to continue it.");
                 }
 
                 definition = WorkflowDefinition.LoadByName(workflowName);
@@ -94,7 +94,7 @@ internal sealed class WorkflowRunCommandHandler
                 _logger.Info($"Start step: {definition.StartStepName}");
                 _logger.Info($"Active step: {session.ActiveStepName}");
                 _logger.Info($"Status: {session.Status}");
-                _logger.Info($"Session root: {sessionRoot}");
+                _logger.Info($"Session state: {sessionRoot}");
 
                 if (session.Status == SessionStatus.Blocked)
                 {
@@ -135,7 +135,7 @@ internal sealed class WorkflowRunCommandHandler
         _logger.Info($"Start step: {definition.StartStepName}");
         _logger.Info($"Active step: {session.ActiveStepName}");
         _logger.Info($"Status: {session.Status}");
-        _logger.Info($"Session root: {sessionRoot}");
+        _logger.Info($"Session state: {sessionRoot}");
 
         await provider.EnsureReadyAsync(cancellationToken);
         _logger.LogAction("Provider ready", $"provider={provider.Name}; model={model ?? "<default>"}", verboseOnly: true);
@@ -243,16 +243,6 @@ internal sealed class WorkflowRunCommandHandler
         if (!string.IsNullOrWhiteSpace(options.SourcePath))
         {
             ProjectSettings.SaveActiveProjectPath(projectRoot);
-        }
-
-        if (!string.IsNullOrWhiteSpace(options.MemoryRoot))
-        {
-            var memoryRoot = Path.GetFullPath(options.MemoryRoot);
-            if (!string.Equals(settings.RuntimeDefaults.MemoryRoot, memoryRoot, StringComparison.Ordinal))
-            {
-                settings.RuntimeDefaults.MemoryRoot = memoryRoot;
-                changed = true;
-            }
         }
 
         if (options.MaxRunIterations.HasValue)

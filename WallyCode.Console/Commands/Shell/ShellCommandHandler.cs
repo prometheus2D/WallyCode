@@ -20,17 +20,14 @@ internal sealed class ShellCommandHandler
 
     public async Task<int> ExecuteAsync(CancellationToken cancellationToken)
     {
-        var (resolvedSourcePath, settings) = ResolveProjectContext();
-        var effectiveMemoryRoot = string.IsNullOrWhiteSpace(_options.MemoryRoot)
-            ? settings.RuntimeDefaults.MemoryRoot
-            : _options.MemoryRoot;
-        var sessionRoot = ProjectSettings.ResolveRuntimeRoot(resolvedSourcePath, effectiveMemoryRoot);
+        var (resolvedSourcePath, _) = ResolveProjectContext();
+        var sessionRoot = ProjectSettings.ResolveRuntimeRoot(resolvedSourcePath);
 
-        PersistShellDefaults(settings, resolvedSourcePath, effectiveMemoryRoot);
+        PersistShellDefaults(resolvedSourcePath);
 
         if (_options.ResetMemory)
         {
-            ResetMemory(resolvedSourcePath, effectiveMemoryRoot);
+            ResetMemory(resolvedSourcePath);
         }
 
         ConfigureShellLogging(sessionRoot);
@@ -49,14 +46,7 @@ internal sealed class ShellCommandHandler
             Console.WriteLine($"Shell initialized with source: {resolvedSourcePath}");
         }
 
-        if (!string.IsNullOrWhiteSpace(effectiveMemoryRoot))
-        {
-            Console.WriteLine($"Shell initialized with memory root: {Path.GetFullPath(effectiveMemoryRoot)}");
-        }
-        else
-        {
-            Console.WriteLine($"Shell using default memory root: {ProjectSettings.ResolveRuntimeRoot(resolvedSourcePath, memoryRoot: null)}");
-        }
+        Console.WriteLine($"Shell using session state: {sessionRoot}");
 
         if (_options.Log)
         {
@@ -108,7 +98,7 @@ internal sealed class ShellCommandHandler
 
             if (string.Equals(args[0], "reset-memory", StringComparison.OrdinalIgnoreCase))
             {
-                ResetMemory(resolvedSourcePath, effectiveMemoryRoot);
+                ResetMemory(resolvedSourcePath);
                 Console.WriteLine();
                 continue;
             }
@@ -120,7 +110,7 @@ internal sealed class ShellCommandHandler
                 continue;
             }
 
-            var effectiveArgs = ApplyShellDefaults(args, resolvedSourcePath, effectiveMemoryRoot);
+            var effectiveArgs = ApplyShellDefaults(args, resolvedSourcePath);
             _logger.LogAction("Executing shell subcommand", string.Join(" ", effectiveArgs), verboseOnly: true);
             await Program.RunAsync(effectiveArgs, cancellationToken, _appDirectoryPath);
             Console.WriteLine();
@@ -157,32 +147,15 @@ internal sealed class ShellCommandHandler
         return ProjectSettings.ResolveInitializedProjectContext(null);
     }
 
-    private void PersistShellDefaults(ProjectSettings settings, string projectRoot, string? effectiveMemoryRoot)
+    private void PersistShellDefaults(string projectRoot)
     {
-        var changed = false;
         if (!string.IsNullOrWhiteSpace(_options.SourcePath) || _options.VsBuild)
         {
             ProjectSettings.SaveActiveProjectPath(projectRoot);
         }
-
-        if (!string.IsNullOrWhiteSpace(_options.MemoryRoot))
-        {
-            var memoryRoot = Path.GetFullPath(_options.MemoryRoot);
-            if (!string.Equals(settings.RuntimeDefaults.MemoryRoot, memoryRoot, StringComparison.Ordinal))
-            {
-                settings.RuntimeDefaults.MemoryRoot = memoryRoot;
-                changed = true;
-            }
-        }
-
-        if (changed)
-        {
-            settings.Save(projectRoot);
-            _logger.LogAction("Saved shell defaults", $"memoryRoot={effectiveMemoryRoot}");
-        }
     }
 
-    private string[] ApplyShellDefaults(string[] args, string resolvedSourcePath, string? effectiveMemoryRoot)
+    private string[] ApplyShellDefaults(string[] args, string resolvedSourcePath)
     {
         var effectiveArgs = args.ToList();
 
@@ -190,14 +163,6 @@ internal sealed class ShellCommandHandler
         {
             effectiveArgs.Add("--source");
             effectiveArgs.Add(resolvedSourcePath);
-        }
-
-        if (SupportsMemoryRoot(args[0])
-            && !HasOption(args, "memory-root")
-            && !string.IsNullOrWhiteSpace(effectiveMemoryRoot))
-        {
-            effectiveArgs.Add("--memory-root");
-            effectiveArgs.Add(effectiveMemoryRoot);
         }
 
         if (SupportsLogging(args[0]) && _options.Log && !HasOption(args, "log"))
@@ -212,17 +177,6 @@ internal sealed class ShellCommandHandler
 
         _logger.LogAction("Applied shell defaults", string.Join(" ", effectiveArgs), verboseOnly: true);
         return effectiveArgs.ToArray();
-    }
-
-    private static bool SupportsMemoryRoot(string commandName)
-    {
-        return string.Equals(commandName, "run", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(commandName, "step", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(commandName, "ask", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(commandName, "act", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(commandName, "respond", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(commandName, "recover", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(commandName, "shell", StringComparison.OrdinalIgnoreCase);
     }
 
     private static bool SupportsLogging(string commandName)
@@ -241,9 +195,9 @@ internal sealed class ShellCommandHandler
         return args.Any(arg => string.Equals(arg, longOption, StringComparison.OrdinalIgnoreCase));
     }
 
-    private void ResetMemory(string resolvedSourcePath, string? memoryRoot)
+    private void ResetMemory(string resolvedSourcePath)
     {
-        var sessionRoot = ProjectSettings.ResolveRuntimeRoot(resolvedSourcePath, memoryRoot);
+        var sessionRoot = ProjectSettings.ResolveRuntimeRoot(resolvedSourcePath);
 
         if (Directory.Exists(sessionRoot))
         {
@@ -260,7 +214,7 @@ internal sealed class ShellCommandHandler
     {
         var settings = ProjectSettings.LoadRequired(resolvedSourcePath);
         Console.WriteLine($"Source:       {resolvedSourcePath}");
-        Console.WriteLine($"Memory root:  {sessionRoot}");
+        Console.WriteLine($"Session state: {sessionRoot}");
         Console.WriteLine($"Provider:     {settings.Provider}");
         Console.WriteLine($"Model:        {settings.Model ?? "(provider default)"}");
 

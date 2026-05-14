@@ -15,12 +15,10 @@ dotnet run --project WallyCode.Console -- setup --source .
 ## Inputs
 
 - Repository root for WallyCode.
-- Optional isolated memory root, typically .wallycode-dev.
 - Optional source path override when running against another repo.
 
 Example values used below:
 - Source path: .
-- Memory root: .wallycode-dev
 
 Manual test:
 - Use the local source-build commands and acceptance criteria below.
@@ -61,22 +59,22 @@ dotnet run --project WallyCode.Console -- setup --source .
 ## Step 3: Run ask and act against this repo
 
 ```powershell
-dotnet run --project WallyCode.Console -- ask "Explain the workflow command surface." --source . --memory-root .wallycode-dev --log --verbose
-dotnet run --project WallyCode.Console -- act "Update docs for the ask workflow." --source . --memory-root .wallycode-dev --log --verbose
+dotnet run --project WallyCode.Console -- ask "Explain the workflow command surface." --source . --log --verbose
+dotnet run --project WallyCode.Console -- act "Update docs for the ask workflow." --source . --log --verbose
 ```
 
 Acceptance criteria:
 - Both commands exit with code 0.
-- .\.wallycode-dev\session.json exists.
+- .\.wallycode\session.json exists.
 
 ```powershell
-Test-Path .\.wallycode-dev\session.json
+Test-Path .\.wallycode\session.json
 ```
 
 ## Step 4: Use shell for repeated commands
 
 ```powershell
-dotnet run --project WallyCode.Console -- shell --source . --memory-root .wallycode-dev --log --verbose
+dotnet run --project WallyCode.Console -- shell --source . --log --verbose
 ```
 
 Acceptance criteria:

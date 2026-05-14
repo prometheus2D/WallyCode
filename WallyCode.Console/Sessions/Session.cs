@@ -67,7 +67,7 @@ internal sealed class Session : SessionBase
 
         if (!Directory.Exists(rootPath))
         {
-            throw new InvalidOperationException($"Session root does not exist: {rootPath}.");
+            throw new InvalidOperationException($"Session state folder does not exist: {rootPath}.");
         }
 
         var archiveRoot = ArchiveRoot(rootPath);
@@ -130,7 +130,7 @@ internal sealed class Session : SessionBase
         Normalize();
         if (!Directory.Exists(rootPath))
         {
-            throw new InvalidOperationException($"Session root does not exist: {rootPath}.");
+            throw new InvalidOperationException($"Session state folder does not exist: {rootPath}.");
         }
 
         File.WriteAllText(FilePath(rootPath), JsonSerializer.Serialize(this, SessionJson.Default));

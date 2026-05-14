@@ -29,7 +29,7 @@ internal sealed class StepCommandHandler
         }
 
         var (projectRoot, settings) = ProjectSettings.ResolveInitializedProjectContext(options.SourcePath);
-        var sessionRoot = ProjectSettings.ResolveSessionRoot(settings, projectRoot, options.MemoryRoot);
+        var sessionRoot = ProjectSettings.ResolveSessionRoot(projectRoot);
 
         var loggingMode = new LoggingMode
         {
@@ -65,7 +65,7 @@ internal sealed class StepCommandHandler
         }
 
         _logger.Info($"Step: {step.Name}");
-        _logger.Info($"Session root: {sessionRoot}");
+        _logger.Info($"Session state: {sessionRoot}");
 
         var executor = ResolveExecutor(step, provider);
         if (string.Equals(step.ExecutionKind, StepExecutionKind.Provider, StringComparison.OrdinalIgnoreCase))
