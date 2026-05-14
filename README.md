@@ -30,6 +30,14 @@ Run setup against the repository WallyCode should operate on:
 
 This creates `C:\src\MyRepo` if needed, adds `wallycode.json` and `.wallycode` inside it, then writes `wallycode.active.json` next to the exe. After that, WallyCode resolves the active source from that file when `--source` is omitted.
 
+For a clean reset when WallyCode state already exists, add `--cleanup`:
+
+```powershell
+.\wallycode.exe setup --source C:\src\MyRepo --cleanup
+```
+
+This removes existing `wallycode.json` and `.wallycode` for that source, recreates them with defaults, and updates `wallycode.active.json` to point at `C:\src\MyRepo`. It does not delete normal project files.
+
 ### 3. Configure provider and model
 
 These commands now use the active source, so they can be run from the exe folder without changing into `C:\src\MyRepo`:
@@ -40,11 +48,25 @@ These commands now use the active source, so they can be run from the exe folder
 .\wallycode.exe provider gh-copilot-claude --model claude-sonnet-4
 ```
 
-### 4. Let WallyCode work
+### 4. Use ask, act, or the workflow loop
+
+Use `ask` for one-shot analysis:
+
+```powershell
+.\wallycode.exe ask "What does this project do?"
+```
+
+Use `act` for one-shot implementation:
+
+```powershell
+.\wallycode.exe act "Add a short README section describing how to run the project."
+```
+
+Use `run` for the multi-step workflow loop. The default `requirements` workflow moves through the three main work phases: requirements collection, task creation, and task execution.
 
 ```powershell
 .\wallycode.exe status
-.\wallycode.exe run "Summarize architecture and propose next actions."
+.\wallycode.exe run "Build a simple browser Tic Tac Toe game with a README." requirements --log --verbose
 ```
 
 If the session blocks, respond from the exe folder:
@@ -57,6 +79,12 @@ If the session is still active, resume it:
 
 ```powershell
 .\wallycode.exe resume
+```
+
+If requirements are already clear and you want to start at task creation, use the `tasks` workflow:
+
+```powershell
+.\wallycode.exe run "Create tasks for adding score tracking, then implement them." tasks --log --verbose
 ```
 
 ## Setup model (current behavior)
@@ -109,7 +137,9 @@ This removes wallycode.json and .wallycode from the active source. If that sourc
 - setup initializes workspace defaults, runtime state, and the exe-local active source pointer.
 - cleanup removes workspace defaults and runtime state. If the cleaned source is active, it also clears the active source pointer.
 - provider and logging update persisted workspace defaults.
-- run/ask/act/step execute workflow logic against initialized workspace state.
+- ask answers one question and stops.
+- act performs one focused action and stops.
+- run starts or continues the workflow loop. The default requirements workflow runs requirements collection, task creation, and task execution.
 - respond/resume/recover operate on existing session state.
 
 Project state lives in wallycode.json and .wallycode. The active project pointer lives in wallycode.active.json next to the exe.

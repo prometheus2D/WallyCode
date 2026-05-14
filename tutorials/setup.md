@@ -179,3 +179,43 @@ Follow-up behavior:
 - run/ask/act/step require setup artifacts in the target workspace.
 - provider/logging/status/shell also require initialized setup state.
 - respond/resume/recover require an existing session at the selected memory root.
+
+## Step 7: Use workflows immediately
+
+After setup writes the active source pointer, these commands can run from the exe folder without repeating `--source`.
+
+Use `ask` for a one-shot question:
+
+```powershell
+.\wallycode.exe ask "What does this project do?"
+```
+
+Use `act` for a one-shot implementation action:
+
+```powershell
+.\wallycode.exe act "Add a short README section describing how to run the project."
+```
+
+Use `run` for the workflow loop. The default `requirements` workflow collects requirements, produces tasks, and executes tasks:
+
+```powershell
+.\wallycode.exe run "Build a simple browser Tic Tac Toe game with a README." requirements --log --verbose
+```
+
+If the session blocks:
+
+```powershell
+.\wallycode.exe respond "Proceed with the simplest browser-only implementation."
+```
+
+If the session is still active:
+
+```powershell
+.\wallycode.exe resume
+```
+
+If requirements are already clear and you want to start at task creation:
+
+```powershell
+.\wallycode.exe run "Create tasks for adding score tracking, then implement them." tasks --log --verbose
+```

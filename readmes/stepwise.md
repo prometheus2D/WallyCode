@@ -1,6 +1,13 @@
-# Stepwise Workflows
+# Stepwise Workflow Loop
 
-Use this tutorial when you want deliberate control over workflow progress.
+Use this tutorial when you want deliberate control over the multi-step workflow loop.
+
+The default `requirements` workflow moves through three work phases:
+- `collect_requirements`: clarify the goal and constraints.
+- `produce_tasks`: turn requirements into concrete tasks.
+- `execute_tasks`: perform the planned work and finish when complete.
+
+The `tasks` workflow starts at task creation when requirements are already clear.
 
 ## Prerequisites
 
@@ -23,7 +30,7 @@ Tutorial test:
 ## Step 1: Start a session
 
 ```powershell
-wallycode run "Build a CSV importer." requirements --source C:\src\MyRepo --log --verbose
+.\wallycode.exe run "Build a CSV importer." requirements --source C:\src\MyRepo --log --verbose
 ```
 
 Acceptance criteria:
@@ -37,7 +44,7 @@ Test-Path C:\src\MyRepo\.wallycode\session.json
 ## Step 2: Continue the same session
 
 ```powershell
-wallycode resume --source C:\src\MyRepo --log --verbose
+.\wallycode.exe resume --source C:\src\MyRepo --log --verbose
 ```
 
 Acceptance criteria:
@@ -51,7 +58,7 @@ Test-Path C:\src\MyRepo\.wallycode\sessions
 ## Step 3: Bound work per invocation
 
 ```powershell
-wallycode run "Review repo structure." requirements --max-run-iterations 3 --source C:\src\MyRepo --log --verbose
+.\wallycode.exe run "Review repo structure." requirements --max-run-iterations 3 --source C:\src\MyRepo --log --verbose
 ```
 
 Acceptance criteria:
@@ -59,13 +66,13 @@ Acceptance criteria:
 - Session remains valid and readable through status command.
 
 ```powershell
-wallycode status --source C:\src\MyRepo
+.\wallycode.exe status --source C:\src\MyRepo
 ```
 
 ## Step 4: Handle blocked sessions
 
 ```powershell
-wallycode respond "Use SQLite and keep the API synchronous for now." --source C:\src\MyRepo --log --verbose
+.\wallycode.exe respond "Use SQLite and keep the API synchronous for now." --source C:\src\MyRepo --log --verbose
 ```
 
 Acceptance criteria:
@@ -75,7 +82,7 @@ Acceptance criteria:
 ## Step 4b: Recover from terminal error state
 
 ```powershell
-wallycode recover "Retry with a narrower scope and keep existing routing." --source C:\src\MyRepo --log --verbose
+.\wallycode.exe recover "Retry with a narrower scope and keep existing routing." --source C:\src\MyRepo --log --verbose
 ```
 
 Acceptance criteria:
@@ -89,7 +96,7 @@ Test-Path C:\src\MyRepo\.wallycode\archive
 ## Step 5: Run a direct shared step
 
 ```powershell
-wallycode step "Review the current workspace changes." review_changes --source C:\src\MyRepo --log --verbose
+.\wallycode.exe step "Review the current workspace changes." review_changes --source C:\src\MyRepo --log --verbose
 ```
 
 Acceptance criteria:
@@ -99,7 +106,7 @@ Acceptance criteria:
 ## Step 6: Isolate experiments
 
 ```powershell
-wallycode run "Try an alternate task flow." tasks --source C:\src\MyRepo --memory-root C:\temp\wally-tasks --log --verbose
+.\wallycode.exe run "Try an alternate task flow." tasks --source C:\src\MyRepo --memory-root C:\temp\wally-tasks --log --verbose
 ```
 
 Acceptance criteria:

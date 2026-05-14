@@ -1,4 +1,3 @@
-using System.Collections.Concurrent;
 using WallyCode.ConsoleApp.Copilot;
 
 namespace WallyCode.ConsoleApp.Tests.Infrastructure;
