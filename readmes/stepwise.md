@@ -25,7 +25,7 @@ Example values used below:
 - Isolated memory root: C:\temp\wally-tasks
 
 Tutorial test:
-- StepwiseTutorialTests.Requirements_flow_persists_snapshots_across_iterations
+- UserWorkflowCommandTests.RequirementsWorkflowLoopsThroughRequirementsTasksAndExecutionWithMockProvider
 
 ## Step 1: Start a session
 

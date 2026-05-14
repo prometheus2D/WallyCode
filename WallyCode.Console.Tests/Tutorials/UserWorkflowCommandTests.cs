@@ -10,6 +10,8 @@ namespace WallyCode.ConsoleApp.Tests.Tutorials;
 
 public sealed class UserWorkflowCommandTests
 {
+    private const string CheapestDefaultModel = "claude-haiku-4.5";
+
     [Fact]
     public async Task SetupCleanupRecreatesStateAndActivePointerWithoutRemovingProjectFiles()
     {
@@ -78,6 +80,7 @@ public sealed class UserWorkflowCommandTests
         Assert.Equal("requirements", afterRequirements.WorkflowName);
         Assert.Equal("produce_tasks", afterRequirements.ActiveStepName);
         Assert.Equal(SessionStatus.Active, afterRequirements.Status);
+        Assert.Equal(CheapestDefaultModel, afterRequirements.Model);
         Assert.Equal("Build browser Tic Tac Toe.", afterRequirements.Memory["requirements"]);
 
         workspace.Provider.RegisterResponse(Response("execute_tasks", "Tasks ready", ("tasks", "Create index.html, styles.css, game.js, and README.md.")));
@@ -102,6 +105,7 @@ public sealed class UserWorkflowCommandTests
         Assert.Equal("stop", completed.LastSelectedStep);
         Assert.Equal("Created the Tic Tac Toe files.", completed.Memory["execution"]);
         Assert.Equal(3, workspace.Provider.Requests.Count);
+        Assert.All(workspace.Provider.Requests, request => Assert.Equal(CheapestDefaultModel, request.Model));
         Assert.Contains("Active step: collect_requirements", workspace.Provider.Requests[0].Prompt);
         Assert.Contains("Active step: produce_tasks", workspace.Provider.Requests[1].Prompt);
         Assert.Contains("requirements: Build browser Tic Tac Toe.", workspace.Provider.Requests[1].Prompt);
@@ -132,8 +136,8 @@ public sealed class UserWorkflowCommandTests
             Provider = new TestLlmProvider
             {
                 Name = ProviderRegistry.DefaultProviderName,
-                DefaultModel = "test-model",
-                SupportedModels = ["test-model"]
+                DefaultModel = CheapestDefaultModel,
+                SupportedModels = [CheapestDefaultModel]
             };
             Registry = new ProviderRegistry([Provider]);
         }
