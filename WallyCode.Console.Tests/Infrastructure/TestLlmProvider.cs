@@ -2,6 +2,7 @@ using WallyCode.ConsoleApp.Copilot;
 
 namespace WallyCode.ConsoleApp.Tests.Infrastructure;
 
+// The only LLM provider test double. Tests should inject this through ProviderRegistry.
 internal sealed class TestLlmProvider : ILlmProvider
 {
     private readonly Queue<Func<CopilotRequest, string>> _responses = new();
@@ -42,7 +43,7 @@ internal sealed class TestLlmProvider : ILlmProvider
 
         if (_responses.Count == 0)
         {
-            throw new InvalidOperationException("No test response was registered for the mock provider.");
+            throw new InvalidOperationException("No test response was registered for TestLlmProvider.");
         }
 
         return Task.FromResult(_responses.Dequeue()(request));
