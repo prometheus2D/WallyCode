@@ -10,4 +10,6 @@ internal sealed class CleanupCommandOptions
 
     [Option("vs-build", HelpText = "Resolve the cleanup target from a standard Visual Studio build output path.")]
     public bool VsBuild { get; set; }
+
+    internal bool PreserveDeployedPayload { get; set; }
 }

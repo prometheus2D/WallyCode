@@ -26,7 +26,8 @@ public sealed class UserWorkflowCommandTests
             typeof(RecoverCommandOptions),
             typeof(StepCommandOptions),
             typeof(StatusCommandOptions),
-            typeof(ShellCommandOptions)
+            typeof(ShellCommandOptions),
+            typeof(DeployCommandOptions)
         };
 
         foreach (var optionType in userCommandOptionTypes)
@@ -48,6 +49,70 @@ public sealed class UserWorkflowCommandTests
         Assert.Empty(workspace.Provider.Requests);
         Assert.False(Directory.Exists(alternateStatePath));
         Assert.False(Session.Exists(workspace.RuntimeRoot));
+    }
+
+    [Fact]
+    public async Task SetupDeployCreatesLocalExecutableAndActivePointerNextToIt()
+    {
+        using var workspace = CommandTestWorkspace.Create();
+        workspace.WriteAppFile("WallyCode.Console.exe", "launcher");
+        workspace.WriteAppFile(Path.Combine("Loadables", "Providers", "test-provider.json"), "{}");
+
+        var exitCode = await workspace.RunAsync("setup", "--source", workspace.ProjectRoot, "--deploy");
+
+        Assert.Equal(0, exitCode);
+        Assert.True(File.Exists(ProjectSettings.GetFilePath(workspace.ProjectRoot)));
+        Assert.True(Directory.Exists(workspace.RuntimeRoot));
+        Assert.Equal("launcher", File.ReadAllText(workspace.DeployedExecutablePath));
+        Assert.True(File.Exists(Path.Combine(workspace.ProjectRoot, "Loadables", "Providers", "test-provider.json")));
+        Assert.Equal(workspace.ProjectRoot, ProjectSettings.ResolveActiveProjectPath(workspace.ProjectRoot));
+        Assert.False(File.Exists(ProjectSettings.GetActiveProjectFilePath(workspace.AppRoot)));
+    }
+
+    [Fact]
+    public async Task DeployCommandRunsSetupWithDeployFlag()
+    {
+        using var workspace = CommandTestWorkspace.Create();
+        workspace.WriteAppFile("wallycode.exe", "local launcher");
+
+        var exitCode = await workspace.RunAsync("deploy", "--source", workspace.ProjectRoot);
+
+        Assert.Equal(0, exitCode);
+        Assert.True(File.Exists(ProjectSettings.GetFilePath(workspace.ProjectRoot)));
+        Assert.True(Directory.Exists(workspace.RuntimeRoot));
+        Assert.Equal("local launcher", File.ReadAllText(workspace.DeployedExecutablePath));
+        Assert.Equal(workspace.ProjectRoot, ProjectSettings.ResolveActiveProjectPath(workspace.ProjectRoot));
+    }
+
+    [Fact]
+    public async Task CleanupRemovesDeployedArtifactsAndSourceLocalActivePointer()
+    {
+        using var workspace = CommandTestWorkspace.Create();
+        workspace.WriteAppFile("WallyCode.Console.exe", "launcher");
+        workspace.WriteAppFile("CommandLine.dll", "runtime");
+        workspace.WriteAppFile("WallyCode.Console.deps.json", "deps");
+        workspace.WriteAppFile("WallyCode.Console.runtimeconfig.json", "runtimeconfig");
+        workspace.WriteAppFile(Path.Combine("Loadables", "Providers", "test-provider.json"), "{}");
+
+        var deployExitCode = await workspace.RunAsync("setup", "--source", workspace.ProjectRoot, "--deploy");
+
+        Assert.Equal(0, deployExitCode);
+        Assert.True(File.Exists(workspace.DeployedExecutablePath));
+        Assert.True(File.Exists(Path.Combine(workspace.ProjectRoot, "CommandLine.dll")));
+        Assert.True(Directory.Exists(Path.Combine(workspace.ProjectRoot, "Loadables")));
+        Assert.True(File.Exists(ProjectSettings.GetActiveProjectFilePath(workspace.ProjectRoot)));
+
+        var cleanupExitCode = await workspace.RunAsync("cleanup", "--source", workspace.ProjectRoot);
+
+        Assert.Equal(0, cleanupExitCode);
+        Assert.False(File.Exists(ProjectSettings.GetFilePath(workspace.ProjectRoot)));
+        Assert.False(Directory.Exists(workspace.RuntimeRoot));
+        Assert.False(File.Exists(workspace.DeployedExecutablePath));
+        Assert.False(File.Exists(Path.Combine(workspace.ProjectRoot, "CommandLine.dll")));
+        Assert.False(File.Exists(Path.Combine(workspace.ProjectRoot, "WallyCode.Console.deps.json")));
+        Assert.False(File.Exists(Path.Combine(workspace.ProjectRoot, "WallyCode.Console.runtimeconfig.json")));
+        Assert.False(Directory.Exists(Path.Combine(workspace.ProjectRoot, "Loadables")));
+        Assert.False(File.Exists(ProjectSettings.GetActiveProjectFilePath(workspace.ProjectRoot)));
     }
 
     [Fact]
@@ -188,6 +253,8 @@ public sealed class UserWorkflowCommandTests
 
         public string RuntimeRoot { get; }
 
+        public string DeployedExecutablePath => Path.Combine(ProjectRoot, "wallycode.exe");
+
         public TestLlmProvider Provider { get; }
 
         public ProviderRegistry Registry { get; }
@@ -206,6 +273,13 @@ public sealed class UserWorkflowCommandTests
         public Task<int> RunAsync(params string[] args)
         {
             return Program.RunAsync(args, CancellationToken.None, AppRoot, Registry);
+        }
+
+        public void WriteAppFile(string relativePath, string content)
+        {
+            var path = Path.Combine(AppRoot, relativePath);
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            File.WriteAllText(path, content);
         }
 
         public void Dispose()

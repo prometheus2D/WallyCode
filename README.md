@@ -38,6 +38,22 @@ For a clean reset when WallyCode state already exists, add `--cleanup`:
 
 This removes existing `wallycode.json` and `.wallycode` for that source, recreates them with defaults, and updates `wallycode.active.json` to point at `C:\src\MyRepo`. It does not delete normal project files.
 
+If that source also has a deployed local `wallycode.exe`, `setup --cleanup` preserves the deployed app payload and only resets workspace state. Use `cleanup` when you want to remove the deployed local executable too.
+
+To deploy a local WallyCode executable into the source folder, add `--deploy` or use the `deploy` command:
+
+```powershell
+.\wallycode.exe setup --source C:\src\MyRepo --deploy
+.\wallycode.exe deploy --source C:\src\MyRepo
+```
+
+Deployment copies a runnable local app payload into `C:\src\MyRepo`, including `wallycode.exe` and required runtime/loadable files, then writes `C:\src\MyRepo\wallycode.active.json`. After deployment, switch to the source folder and run the local exe:
+
+```powershell
+Set-Location C:\src\MyRepo
+.\wallycode.exe status
+```
+
 ### 3. Configure provider and model
 
 These commands now use the active source, so they can be run from the exe folder without changing into `C:\src\MyRepo`:
@@ -122,6 +138,7 @@ What setup creates:
 - wallycode.json for provider/model/logging/runtime defaults.
 - .wallycode for session and runtime state.
 - wallycode.active.json next to the exe, pointing to the active source directory.
+- With --deploy, a local wallycode.exe and required app files in the source folder, plus a source-local active pointer.
 
 Commands that expect initialized setup:
 - run, ask, act, step
@@ -137,6 +154,7 @@ Notes:
 - If setup artifacts are missing, commands fail with an instruction to run setup.
 - When --source is omitted, WallyCode uses wallycode.active.json to find the active initialized source directory.
 - setup --vs-build resolves the source workspace root from a bin/Debug or bin/Release launch path.
+- deploy is equivalent to setup --deploy with the same supported setup flags.
 
 ## Common flags
 
@@ -158,10 +176,13 @@ To reset workspace state:
 
 This removes wallycode.json and .wallycode from the active source. If that source was active, it also clears wallycode.active.json.
 
+If the source contains a deployed local WallyCode executable, cleanup also removes the deployed `wallycode.exe`, copied runtime companion files, copied `Loadables`, and the source-local `wallycode.active.json`.
+
 ## Mental model
 
 - setup initializes workspace defaults, runtime state, and the exe-local active source pointer.
-- cleanup removes workspace defaults and runtime state. If the cleaned source is active, it also clears the active source pointer.
+- deploy runs setup with deployment enabled, placing a local WallyCode executable in the source folder and writing the active pointer next to that local executable.
+- cleanup removes workspace defaults and runtime state. If a local deployment exists, it removes that deployed payload too. If the cleaned source is active, it also clears the active source pointer.
 - provider and logging update persisted workspace defaults.
 - ask answers one question and stops.
 - act performs one focused action and stops.
@@ -185,6 +206,7 @@ Project state lives in wallycode.json and .wallycode. The active project pointer
 
 ```powershell
 .\wallycode.exe setup
+.\wallycode.exe deploy
 .\wallycode.exe cleanup
 .\wallycode.exe provider
 .\wallycode.exe status
