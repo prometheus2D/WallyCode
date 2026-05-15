@@ -45,16 +45,3 @@ Acceptance criteria:
 - If blocked, exit code is 0 and run continues.
 - If not blocked, command explains no blocked session is waiting.
 
-## Optional: local source-build usage
-
-```powershell
-dotnet run --project WallyCode.Console -- act "Update development-mode documentation." --source . --log --verbose
-```
-
-Acceptance criteria:
-- Exit code is 0.
-- .wallycode\session.json exists in the current repository.
-
-```powershell
-Test-Path .\.wallycode\session.json
-```

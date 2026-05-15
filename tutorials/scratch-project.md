@@ -78,7 +78,7 @@ $settings = Get-Content C:\src\ScratchTicTacToe\wallycode.json -Raw | ConvertFro
 
 ## Step 4: Create a simple program from scratch
 
-Use `act` for a focused one-shot scaffold request. This example creates a browser-only Tic Tac Toe program, so it does not need a project template, SDK, package manager, or build command.
+Use `act` for a focused one-shot scaffold request. This example asks WallyCode to create a small browser-only Tic Tac Toe program in the active source folder.
 
 ```powershell
 .\wallycode.exe act "Create a simple browser Tic Tac Toe game from scratch in this folder. Use index.html, styles.css, game.js, and README.md. The game should support two local players, show whose turn it is, detect wins and draws, and include a reset button." --log --verbose

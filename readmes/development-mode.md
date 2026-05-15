@@ -1,85 +1,52 @@
 # Development Mode
 
-Use development mode when you are editing WallyCode itself and want to run the local source build.
+Development mode means running a WallyCode executable from a build-output folder while targeting the source root. This guide assumes the executable already exists; it only covers WallyCode commands.
 
-There is no separate devmode verb. Use dotnet run with WallyCode arguments after --.
+## Step 1: Resolve source root and install locally
 
-## Prerequisites
-
-Required: initialize workspace state before workflow commands.
+From the folder containing the dev-built `wallycode.exe`:
 
 ```powershell
-dotnet run --project WallyCode.Console -- setup --source .
-```
-
-## Inputs
-
-- Repository root for WallyCode.
-- Optional source path override when running against another repo.
-
-Example values used below:
-- Source path: .
-
-Manual test:
-- Use the local source-build commands and acceptance criteria below.
-
-## Step 1: Run local CLI help
-
-```powershell
-dotnet run --project WallyCode.Console -- help
+.\wallycode.exe setup --vs-build --install
 ```
 
 Acceptance criteria:
 - Exit code is 0.
-- Output includes the command surface help text.
+- WallyCode resolves the source root above the build-output folder.
+- The resolved source root contains wallycode.json, .wallycode, wallycode.exe, wallycode.active.json, and wallycode.install.json.
+- The build-output active pointer targets the resolved source root.
 
-## Step 2: Initialize local repo state
+## Step 2: Use the repo-local executable
 
 ```powershell
-dotnet run --project WallyCode.Console -- setup --source .
+Set-Location <resolved-source-root>
+.\wallycode.exe status
+.\wallycode.exe ask "Explain the workflow command surface." --log --verbose
+.\wallycode.exe act "Update docs for the ask workflow." --log --verbose
 ```
 
 Acceptance criteria:
-- Exit code is 0.
-- .\wallycode.json exists.
-- .\.wallycode exists.
+- status prints Source:, Provider:, Model:, and Session:.
+- Workflow commands use .\.wallycode\session.json under the source root.
+
+## Step 3: Reinstall after changing WallyCode
+
+From the build-output folder again:
 
 ```powershell
-Test-Path .\wallycode.json
-Test-Path .\.wallycode
+.\wallycode.exe setup --vs-build --install
 ```
 
-Optional clean reset:
+Expected behavior:
+- Old workspace state is removed and recreated.
+- Old repo-local WallyCode payload is removed before the new payload is copied.
+- Stale installed Loadables are gone.
+
+## Step 4: Repeated commands
 
 ```powershell
-dotnet run --project WallyCode.Console -- cleanup --source .
-dotnet run --project WallyCode.Console -- setup --source .
+.\wallycode.exe shell --source <resolved-source-root> --log --verbose
 ```
-
-## Step 3: Run ask and act against this repo
-
-```powershell
-dotnet run --project WallyCode.Console -- ask "Explain the workflow command surface." --source . --log --verbose
-dotnet run --project WallyCode.Console -- act "Update docs for the ask workflow." --source . --log --verbose
-```
-
-Acceptance criteria:
-- Both commands exit with code 0.
-- .\.wallycode\session.json exists.
-
-```powershell
-Test-Path .\.wallycode\session.json
-```
-
-## Step 4: Use shell for repeated commands
-
-```powershell
-dotnet run --project WallyCode.Console -- shell --source . --log --verbose
-```
-
-Acceptance criteria:
-- Exit code is 0 when shell exits normally.
-- Interactive prompt appears.
 
 Example shell usage:
 
@@ -89,15 +56,3 @@ wallycode> act "Add a focused README section for development mode."
 wallycode> reset-memory
 wallycode> exit
 ```
-
-## Step 5: Optional Visual Studio build output resolution
-
-```powershell
-dotnet run --project WallyCode.Console -- setup --vs-build
-dotnet run --project WallyCode.Console -- shell --vs-build --log --verbose
-```
-
-Acceptance criteria:
-- setup --vs-build exits with code 0 when launched from a supported build-output context.
-- shell --vs-build resolves to workspace root and starts normally.
-- setup artifacts are read from the resolved workspace root, not from the build output folder.

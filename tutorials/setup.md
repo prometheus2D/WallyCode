@@ -1,35 +1,20 @@
 # Setup and Providers
 
-Use this tutorial to initialize one repository or new working folder for WallyCode.
+Use this tutorial to initialize WallyCode state and optionally install a repo-local WallyCode executable payload.
 
-## Prerequisites
+## Invocation
 
-- A terminal is open in the folder that contains `wallycode.exe`.
-- Replace `C:\src\MyRepo` with a disposable repo or working folder when running this as a user test.
+Run commands from the folder containing the source `wallycode.exe`, unless a step switches into an installed repo-local copy. Replace `C:\src\MyRepo` with the target source root.
 
-## Inputs
-
-- Required: target repository or working-folder path.
-- Optional: provider choice and model choice.
-- Optional: logging defaults for that repo.
-- Optional: install or uninstall a local WallyCode executable payload in the target folder.
-
-Example values used below:
+Defaults used below:
 - Repo path: C:\src\MyRepo
 - Provider: gh-copilot-claude
 - Model: claude-haiku-4.5
 
-## Pre-check
-
-Acceptance criteria:
-- The target path is valid for the local machine.
-- The drive or root location exists.
-- The target folder may already exist, but setup can create it if it is missing.
-
-## Step 1: Initialize repo settings
+## Step 1: Full setup and install
 
 ```powershell
-.\wallycode.exe setup --source C:\src\MyRepo
+.\wallycode.exe setup --source C:\src\MyRepo --install
 ```
 
 Acceptance criteria:
@@ -37,28 +22,45 @@ Acceptance criteria:
 - C:\src\MyRepo exists.
 - C:\src\MyRepo\wallycode.json exists.
 - C:\src\MyRepo\.wallycode exists.
-- wallycode.active.json next to the exe points to C:\src\MyRepo.
+- C:\src\MyRepo\wallycode.exe exists.
+- C:\src\MyRepo\wallycode.active.json points to C:\src\MyRepo.
+- C:\src\MyRepo\wallycode.install.json exists.
+- wallycode.active.json next to the source exe also points to C:\src\MyRepo.
 
 ```powershell
 Test-Path C:\src\MyRepo
 Test-Path C:\src\MyRepo\wallycode.json
 Test-Path C:\src\MyRepo\.wallycode
+Test-Path C:\src\MyRepo\wallycode.exe
+Test-Path C:\src\MyRepo\wallycode.install.json
 ((Get-Content .\wallycode.active.json -Raw | ConvertFrom-Json).activeProjectPath -eq 'C:\src\MyRepo')
 ```
 
-If launched from a Visual Studio build output folder, use:
+Dev-build shortcut from a supported build output folder:
 
 ```powershell
-.\wallycode.exe setup --vs-build
+.\wallycode.exe setup --vs-build --install
 ```
 
 Expected behavior for --vs-build:
-- Command must be launched from a path under bin\Debug or bin\Release.
 - WallyCode resolves the workspace root above that output folder.
-- setup artifacts are created at the resolved workspace root, not in the output folder.
-- wallycode.active.json points to the resolved workspace root.
+- setup artifacts and the installed payload are written to the resolved workspace root.
+- wallycode.active.json next to the build-output exe points to the resolved workspace root.
 
-## Step 1b: Optional install local executable
+## Step 1b: Setup only
+
+Use setup without install when the workspace should use a central WallyCode executable instead of a repo-local copy.
+
+```powershell
+.\wallycode.exe setup --source C:\src\MyRepo
+```
+
+Expected outcome:
+- Creates or updates wallycode.json and .wallycode.
+- Updates the active pointer next to the executable you are running.
+- Does not copy wallycode.exe or Loadables into the source root.
+
+## Step 1c: Install only
 
 Install is separate from setup by default. It removes any previous local WallyCode payload in the target folder, copies the current executable payload, and writes a source-local active pointer. It does not create or reset workspace setup state unless you add `--setup`.
 
@@ -68,11 +70,9 @@ Install is separate from setup by default. It removes any previous local WallyCo
 
 Expected outcome:
 - Exit code is 0.
-- Output says install was successful and shows the new executable path.
 - C:\src\MyRepo\wallycode.exe exists.
 - C:\src\MyRepo\wallycode.active.json points to C:\src\MyRepo.
 - C:\src\MyRepo\wallycode.install.json exists.
-- Future commands can run from C:\src\MyRepo with the local `wallycode.exe`.
 - Any stale installed `Loadables` from a previous local install are gone.
 
 ```powershell
@@ -81,7 +81,7 @@ Test-Path C:\src\MyRepo\wallycode.install.json
 ((Get-Content C:\src\MyRepo\wallycode.active.json -Raw | ConvertFrom-Json).activeProjectPath -eq 'C:\src\MyRepo')
 ```
 
-After install, switch to the source folder when using the local executable:
+Use the repo-local executable:
 
 ```powershell
 Set-Location C:\src\MyRepo
@@ -98,21 +98,6 @@ Expected outcome:
 - The local executable payload is freshly installed.
 - wallycode.json and .wallycode are recreated with setup defaults.
 - Any old workspace session state is removed.
-
-## Step 1c: Optional setup + install
-
-Use `setup --install` when the workflow should start from setup but also refresh the local executable payload.
-
-```powershell
-.\wallycode.exe setup --source C:\src\MyRepo --install
-```
-
-Expected outcome:
-- Removes existing wallycode.json and .wallycode first.
-- Recreates setup artifacts with default values.
-- Removes any previous local WallyCode executable payload.
-- Copies the current executable, runtime files, and Loadables into C:\src\MyRepo.
-- Writes C:\src\MyRepo\wallycode.active.json and C:\src\MyRepo\wallycode.install.json.
 
 ## Step 1d: Optional cleanup + regenerate
 

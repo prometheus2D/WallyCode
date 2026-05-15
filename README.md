@@ -2,219 +2,94 @@
 
 Deterministic CLI workflows for getting real progress on a codebase with durable session state.
 
-## Run from the exe folder against any source
+## Fast Path
 
-WallyCode is not assumed to be on `PATH` yet. For now, open a terminal in the folder that contains `wallycode.exe` and run it as `.\wallycode.exe`.
+Open a terminal beside `wallycode.exe`. WallyCode is source-root oriented: `setup` creates workspace state, `install` copies the runnable WallyCode payload into a target, and workflow commands operate on the active source recorded in `wallycode.active.json`.
 
-The exe-local `wallycode.active.json` file remembers the active source directory. That means the command can be launched from the exe folder while WallyCode operates on a different source folder, and normal commands do not need `--source` once setup is complete.
-
-### 1. Build or locate the exe
-
-If you already have a built `wallycode.exe`, open a terminal in that folder. From source, publish the console app to a stable tools folder, then move into that folder:
-
-```powershell
-dotnet publish .\WallyCode.Console\WallyCode.Console.csproj -c Release -o C:\Tools\WallyCode
-Set-Location C:\Tools\WallyCode
-.\wallycode.exe help
-```
-
-All command examples below assume the terminal is still in the folder that contains `wallycode.exe`.
-
-### 2. Initialize the source repo once
-
-Run setup against the repository WallyCode should operate on:
-
-```powershell
-.\wallycode.exe setup --source C:\src\MyRepo
-```
-
-This creates `C:\src\MyRepo` if needed, adds `wallycode.json` and `.wallycode` inside it, then writes `wallycode.active.json` next to the exe. After that, WallyCode resolves the active source from that file when `--source` is omitted.
-
-For a clean reset when WallyCode state already exists, add `--cleanup`:
-
-```powershell
-.\wallycode.exe setup --source C:\src\MyRepo --cleanup
-```
-
-This removes existing `wallycode.json` and `.wallycode` for that source, recreates them with defaults, and updates `wallycode.active.json` to point at `C:\src\MyRepo`. It does not delete normal project files.
-
-By default, setup only manages workspace state. It does not install, uninstall, or update a local executable payload unless you add `--install`.
-
-To reset workspace state and install a fresh local WallyCode executable payload into the same source folder, use:
+Fresh workspace plus local executable:
 
 ```powershell
 .\wallycode.exe setup --source C:\src\MyRepo --install
+Set-Location C:\src\MyRepo
+.\wallycode.exe status
+.\wallycode.exe provider gh-copilot-claude --set
+.\wallycode.exe provider gh-copilot-claude --model claude-haiku-4.5
+.\wallycode.exe run "Collect requirements, produce tasks, then implement the requested change." requirements --log --verbose
 ```
 
-This removes old WallyCode workspace state, removes any previous local app payload tracked in that folder, recreates setup state, then copies the current executable, runtime files, and `Loadables` into `C:\src\MyRepo`.
-
-To install a local WallyCode executable into the source folder, use `install`:
+Dev-build flow from a supported build output folder:
 
 ```powershell
-.\wallycode.exe install --source C:\src\MyRepo
+.\wallycode.exe setup --vs-build --install
+Set-Location <resolved-source-root>
+.\wallycode.exe status
 ```
 
-Install first removes the previous local app payload in `C:\src\MyRepo` when one exists, then copies a runnable payload into that folder, including `wallycode.exe` and required runtime/loadable files. It writes `C:\src\MyRepo\wallycode.active.json` and `C:\src\MyRepo\wallycode.install.json`. Install does not create or reset `wallycode.json` or `.wallycode` unless you add `--setup`:
+Refresh an installed WallyCode payload and reset workspace state:
 
 ```powershell
 .\wallycode.exe install --source C:\src\MyRepo --setup
 ```
 
-After install, switch to the source folder and run the local exe:
-
-```powershell
-Set-Location C:\src\MyRepo
-.\wallycode.exe status
-```
-
-To remove the local executable payload later, use:
+Remove the installed payload:
 
 ```powershell
 .\wallycode.exe uninstall --source C:\src\MyRepo
 ```
 
-Uninstall removes the installed `wallycode.exe`, copied runtime files, copied `Loadables`, source-local active pointer, and install manifest. If you run uninstall from the same directory being uninstalled, WallyCode also removes workspace setup state in that directory and warns that the running application cannot remove itself immediately; locked files are scheduled for removal after exit on Windows.
+## Command Model
 
-### 3. Configure provider and model
+| Command | State touched | Use when |
+| --- | --- | --- |
+| `setup --source <repo>` | Creates/updates `<repo>\wallycode.json`, `<repo>\.wallycode`, and the exe-local active pointer. | You want workspace state only. |
+| `setup --source <repo> --cleanup` | Removes old workspace state first, then recreates it. | You want a clean WallyCode session/runtime state without touching the installed exe. |
+| `setup --source <repo> --install` | Cleans workspace state, recreates it, removes old local payload, then installs the current WallyCode payload into `<repo>`. | Fast full source-workspace setup. Best default for a repo-local WallyCode executable. |
+| `install --source <repo>` | Removes prior local payload, copies `wallycode.exe`, runtime files, `Loadables`, writes `wallycode.active.json` and `wallycode.install.json`. | You want only the local executable payload refreshed. |
+| `install --source <repo> --setup` | Installs payload, then resets workspace state. | You are starting from install but also want fresh setup. |
+| `cleanup --source <repo>` | Removes `wallycode.json` and `.wallycode`; clears the active pointer for the running exe if it points there. | You want workspace state removed, not the installed payload. |
+| `uninstall --source <repo>` | Removes installed payload, copied `Loadables`, source-local active pointer, and install manifest. | You want WallyCode executable files gone from that repo. |
 
-These commands now use the active source, so they can be run from the exe folder without changing into `C:\src\MyRepo`:
+If `uninstall` targets the directory of the running executable, WallyCode also removes workspace state there and warns that locked app files cannot be removed until process exit. On Windows, locked files are scheduled for deferred removal.
 
-```powershell
-.\wallycode.exe provider gh-copilot-claude --set
-.\wallycode.exe provider gh-copilot-claude --models
-.\wallycode.exe provider gh-copilot-claude --model claude-haiku-4.5
-```
+`setup --vs-build` resolves the source root from a supported build-output launch path. Combine it with `--install` to quickly install the current WallyCode payload into the resolved source root.
 
-### 4. Use ask, act, or the workflow loop
+## Workflow Loop
 
-Use `ask` for one-shot analysis:
-
-```powershell
-.\wallycode.exe ask "What does this project do?"
-```
-
-Use `act` for one-shot implementation:
+`run` starts or continues a workflow. The default `requirements` workflow collects requirements, produces tasks, then executes tasks.
 
 ```powershell
-.\wallycode.exe act "Add a short README section describing how to run the project."
-```
-
-Use `run` for the multi-step workflow loop. The default `requirements` workflow moves through the three main work phases: requirements collection, task creation, and task execution.
-
-```powershell
-.\wallycode.exe status
-.\wallycode.exe run "Build a simple browser Tic Tac Toe game with a README." requirements --log --verbose
-```
-
-If the session blocks, respond from the exe folder:
-
-```powershell
-.\wallycode.exe respond "Proceed with docs and routing first."
-```
-
-If the session is still active, resume it:
-
-```powershell
+.\wallycode.exe run "Add score tracking and update the README." requirements --log --verbose
+.\wallycode.exe respond "Prefer the smallest UI change that preserves current behavior."
 .\wallycode.exe resume
 ```
 
-If requirements are already clear and you want to start at task creation, use the `tasks` workflow:
+Use `ask` for one-shot analysis and `act` for one-shot implementation:
 
 ```powershell
-.\wallycode.exe run "Create tasks for adding score tracking, then implement them." tasks --log --verbose
+.\wallycode.exe ask "Summarize the command surface."
+.\wallycode.exe act "Add a setup note for installed WallyCode payloads."
 ```
 
-## README smoke test
+Commands requiring initialized setup: `run`, `ask`, `act`, `step`, `provider`, `logging`, `status`, `shell`, `recover`.
 
-Use this as a quick user test after publishing the exe. Replace `C:\src\MyRepo` with a disposable repo or working folder. These workflow commands call the configured provider, so they use the provider/model from setup; the default provider model is `claude-haiku-4.5`.
+Commands requiring an existing session: `resume`, `respond`.
 
-For a clean rerun, run the setup command with `--cleanup` again.
+Common workflow flags: `--source <path>`, `--log`, `--verbose`, `--max-run-iterations <n>`, `--max-total-iterations <n>`, `--max-step-repeats <n>`.
+
+Project state lives in `wallycode.json` and `.wallycode`. The active source pointer lives in `wallycode.active.json` next to whichever `wallycode.exe` you are running.
+
+## Smoke Path
 
 ```powershell
-.\wallycode.exe setup --source C:\src\MyRepo --cleanup
-.\wallycode.exe status --source C:\src\MyRepo
+.\wallycode.exe setup --source C:\src\MyRepo --install
+Set-Location C:\src\MyRepo
+.\wallycode.exe status
 .\wallycode.exe provider
-.\wallycode.exe provider gh-copilot-claude --models --source C:\src\MyRepo
-.\wallycode.exe ask "Summarize this repository in one paragraph." --source C:\src\MyRepo --log --verbose
-.\wallycode.exe run "Collect requirements for adding a README smoke-test section." requirements --source C:\src\MyRepo --max-run-iterations 1 --log --verbose
+.\wallycode.exe ask "Summarize this repository in one paragraph." --log --verbose
+.\wallycode.exe run "Collect requirements for a small README update." requirements --max-run-iterations 1 --log --verbose
 ```
 
-Acceptance criteria:
-- Every command exits with code 0.
-- `status` prints Source:, Provider:, Model:, and Session:.
-- `provider` output includes `gh-copilot-claude` and a readiness status.
-- The ask and requirements commands create or update the workspace session file.
-
-```powershell
-Test-Path C:\src\MyRepo\wallycode.json
-Test-Path C:\src\MyRepo\.wallycode
-Test-Path C:\src\MyRepo\.wallycode\session.json
-```
-
-## Setup model (current behavior)
-
-Setup is required before normal command use in a workspace.
-
-What setup creates:
-- wallycode.json for provider/model/logging/runtime defaults.
-- .wallycode for session and runtime state.
-- wallycode.active.json next to the exe, pointing to the active source directory.
-
-Commands that expect initialized setup:
-- run, ask, act, step
-- provider, logging, status, shell
-- recover
-
-Commands that require an existing session:
-- resume
-- respond
-
-Notes:
-- There is no global auto-setup on run/ask/act.
-- If setup artifacts are missing, commands fail with an instruction to run setup.
-- When --source is omitted, WallyCode uses wallycode.active.json to find the active initialized source directory.
-- setup --vs-build resolves the source workspace root from a bin/Debug or bin/Release launch path.
-- setup --install resets workspace state and installs a fresh local executable payload into the setup target.
-- install --setup installs a fresh local executable payload, then resets workspace state in that target.
-- install/uninstall manage the local executable payload separately from cleanup.
-
-## Common flags
-
-Command-specific options vary, but these are common on workflow commands:
-- --source <path> to override the active source for a command
-- --log
-- --verbose
-- --max-run-iterations <n>
-- --max-total-iterations <n>
-- --max-step-repeats <n>
-
-## Cleanup
-
-To reset workspace state:
-
-```powershell
-.\wallycode.exe cleanup
-```
-
-This removes wallycode.json and .wallycode from the active source. If that source was active, it also clears wallycode.active.json.
-
-Cleanup does not remove an installed local `wallycode.exe`; use `uninstall` for that.
-
-## Mental model
-
-- setup initializes workspace defaults, runtime state, and the exe-local active source pointer.
-- setup --install initializes workspace state and installs a fresh local WallyCode executable payload in one command.
-- install replaces any previous local WallyCode payload in the source folder and writes the active pointer next to that local executable.
-- install --setup replaces the local payload, then initializes fresh workspace state.
-- uninstall removes the local executable payload and its source-local active pointer. When uninstalling the running app directory, it also removes workspace state and warns that locked app files may be removed after exit.
-- cleanup removes workspace defaults and runtime state. If the cleaned source is active, it also clears the active source pointer for the executable you are running.
-- provider and logging update persisted workspace defaults.
-- ask answers one question and stops.
-- act performs one focused action and stops.
-- run starts or continues the workflow loop. The default requirements workflow runs requirements collection, task creation, and task execution.
-- respond/resume/recover operate on existing session state.
-
-Project state lives in wallycode.json and .wallycode. The active project pointer lives in wallycode.active.json next to the exe.
+Expected artifacts: `wallycode.json`, `.wallycode`, `.wallycode\session.json`, `wallycode.exe`, `wallycode.active.json`, and `wallycode.install.json` in the source root after the commands above.
 
 ## Use tutorials for explicit, testable steps
 

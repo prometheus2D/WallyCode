@@ -12,12 +12,12 @@ Required: run [Setup and providers](setup.md) first for this workspace.
 - Shared step JSON files.
 - Shared transition JSON files.
 
-Key folders:
-- WallyCode.Console/Loadables/Definitions
-- WallyCode.Console/Loadables/Steps
-- WallyCode.Console/Loadables/Transitions
+Active folders:
+- Loadables/Definitions next to the WallyCode executable you are running.
+- Loadables/Steps next to the WallyCode executable you are running.
+- Loadables/Transitions next to the WallyCode executable you are running.
 
-When testing a published exe, edit the `Loadables` folder next to `wallycode.exe`. When testing the source build, edit `WallyCode.Console/Loadables` and run with `dotnet run --project WallyCode.Console -- ...`.
+After editing Loadables in a source executable location, run `setup --source C:\src\MyRepo --install` or `setup --vs-build --install` to refresh the repo-local payload before testing.
 
 Manual test:
 - Use the runnable commands and acceptance criteria below after editing workflow JSON.
