@@ -38,21 +38,42 @@ For a clean reset when WallyCode state already exists, add `--cleanup`:
 
 This removes existing `wallycode.json` and `.wallycode` for that source, recreates them with defaults, and updates `wallycode.active.json` to point at `C:\src\MyRepo`. It does not delete normal project files.
 
-If that source also has a deployed local `wallycode.exe`, `setup --cleanup` preserves the deployed app payload and only resets workspace state. Use `cleanup` when you want to remove the deployed local executable too.
+By default, setup only manages workspace state. It does not install, uninstall, or update a local executable payload unless you add `--install`.
 
-To deploy a local WallyCode executable into the source folder, add `--deploy` or use the `deploy` command:
+To reset workspace state and install a fresh local WallyCode executable payload into the same source folder, use:
 
 ```powershell
-.\wallycode.exe setup --source C:\src\MyRepo --deploy
-.\wallycode.exe deploy --source C:\src\MyRepo
+.\wallycode.exe setup --source C:\src\MyRepo --install
 ```
 
-Deployment copies a runnable local app payload into `C:\src\MyRepo`, including `wallycode.exe` and required runtime/loadable files, then writes `C:\src\MyRepo\wallycode.active.json`. After deployment, switch to the source folder and run the local exe:
+This removes old WallyCode workspace state, removes any previous local app payload tracked in that folder, recreates setup state, then copies the current executable, runtime files, and `Loadables` into `C:\src\MyRepo`.
+
+To install a local WallyCode executable into the source folder, use `install`:
+
+```powershell
+.\wallycode.exe install --source C:\src\MyRepo
+```
+
+Install first removes the previous local app payload in `C:\src\MyRepo` when one exists, then copies a runnable payload into that folder, including `wallycode.exe` and required runtime/loadable files. It writes `C:\src\MyRepo\wallycode.active.json` and `C:\src\MyRepo\wallycode.install.json`. Install does not create or reset `wallycode.json` or `.wallycode` unless you add `--setup`:
+
+```powershell
+.\wallycode.exe install --source C:\src\MyRepo --setup
+```
+
+After install, switch to the source folder and run the local exe:
 
 ```powershell
 Set-Location C:\src\MyRepo
 .\wallycode.exe status
 ```
+
+To remove the local executable payload later, use:
+
+```powershell
+.\wallycode.exe uninstall --source C:\src\MyRepo
+```
+
+Uninstall removes the installed `wallycode.exe`, copied runtime files, copied `Loadables`, source-local active pointer, and install manifest. If you run uninstall from the same directory being uninstalled, WallyCode also removes workspace setup state in that directory and warns that the running application cannot remove itself immediately; locked files are scheduled for removal after exit on Windows.
 
 ### 3. Configure provider and model
 
@@ -138,7 +159,6 @@ What setup creates:
 - wallycode.json for provider/model/logging/runtime defaults.
 - .wallycode for session and runtime state.
 - wallycode.active.json next to the exe, pointing to the active source directory.
-- With --deploy, a local wallycode.exe and required app files in the source folder, plus a source-local active pointer.
 
 Commands that expect initialized setup:
 - run, ask, act, step
@@ -154,7 +174,9 @@ Notes:
 - If setup artifacts are missing, commands fail with an instruction to run setup.
 - When --source is omitted, WallyCode uses wallycode.active.json to find the active initialized source directory.
 - setup --vs-build resolves the source workspace root from a bin/Debug or bin/Release launch path.
-- deploy is equivalent to setup --deploy with the same supported setup flags.
+- setup --install resets workspace state and installs a fresh local executable payload into the setup target.
+- install --setup installs a fresh local executable payload, then resets workspace state in that target.
+- install/uninstall manage the local executable payload separately from cleanup.
 
 ## Common flags
 
@@ -176,13 +198,16 @@ To reset workspace state:
 
 This removes wallycode.json and .wallycode from the active source. If that source was active, it also clears wallycode.active.json.
 
-If the source contains a deployed local WallyCode executable, cleanup also removes the deployed `wallycode.exe`, copied runtime companion files, copied `Loadables`, and the source-local `wallycode.active.json`.
+Cleanup does not remove an installed local `wallycode.exe`; use `uninstall` for that.
 
 ## Mental model
 
 - setup initializes workspace defaults, runtime state, and the exe-local active source pointer.
-- deploy runs setup with deployment enabled, placing a local WallyCode executable in the source folder and writing the active pointer next to that local executable.
-- cleanup removes workspace defaults and runtime state. If a local deployment exists, it removes that deployed payload too. If the cleaned source is active, it also clears the active source pointer.
+- setup --install initializes workspace state and installs a fresh local WallyCode executable payload in one command.
+- install replaces any previous local WallyCode payload in the source folder and writes the active pointer next to that local executable.
+- install --setup replaces the local payload, then initializes fresh workspace state.
+- uninstall removes the local executable payload and its source-local active pointer. When uninstalling the running app directory, it also removes workspace state and warns that locked app files may be removed after exit.
+- cleanup removes workspace defaults and runtime state. If the cleaned source is active, it also clears the active source pointer for the executable you are running.
 - provider and logging update persisted workspace defaults.
 - ask answers one question and stops.
 - act performs one focused action and stops.
@@ -206,7 +231,8 @@ Project state lives in wallycode.json and .wallycode. The active project pointer
 
 ```powershell
 .\wallycode.exe setup
-.\wallycode.exe deploy
+.\wallycode.exe install
+.\wallycode.exe uninstall
 .\wallycode.exe cleanup
 .\wallycode.exe provider
 .\wallycode.exe status

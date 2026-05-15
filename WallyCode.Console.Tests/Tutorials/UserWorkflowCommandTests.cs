@@ -27,7 +27,8 @@ public sealed class UserWorkflowCommandTests
             typeof(StepCommandOptions),
             typeof(StatusCommandOptions),
             typeof(ShellCommandOptions),
-            typeof(DeployCommandOptions)
+            typeof(InstallCommandOptions),
+            typeof(UninstallCommandOptions)
         };
 
         foreach (var optionType in userCommandOptionTypes)
@@ -52,52 +53,161 @@ public sealed class UserWorkflowCommandTests
     }
 
     [Fact]
-    public async Task SetupDeployCreatesLocalExecutableAndActivePointerNextToIt()
+    public async Task InstallCreatesLocalExecutableWithoutWorkspaceSetup()
     {
         using var workspace = CommandTestWorkspace.Create();
         workspace.WriteAppFile("WallyCode.Console.exe", "launcher");
+        workspace.WriteAppFile("CommandLine.dll", "runtime");
         workspace.WriteAppFile(Path.Combine("Loadables", "Providers", "test-provider.json"), "{}");
 
-        var exitCode = await workspace.RunAsync("setup", "--source", workspace.ProjectRoot, "--deploy");
+        var exitCode = await workspace.RunAsync("install", "--source", workspace.ProjectRoot);
 
         Assert.Equal(0, exitCode);
-        Assert.True(File.Exists(ProjectSettings.GetFilePath(workspace.ProjectRoot)));
-        Assert.True(Directory.Exists(workspace.RuntimeRoot));
-        Assert.Equal("launcher", File.ReadAllText(workspace.DeployedExecutablePath));
+        Assert.False(File.Exists(ProjectSettings.GetFilePath(workspace.ProjectRoot)));
+        Assert.False(Directory.Exists(workspace.RuntimeRoot));
+        Assert.Equal("launcher", File.ReadAllText(workspace.InstalledExecutablePath));
+        Assert.Equal("runtime", File.ReadAllText(Path.Combine(workspace.ProjectRoot, "CommandLine.dll")));
         Assert.True(File.Exists(Path.Combine(workspace.ProjectRoot, "Loadables", "Providers", "test-provider.json")));
+        Assert.True(File.Exists(InstallManifest.GetFilePath(workspace.ProjectRoot)));
         Assert.Equal(workspace.ProjectRoot, ProjectSettings.ResolveActiveProjectPath(workspace.ProjectRoot));
         Assert.False(File.Exists(ProjectSettings.GetActiveProjectFilePath(workspace.AppRoot)));
     }
 
     [Fact]
-    public async Task DeployCommandRunsSetupWithDeployFlag()
+    public async Task InstallReplacesPreviousLocalInstallationBeforeCopyingNewFiles()
     {
         using var workspace = CommandTestWorkspace.Create();
-        workspace.WriteAppFile("wallycode.exe", "local launcher");
+        workspace.WriteAppFile("WallyCode.Console.exe", "old launcher");
+        workspace.WriteAppFile("CommandLine.dll", "old runtime");
+        workspace.WriteAppFile(Path.Combine("Loadables", "Providers", "old-provider.json"), "{}");
 
-        var exitCode = await workspace.RunAsync("deploy", "--source", workspace.ProjectRoot);
+        var firstInstallExitCode = await workspace.RunAsync("install", "--source", workspace.ProjectRoot);
+
+        Assert.Equal(0, firstInstallExitCode);
+        Assert.True(File.Exists(Path.Combine(workspace.ProjectRoot, "Loadables", "Providers", "old-provider.json")));
+
+        workspace.WriteAppFile("WallyCode.Console.exe", "new launcher");
+        workspace.WriteAppFile("CommandLine.dll", "new runtime");
+        workspace.DeleteAppFile(Path.Combine("Loadables", "Providers", "old-provider.json"));
+        workspace.WriteAppFile(Path.Combine("Loadables", "Providers", "new-provider.json"), "{}");
+
+        var secondInstallExitCode = await workspace.RunAsync("install", "--source", workspace.ProjectRoot);
+
+        Assert.Equal(0, secondInstallExitCode);
+        Assert.Equal("new launcher", File.ReadAllText(workspace.InstalledExecutablePath));
+        Assert.Equal("new runtime", File.ReadAllText(Path.Combine(workspace.ProjectRoot, "CommandLine.dll")));
+        Assert.False(File.Exists(Path.Combine(workspace.ProjectRoot, "Loadables", "Providers", "old-provider.json")));
+        Assert.True(File.Exists(Path.Combine(workspace.ProjectRoot, "Loadables", "Providers", "new-provider.json")));
+        Assert.True(File.Exists(InstallManifest.GetFilePath(workspace.ProjectRoot)));
+    }
+
+    [Fact]
+    public async Task InstallSetupFlagCreatesFreshWorkspaceStateAfterInstall()
+    {
+        using var workspace = CommandTestWorkspace.Create();
+        Directory.CreateDirectory(workspace.RuntimeRoot);
+        File.WriteAllText(Path.Combine(workspace.RuntimeRoot, "session.json"), "stale session");
+        File.WriteAllText(ProjectSettings.GetFilePath(workspace.ProjectRoot), "{}");
+        workspace.WriteAppFile("WallyCode.Console.exe", "launcher");
+
+        var exitCode = await workspace.RunAsync("install", "--source", workspace.ProjectRoot, "--setup");
 
         Assert.Equal(0, exitCode);
+        Assert.True(File.Exists(workspace.InstalledExecutablePath));
         Assert.True(File.Exists(ProjectSettings.GetFilePath(workspace.ProjectRoot)));
         Assert.True(Directory.Exists(workspace.RuntimeRoot));
-        Assert.Equal("local launcher", File.ReadAllText(workspace.DeployedExecutablePath));
+        Assert.False(File.Exists(Path.Combine(workspace.RuntimeRoot, "session.json")));
         Assert.Equal(workspace.ProjectRoot, ProjectSettings.ResolveActiveProjectPath(workspace.ProjectRoot));
     }
 
     [Fact]
-    public async Task CleanupRemovesDeployedArtifactsAndSourceLocalActivePointer()
+    public async Task UninstallRemovesInstalledArtifactsAndKeepsWorkspaceState()
     {
         using var workspace = CommandTestWorkspace.Create();
-        workspace.WriteAppFile("WallyCode.Console.exe", "launcher");
+        await workspace.RunSetupAsync();
+        workspace.WriteAppFile("wallycode.exe", "local launcher");
         workspace.WriteAppFile("CommandLine.dll", "runtime");
-        workspace.WriteAppFile("WallyCode.Console.deps.json", "deps");
-        workspace.WriteAppFile("WallyCode.Console.runtimeconfig.json", "runtimeconfig");
         workspace.WriteAppFile(Path.Combine("Loadables", "Providers", "test-provider.json"), "{}");
 
-        var deployExitCode = await workspace.RunAsync("setup", "--source", workspace.ProjectRoot, "--deploy");
+        var installExitCode = await workspace.RunAsync("install", "--source", workspace.ProjectRoot);
 
-        Assert.Equal(0, deployExitCode);
-        Assert.True(File.Exists(workspace.DeployedExecutablePath));
+        Assert.Equal(0, installExitCode);
+        Assert.True(File.Exists(ProjectSettings.GetFilePath(workspace.ProjectRoot)));
+        Assert.True(Directory.Exists(workspace.RuntimeRoot));
+        Assert.Equal("local launcher", File.ReadAllText(workspace.InstalledExecutablePath));
+
+        var uninstallExitCode = await workspace.RunAsync("uninstall", "--source", workspace.ProjectRoot);
+
+        Assert.Equal(0, uninstallExitCode);
+        Assert.True(File.Exists(ProjectSettings.GetFilePath(workspace.ProjectRoot)));
+        Assert.True(Directory.Exists(workspace.RuntimeRoot));
+        Assert.False(File.Exists(workspace.InstalledExecutablePath));
+        Assert.False(File.Exists(Path.Combine(workspace.ProjectRoot, "CommandLine.dll")));
+        Assert.False(Directory.Exists(Path.Combine(workspace.ProjectRoot, "Loadables")));
+        Assert.False(File.Exists(ProjectSettings.GetActiveProjectFilePath(workspace.ProjectRoot)));
+        Assert.False(File.Exists(InstallManifest.GetFilePath(workspace.ProjectRoot)));
+    }
+
+    [Fact]
+    public async Task UninstallFromRunningInstallDirectoryRemovesWorkspaceStateToo()
+    {
+        using var workspace = CommandTestWorkspace.Create();
+        await workspace.RunSetupAsync();
+        workspace.WriteAppFile("wallycode.exe", "launcher");
+        workspace.WriteAppFile(Path.Combine("Loadables", "Providers", "test-provider.json"), "{}");
+
+        var installExitCode = await workspace.RunAsync("install", "--source", workspace.ProjectRoot);
+
+        Assert.Equal(0, installExitCode);
+        Assert.True(File.Exists(ProjectSettings.GetFilePath(workspace.ProjectRoot)));
+        Assert.True(Directory.Exists(workspace.RuntimeRoot));
+
+        var uninstallExitCode = await workspace.RunFromInstalledRootAsync("uninstall", "--source", workspace.ProjectRoot);
+
+        Assert.Equal(0, uninstallExitCode);
+        Assert.False(File.Exists(ProjectSettings.GetFilePath(workspace.ProjectRoot)));
+        Assert.False(Directory.Exists(workspace.RuntimeRoot));
+        Assert.False(File.Exists(workspace.InstalledExecutablePath));
+        Assert.False(Directory.Exists(Path.Combine(workspace.ProjectRoot, "Loadables")));
+        Assert.False(File.Exists(ProjectSettings.GetActiveProjectFilePath(workspace.ProjectRoot)));
+        Assert.False(File.Exists(InstallManifest.GetFilePath(workspace.ProjectRoot)));
+    }
+
+    [Fact]
+    public async Task UninstallRemovesKnownLocalPayloadWithoutManifest()
+    {
+        using var workspace = CommandTestWorkspace.Create();
+        Directory.CreateDirectory(workspace.ProjectRoot);
+        File.WriteAllText(workspace.InstalledExecutablePath, "launcher");
+        File.WriteAllText(Path.Combine(workspace.ProjectRoot, "CommandLine.dll"), "runtime");
+        File.WriteAllText(Path.Combine(workspace.ProjectRoot, "WallyCode.Console.deps.json"), "deps");
+        Directory.CreateDirectory(Path.Combine(workspace.ProjectRoot, "Loadables", "Providers"));
+        File.WriteAllText(Path.Combine(workspace.ProjectRoot, "Loadables", "Providers", "test-provider.json"), "{}");
+        ProjectSettings.SaveActiveProjectPath(workspace.ProjectRoot, workspace.ProjectRoot);
+
+        var uninstallExitCode = await workspace.RunAsync("uninstall", "--source", workspace.ProjectRoot);
+
+        Assert.Equal(0, uninstallExitCode);
+        Assert.False(File.Exists(workspace.InstalledExecutablePath));
+        Assert.False(File.Exists(Path.Combine(workspace.ProjectRoot, "CommandLine.dll")));
+        Assert.False(File.Exists(Path.Combine(workspace.ProjectRoot, "WallyCode.Console.deps.json")));
+        Assert.False(Directory.Exists(Path.Combine(workspace.ProjectRoot, "Loadables")));
+        Assert.False(File.Exists(ProjectSettings.GetActiveProjectFilePath(workspace.ProjectRoot)));
+    }
+
+    [Fact]
+    public async Task CleanupRemovesWorkspaceStateWithoutUninstallingLocalExecutable()
+    {
+        using var workspace = CommandTestWorkspace.Create();
+        await workspace.RunSetupAsync();
+        workspace.WriteAppFile("WallyCode.Console.exe", "launcher");
+        workspace.WriteAppFile("CommandLine.dll", "runtime");
+        workspace.WriteAppFile(Path.Combine("Loadables", "Providers", "test-provider.json"), "{}");
+
+        var installExitCode = await workspace.RunAsync("install", "--source", workspace.ProjectRoot);
+
+        Assert.Equal(0, installExitCode);
+        Assert.True(File.Exists(workspace.InstalledExecutablePath));
         Assert.True(File.Exists(Path.Combine(workspace.ProjectRoot, "CommandLine.dll")));
         Assert.True(Directory.Exists(Path.Combine(workspace.ProjectRoot, "Loadables")));
         Assert.True(File.Exists(ProjectSettings.GetActiveProjectFilePath(workspace.ProjectRoot)));
@@ -107,12 +217,43 @@ public sealed class UserWorkflowCommandTests
         Assert.Equal(0, cleanupExitCode);
         Assert.False(File.Exists(ProjectSettings.GetFilePath(workspace.ProjectRoot)));
         Assert.False(Directory.Exists(workspace.RuntimeRoot));
-        Assert.False(File.Exists(workspace.DeployedExecutablePath));
-        Assert.False(File.Exists(Path.Combine(workspace.ProjectRoot, "CommandLine.dll")));
-        Assert.False(File.Exists(Path.Combine(workspace.ProjectRoot, "WallyCode.Console.deps.json")));
-        Assert.False(File.Exists(Path.Combine(workspace.ProjectRoot, "WallyCode.Console.runtimeconfig.json")));
-        Assert.False(Directory.Exists(Path.Combine(workspace.ProjectRoot, "Loadables")));
-        Assert.False(File.Exists(ProjectSettings.GetActiveProjectFilePath(workspace.ProjectRoot)));
+        Assert.True(File.Exists(workspace.InstalledExecutablePath));
+        Assert.True(File.Exists(Path.Combine(workspace.ProjectRoot, "CommandLine.dll")));
+        Assert.True(Directory.Exists(Path.Combine(workspace.ProjectRoot, "Loadables")));
+        Assert.True(File.Exists(ProjectSettings.GetActiveProjectFilePath(workspace.ProjectRoot)));
+        Assert.True(File.Exists(InstallManifest.GetFilePath(workspace.ProjectRoot)));
+    }
+
+    [Fact]
+    public async Task SetupInstallFlagRecreatesWorkspaceAndReplacesLocalInstallation()
+    {
+        using var workspace = CommandTestWorkspace.Create();
+        await workspace.RunSetupAsync();
+        Directory.CreateDirectory(workspace.RuntimeRoot);
+        File.WriteAllText(Path.Combine(workspace.RuntimeRoot, "session.json"), "stale session");
+        workspace.WriteAppFile("wallycode.exe", "old launcher");
+        workspace.WriteAppFile(Path.Combine("Loadables", "Providers", "old-provider.json"), "{}");
+
+        var firstInstallExitCode = await workspace.RunAsync("install", "--source", workspace.ProjectRoot);
+
+        Assert.Equal(0, firstInstallExitCode);
+        Assert.True(File.Exists(Path.Combine(workspace.ProjectRoot, "Loadables", "Providers", "old-provider.json")));
+
+        workspace.WriteAppFile("wallycode.exe", "new launcher");
+        workspace.DeleteAppFile(Path.Combine("Loadables", "Providers", "old-provider.json"));
+        workspace.WriteAppFile(Path.Combine("Loadables", "Providers", "new-provider.json"), "{}");
+
+        var setupInstallExitCode = await workspace.RunAsync("setup", "--source", workspace.ProjectRoot, "--install");
+
+        Assert.Equal(0, setupInstallExitCode);
+        Assert.True(File.Exists(ProjectSettings.GetFilePath(workspace.ProjectRoot)));
+        Assert.True(Directory.Exists(workspace.RuntimeRoot));
+        Assert.False(File.Exists(Path.Combine(workspace.RuntimeRoot, "session.json")));
+        Assert.Equal("new launcher", File.ReadAllText(workspace.InstalledExecutablePath));
+        Assert.False(File.Exists(Path.Combine(workspace.ProjectRoot, "Loadables", "Providers", "old-provider.json")));
+        Assert.True(File.Exists(Path.Combine(workspace.ProjectRoot, "Loadables", "Providers", "new-provider.json")));
+        Assert.True(File.Exists(ProjectSettings.GetActiveProjectFilePath(workspace.ProjectRoot)));
+        Assert.True(File.Exists(InstallManifest.GetFilePath(workspace.ProjectRoot)));
     }
 
     [Fact]
@@ -253,7 +394,7 @@ public sealed class UserWorkflowCommandTests
 
         public string RuntimeRoot { get; }
 
-        public string DeployedExecutablePath => Path.Combine(ProjectRoot, "wallycode.exe");
+        public string InstalledExecutablePath => Path.Combine(ProjectRoot, "wallycode.exe");
 
         public TestLlmProvider Provider { get; }
 
@@ -275,11 +416,25 @@ public sealed class UserWorkflowCommandTests
             return Program.RunAsync(args, CancellationToken.None, AppRoot, Registry);
         }
 
+        public Task<int> RunFromInstalledRootAsync(params string[] args)
+        {
+            return Program.RunAsync(args, CancellationToken.None, ProjectRoot, Registry);
+        }
+
         public void WriteAppFile(string relativePath, string content)
         {
             var path = Path.Combine(AppRoot, relativePath);
             Directory.CreateDirectory(Path.GetDirectoryName(path)!);
             File.WriteAllText(path, content);
+        }
+
+        public void DeleteAppFile(string relativePath)
+        {
+            var path = Path.Combine(AppRoot, relativePath);
+            if (File.Exists(path))
+            {
+                File.Delete(path);
+            }
         }
 
         public void Dispose()

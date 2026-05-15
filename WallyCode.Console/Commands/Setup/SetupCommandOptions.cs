@@ -14,8 +14,8 @@ internal sealed class SetupCommandOptions
     [Option("cleanup", HelpText = "Runs cleanup first, then recreates setup artifacts.")]
     public bool Cleanup { get; set; }
 
-    [Option("deploy", HelpText = "Copies a local WallyCode executable into the target source folder and writes its active project pointer there.")]
-    public bool Deploy { get; set; }
+    [Option("install", HelpText = "Installs a fresh local WallyCode executable payload into the setup target.")]
+    public bool Install { get; set; }
 
     [Option("requires-setup", HelpText = "Indicates if a setup environment is required.")]
     public bool RequiresSetup { get; set; }
